@@ -152,27 +152,33 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
 
 ## 5. Known blockers / gotchas for the standalone build 🚧
 
-### 5a. Standalone boot progress (observed, 2026-10-11) ✅
-The standalone `gta_reversed.exe` now boots (verified by running it and reading `logs/log.log`).
-Sequence of crashes fixed so far, in order:
-1. **Crash during hook installation** — `InjectHooksMain` → `CCopPed::InjectHooks` → `RHManager::InstallVirtual`
-   → `VMTInfo::FindIndexOf` (C++ exception). *Cause:* `InstallVirtual` (and `RH_ScopedVirtualClass`) guarded on
-   `NOTSA_STANDALONE_DUMP_HOOKS_ONLY` instead of `NOTSA_STANDALONE`, so the full standalone build still tried to
-   read the original game's vtables. **Fixed** (`RHManager.cpp`, `ReversibleHooks.h`).
-2. **Crash in the memory manager** — `CGame::InitialiseOnceBeforeRW` → `CdStreamInit` → `CMemoryMgr::MallocAlign`
-   (`EIP 0x72F4C0`, i.e. the `plugin::Call` to the original game). *Cause:* `CMemoryMgr` falls back to `plugin::Call`
-   when `MEMORY_MGR_USE_MEMORY_HEAP` is off, and the 2-arg `MallocAlign` overload called `0x72F4C0` unconditionally.
-   **Fixed** — under `NOTSA_STANDALONE`, `Malloc`/`Free`/`Realloc`/`Calloc`/`MallocAlign`/`FreeAlign` now use the CRT.
-3. **Reached game-data loading** — `CdStreamOpen: MODELS\GTA3.IMG`. It hangs here because there are no game assets.
-   ⬅ **This is where the game data is needed.** Remaining `CMemoryMgr::InitScratchPad` (0x72F480) still calls the game
-   but isn't reached (heap path is off). ⚠️
-4. **Next expected blocker:** `RsRwInitialize` (rsRWINITIALIZE) → RenderWare (`plugin::Call` into the original exe).
-   Needs a real RW implementation (librw + shim) — see §3/§5b/§6. ⚠️
+### 5a. Standalone boot progress (observed) ✅
+The standalone **`reSA.exe`** boots (verified by running it and reading `logs/log.log`). It now runs all the way into
+the **game loop** (`MainLoop` / `ProcessGameLogic`). Major milestones, in order:
 
-**How to run it** (once assets exist): put the full GTA:SA assets (`models/`, `data/`, `audio/`, `anim/`, `movies/`,
-`text/`, ...) next to `gta_reversed.exe` and run it with the assets as the working directory
-(it opens relative paths like `MODELS\GTA3.IMG`). Logs + crash dumps land in `logs/log.log`, so a run always tells us
-exactly where it died.
+* Hook install (fixed: standalone must use `NullHook`) → memory manager (fixed: CRT under standalone) → game data
+  loading → **RenderWare via librw** (`RwEngineInit/Open/Start`, plugins, `psSelectDevice`, `RsRwInitialize`) →
+  `CGame::InitialiseRenderWare` (camera, world, lights, font, HUD, player skin, post-effects, **TXD/texture
+  loading**) → `CGamma::Init` → **`MainLoop`**.
+
+Crashes fixed (each verified by running), in order:
+1. **Hook installation** — `RHManager::InstallVirtual`/`RH_ScopedVirtualClass` guarded on `..._DUMP_HOOKS_ONLY` instead
+   of `NOTSA_STANDALONE` ⇒ full standalone read the original vtables. **Fixed.**
+2. **Memory manager** — `CMemoryMgr::{Malloc,Free,Realloc,Calloc,MallocAlign,FreeAlign}` → CRT under `NOTSA_STANDALONE`.
+3. **RenderWare** — provided via **librw** (`extern/librw`) + a C-style **bridge** (`source/game_sa/RenderWare/
+   RwBridge.{h,cpp}`). Engine, camera/frame/raster/matrix, world, lights, streams, TexDictionary, Texture, im2d
+   screen-z, raster lock — all mapped. See §9/§10/§11.
+4. **Debug/tools UI (ImGui)** — crashes right after `InitialiseRenderWare` (in `UIRenderer`). **Disabled in standalone**
+   (`UIRenderer` + `DebugModules` are no-ops; `AESoundManager`'s debug hook gated). Revisit later — see `IDEAS.md`.
+5. **`CGamma::Init`** — disabled in standalone (needs the D3D9 device/caps librw doesn't expose here; gamma is optional).
+6. **`GetMillisecondTime`** (`0x5617C0`) — implemented via `OS_TimeMS()` in standalone (it's just a 64-bit `RsTimer`).
+
+**How to run it:** build → `bin/Debug/reSA.exe`; put the full GTA:SA assets next to it and run with that as the working
+directory (it opens relative paths like `MODELS\GTA3.IMG`). `logs/log.log` has a full stack on every crash.
+**Next:** continue through the `GAME_STATE_*` machine (splash → logo → title → frontend loading → world load).
+
+Legacy note (earlier, pre-librw): the boot first stopped at `CdStreamOpen: MODELS\GTA3.IMG`, then at the RenderWare wall
+(`plugin::Call(0x745510)`), which motivated the librw integration.
 
 ### 5b. Other blockers
 

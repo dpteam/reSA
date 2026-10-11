@@ -148,5 +148,10 @@
   `"unimplemented GTA call at 0x..."` перед вызовом (сейчас это просто access violation).
 - 💡 **Инвентарь `plugin::Call` по boot-пути** — построить карту вызовов от `WinMain` и приоритезировать
   реверс именно их (не по алфавиту).
+- 💡 **RxPipeline-эффекты на librw.** SA использует классический RwPipeline API (`RxPipeline*`, `RxLockedPipeAddFragment`,
+  `RxNodeDefinitionGetD3D9AtomicAllInOne`, …). В librw его нет (у librw своя, сильно упрощённая система пайплайнов:
+  `rw::ObjPipeline`). Под `NOTSA_STANDALONE` поэтому **заглушены**: `CCarFXRenderer::Initialise` и
+  `CCustomBuildingRenderer::Initialise` (косметика: env-map машин, кастомные здания). Позже — **реализовать эти
+  эффекты поверх пайплайнов/плагинов librw** (отдельная крупная задача).
 - 💡 **Аксессоры RW-полей** — свести все прямые обращения к полям RW-структур (см. `MEMORY.md` §10, ~115 мест)
   к одному слою, чтобы bridge был единственной точкой правды.

@@ -17,12 +17,14 @@
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
 | 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
-| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | debug-UI (ImGui) отключён в standalone; дальше состояния игры |
-| 11 | Рендер + оконный режим (RDP) | ⏳ | |
+| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | ✅ `GAME_STATE_INITIAL` (splash), `CLoadingScreen::Init`, `CGamma::Init`, `GetMillisecondTime`; сейчас `CGame::InitialiseEssentialsAfterRW` → косметические рендереры (RxPipeline) |
+| 11 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
+| 12 | Рендер + оконный режим (RDP) | ⏳ | |
 
-> **Веха (2026-10-12):** standalone **полностью проходит инициализацию RenderWare** (движок, камера, мир, свет,
-> шрифт, HUD, скин игрока, пост-эффекты — реально, через librw) и входит в **игровой цикл** `MainLoop`.
-> Бинарник — **`reSA.exe`**. Debug/tools-UI (ImGui) в standalone отключён (не нужен для игры).
+> **Веха (2026-10-12):** standalone **полностью проходит инициализацию RenderWare** и входит в **игровой цикл**
+> `MainLoop` / `ProcessGameLogic`: отрабатывают загрузочные экраны (`CLoadingScreen`), таймер, гамма.
+> Бинарник — **`reSA.exe`**. Debug/tools-UI (ImGui) и RxPipeline-эффекты (env-map, custom building) в standalone
+> отключены (см. `IDEAS.md`).
 
 ## Этап «RenderWare boot» (текущий)
 

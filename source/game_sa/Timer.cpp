@@ -32,8 +32,11 @@ void CTimer::InjectHooks()
 // 64-bit RsTimer wrapper
 // 0x5617C0
 uint64 GetMillisecondTime() {
+#ifdef NOTSA_STANDALONE
+    return OS_TimeMS();
+#else
     return plugin::CallAndReturn<uint64, 0x5617C0>();
-    // return RsTimer();
+#endif
 }
 
 // 0x5617E0

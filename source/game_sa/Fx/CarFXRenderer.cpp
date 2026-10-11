@@ -26,7 +26,14 @@ bool CCarFXRenderer::RegisterPlugins() {
 
 // 0x5D5AC0
 bool CCarFXRenderer::Initialise() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the custom D3D9 pipelines use RenderWare's RxPipeline API, which librw doesn't provide
+    // (it has its own, much simpler, pipeline system). These are cosmetic effects (car env maps), so skip.
+    // TODO: reimplement on top of librw's pipelines/plugins - see IDEAS.md.
+    return true;
+#else
     return CCustomCarEnvMapPipeline::CreatePipe() != 0;
+#endif
 }
 
 // 0x5D5BC0

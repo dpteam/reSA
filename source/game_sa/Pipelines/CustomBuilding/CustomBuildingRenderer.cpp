@@ -20,17 +20,24 @@ void CCustomBuildingRenderer::InjectHooks() {
 
 // 0x5D7EC0
 bool CCustomBuildingRenderer::Initialise() {
+#ifdef NOTSA_STANDALONE
+    // See CCarFXRenderer::Initialise - RxPipeline-based custom pipelines aren't available on librw.
+    return true;
+#else
     auto pipe = CCustomBuildingPipeline::CreatePipe();
     if (pipe)
         return CCustomBuildingDNPipeline::CreatePipe();
 
     return pipe;
+#endif
 }
 
 // 0x5D7EE0
 void CCustomBuildingRenderer::Shutdown() {
+#ifndef NOTSA_STANDALONE
     CCustomBuildingPipeline::DestroyPipe();
     CCustomBuildingDNPipeline::DestroyPipe();
+#endif
 }
 
 // 0x5D7EF0
