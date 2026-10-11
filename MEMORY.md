@@ -40,6 +40,21 @@ toolchain maps it onto `GTASA_STANDALONE` / `GTASA_STANDALONE_DUMP_HOOKS_ONLY`. 
 only had `False`/`'dump_hooks_only'`), so standalone can be configured via `python setup.py -o standalone=True`. ⚠️
 CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_only`. ✅
 
+### Local dev environment (this machine, verified 2026-10-11) ⚠️ machine-specific
+* **Visual Studio 2022 Community 17.14** (`C:\Program Files\Microsoft Visual Studio\2022\Community`) + BuildTools —
+  installed. MSVC toolset **14.44** (`_MSC_VER` 1944 ⇒ Conan `compiler.version=194`), x86 target present,
+  `vcvarsall.bat` works. ✅
+* ❗ **Windows SDK is NOT installed** — there is no `windows.h` anywhere. `cl /c` on `#include <windows.h>` fails with
+  `C1083`. This is the **hard blocker** for any build; fixing it needs admin (VS Installer → "Windows 11 SDK").
+  Install command (admin):
+  `setup.exe modify --installPath "...\2022\Community" --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet`.
+* **Conan / CMake / Ninja** were not installed; being installed via `pip` (no admin needed). CMake can also come from
+  Conan's `tool_requires` (profile pins `cmake/4.2.0`), so a separate CMake isn't strictly required. ⚠️
+* ❗ **Profile mismatch:** repo profile `conan/profiles/windows-msvc.txt` asks `compiler.version=195` (**VS 2026**),
+  this machine has VS 2022 (**194**). Prebuilt binary deps (SDL3/ogg/vorbis/libjpeg-turbo/tracy) are ABI-sensitive ⇒
+  build with `python setup.py -s compiler.version=194` (or install VS 2026). ⚠️
+* Not admin (so no VS Installer / SDK from the agent). Disk: C: ~54 GB free, E: ~61 GB free. ✅
+
 ## 3. Architecture essentials
 
 ### Entry points & startup
@@ -131,6 +146,26 @@ Our project and re3/reVC are the **same lineage** — same boot flow (`RsEventHa
 
 **Caveat:** III/VC ≠ SA. Different class layouts, addresses and logic — borrow *architecture and boot order*, never code
 (and never copy: incompatible licenses, see `refs/README.md`). ✅
+
+### 5c. `WinMain` diff: ours vs re3 (Phase 0.5, done by reading) ✅
+
+Our `NOTSA_WinMain` (`source/app/platform/win/WinMain.cpp:393`) and re3's `WinMain`
+(`refs/re3/src/skel/win/win.cpp:2012`) are **structurally the same** — good, our reversed boot is on the right track.
+Same order: `SystemParametersInfo(FOREGROUNDLOCKTIMEOUT)` → `RsEventHandler(rsINITIALIZE)` → register window class →
+`rsPREINITCOMMANDLINE` args → create window → init input → `rsRWINITIALIZE` → `rsCOMMANDLINE` args → `rsCAMERASIZE` →
+screensaver/power/stickykeys → show+update window → load `gta_sa.set`/`gta3.set` controls → main loop.
+
+Notable differences to keep in mind for the standalone port:
+1. **Allocator:** re3 calls `InitMemoryMgr()` at the very top (`#ifdef USE_CUSTOM_ALLOCATOR`); we have no equivalent —
+   our global `operator new` silently uses `CMemoryMgr` without init (see §5.2 / §5b). ← **first thing to fix.**
+2. **Command line:** re3 uses `GetCommandLine()` + `CommandLineToArgv()`, then frees it. We use the CRT's `__argv`/
+   `__argc` and then deliberately zero them (`__argc = 0; __argv = nullptr;`) as a "dirty fix for a crash in crt when
+   freeing cmd line args" — a DLL-injection artifact. In standalone (our own exe) `__argv` is a normal CRT array, so
+   this hack is likely unnecessary (but harmless). ⚠️
+3. **Main loop:** re3's is a single `while (TRUE)` with a `RwInitialised` flag; ours is SA's `MainLoop` +
+   `ProcessGameLogic` state machine (`gGameState`, `GAME_STATE_*`) — that's correct for SA, keep it. ✅
+4. re3 re-inits mouse position (`RsMouseSetPos`) every loop iteration; we commented it out as "useless and annoying"
+   (SA difference). Keep ours. ✅
 
 ## 6. Proposed standalone roadmap ❓
 

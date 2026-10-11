@@ -11,12 +11,32 @@
 
 ## State of the tree
 * Branch: `master` (fork `dpteam/reSA` = `origin`, upstream `gta-reversed/gta-reversed`).
-* Working tree: clean after the commit described in `HISTORY.md` (2026-10-11 entry).
-* **Build status: UNVERIFIED** — no toolchain in this environment (`cmake`, `conan`, `cl` are not on PATH;
-  Python 3.11 is). Do not assume the tree compiles; re-check early in your session:
+* Working tree: clean (all work committed — see `HISTORY.md`).
+* **Build status: UNVERIFIED.** Re-check the toolchain early in your session (see "Environment" below).
+
+## Environment (⚠️ verified 2026-10-11 on this machine — may differ elsewhere)
+* **Visual Studio 2022 Community 17.14** + BuildTools installed; MSVC **14.44** (`_MSC_VER` 1944), x86 target OK. ✅
+* ❗ **Windows SDK is NOT installed** — no `windows.h` anywhere on the machine. `cl /c "#include <windows.h>"` fails
+  with `C1083`. **This is the hard blocker: nothing C++ can build until it's fixed**, and it needs **admin**
+  (VS Installer → Individual components → "Windows 11 SDK 10.0.22621.0"):
   ```powershell
-  cmake --version; conan --version; where.exe cl
+  & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
+    --installPath "C:\Program Files\Microsoft Visual Studio\2022\Community" `
+    --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --norestart
   ```
+* Conan/CMake/Ninja: being installed via `pip` (no admin). ⚠️
+* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ build with
+  `python setup.py -s compiler.version=194` (or install VS 2026). ⚠️
+
+## How to build (once the Windows SDK is present)
+```powershell
+conan profile detect --force          # only the first time
+python setup.py                       # configure + fetch deps (mod/ASI config, x86 Debug)
+python setup.py --build               # build  ->  bin/Debug/gta_reversed.asi
+# standalone:
+python setup.py -o standalone=True --build     # (add -s compiler.version=194 on VS 2022)
+```
+Verify the toolchain first: `conan --version`, `cmake --version`, and a `cl` compile of a file including `windows.h`.
 
 ## What was just done (short)
 Started the **mod → standalone game** conversion (scaffolding only):
