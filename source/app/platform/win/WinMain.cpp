@@ -354,6 +354,23 @@ void MainLoop(INT nCmdShow) {
         // Game logic main loop
         while (ProcessGameLogic(nCmdShow)) {
             FrameMark;
+
+#ifdef NOTSA_STANDALONE
+            // FPS log (standalone): useful for profiling / telling 2D vs 3D, and there's no on-screen
+            // text yet. Prints once per second into logs/log.log.
+            {
+                static uint32 s_frameCount = 0;
+                static uint64 s_lastTick   = GetTickCount64();
+                ++s_frameCount;
+                const auto now = GetTickCount64();
+                if (now - s_lastTick >= 1000) {
+                    NOTSA_LOG_DEBUG("FPS: {} (~{}.{} ms/frame)", s_frameCount * 1000ull / (now - s_lastTick),
+                                    (now - s_lastTick) / s_frameCount, ((now - s_lastTick) * 100 / s_frameCount) % 100);
+                    s_frameCount = 0;
+                    s_lastTick   = now;
+                }
+            }
+#endif
         }
 
         // 0x748DDA

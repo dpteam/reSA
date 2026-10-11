@@ -756,11 +756,20 @@ RwBool RwD3D9SetRenderTarget(RwUInt32 index, RwRaster* raster) {
 }
 
 RwBool RwD3D9ChangeVideoMode(RwInt32 modeIndex) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::SetVideoMode(modeIndex);
+#else
     return ((RwBool(__cdecl *)(RwInt32))0x7F8640)(modeIndex);
+#endif
 }
 
 RwBool RwD3D9ChangeMultiSamplingLevels(RwUInt32 numLevels) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetMultiSamplingLevels(numLevels);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwUInt32))0x7F8A90)(numLevels);
+#endif
 }
 
 RwBool RwD3D9CameraAttachWindow(void* camera, void* hwnd) {
