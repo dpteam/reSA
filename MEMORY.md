@@ -142,6 +142,8 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
    `MEMORY_MGR_USE_MEMORY_HEAP` is off (which is the case). In standalone those absolute calls crash. This is part of
    the broader `plugin::Call` problem (point 1), but it's hit *very* early (game init) ⇒ fix it first, eg. back
    `CMemoryMgr` with the CRT (`malloc`/`free`) like re3 does, or enable its memory-heap implementation. ⚠️
+   * The `MEMORY_MGR_USE_MEMORY_HEAP` route is a dead end: never defined, its `Init()` is bit-rotted, and `CMemoryHeap`
+     still has a `plugin::CallMethod(0x72E8E0)` stub. See roadmap Phase 1 for the CRT plan. ✅
    * Side note: `USE_GTASA_ALLOCATOR` is a CMake compile-definition that is **never referenced in the sources** — dead. ✅
 3. **Startup that isn't reversed** (RenderWare init, D3D9, file system, audio, save system) will fail until reversed. ⚠️
    * See §3 "RenderWare is address-called" — RW itself has to be *provided* (likely via `librw`), it can't be reversed
@@ -194,10 +196,17 @@ Notable differences to keep in mind for the standalone port:
 
 * **Phase 0 — entry point & storage (started):** real `WinMain`, shared bootstrap, config loading, and address-keyed
   storage for globals. *Done in this session (unverified build).*
-* **Phase 1 — self-contained memory:** make `CMemoryMgr` initialize/behave in standalone; decouple global `new/delete`
-  from the game allocator (or guarantee init order); audit static-initialization heap usage.
+* **Phase 1 — self-contained memory:** give `CMemoryMgr` a working, non-`plugin::Call` path for standalone.
+  * `MEMORY_MGR_USE_MEMORY_HEAP` is a dead end: it's never defined, its `Init()` body is **bit-rotted** (refers to
+    `_MEMORYMGR_HEAP_SIZE`/`gmemoryHeapCS` which aren't the declared names), and `CMemoryHeap` itself still has a
+    `plugin::CallMethod(0x72E8E0)` stub. So we can't just flip it on. ✅ *(verified 2026-10-11)*
+  * **Plan:** in `game_sa/MemoryMgr.cpp`, under `#ifdef NOTSA_STANDALONE`, route `CMemoryMgr::Malloc`/`Free`/`Realloc`/
+    `Calloc`/`FreeAlign`/`MallocAlign` straight to the CRT (`malloc`/`free`/`realloc`/`calloc`) and skip the memory
+    *tracking* (`RegisterMalloc`/`RegisterFree`/heap-block descriptors only make sense with the real heap). This mirrors
+    re3's default (non-custom) allocator. Keep the mod path untouched. ⚠️ *Not yet implemented.*
   * Template: re3's `USE_CUSTOM_ALLOCATOR` — see `MEMORY.md` §5b. Simplest option: don't overload the global
-    allocator in standalone at all (use the CRT), at least until everything else works.
+    allocator in standalone at all (use the CRT), at least until everything else works — in fact we already don't
+    (§5.2), so only `CMemoryMgr` itself needs this. ✅
 * **Phase 2 — eliminate `plugin::Call`:** reverse the remaining functions reachable from startup (or add explicit,
   clearly-marked stubs that fail loudly). Drive this from the actual startup call graph, not alphabetically.
 * **Phase 3 — subsystems:** RenderWare (librw + C-API shim — see §3/§5b) / D3D9, windowing/input, filesystem, audio,
