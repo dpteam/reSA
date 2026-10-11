@@ -155,3 +155,8 @@
   эффекты поверх пайплайнов/плагинов librw** (отдельная крупная задача).
 - 💡 **Аксессоры RW-полей** — свести все прямые обращения к полям RW-структур (см. `MEMORY.md` §10, ~115 мест)
   к одному слою, чтобы bridge был единственной точкой правды.
+- 💡 **Проверить семантику decision-maker'ов.** Под standalone реализованы (best-effort) `CDecision::SetDefault/Set`,
+  `CDecisionMakerTypes::{GetInstance,LoadEventIndices,AddDecisionMaker,RemoveDecisionMaker}` (в оригинале — `plugin::Call`).
+  Значения (особенно `Set` float→uint8, `AddDecisionMaker` возвращаемый script-handle, `SetDefault` дефолтные задачи)
+  нужно **сверить с оригиналом** (сейчас задача = `TASK_NONE`, вероятности 0..100, маппинг событий — по именам).
+  На boot не влияет (затрагивает только ИИ педов), но перед реальной игрой — перепроверить.
