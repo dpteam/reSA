@@ -8,6 +8,36 @@ Please join our community Discord: [GTA Groupies](https://discord.gg/FG8XJ5Npqe)
 ## About the project
 Building this project will result in a DLL file that can be injected into GTA:SA using any ASI loader out there. After the DLL file has been injected, the ingame functions will be replaced by the reversed ones. The game will behave the same. Now if we make any changes to the reversed code, it will take effect in the game. The goal is to keep reversing until we have the entire game reversed to compile a standalone executable.
 
+### Turning the mod into a game (this fork)
+
+This fork (`dpteam/reSA`) is working towards the end of that road: instead of being a *mod* that is injected into the
+original `gta_sa.exe`, the project should build a **standalone game** — its own executable with its own `WinMain`,
+not requiring the original binary at all.
+
+The scaffolding for it exists behind the `GTASA_STANDALONE` CMake option, but it is a **work in progress** and does
+not run the full game yet. See:
+
+* [`AGENT.md`](AGENT.md) — working rules (for humans and AI agents).
+* [`MEMORY.md`](MEMORY.md) — architecture, the standalone blockers, and the roadmap.
+* [`HISTORY.md`](HISTORY.md) / [`RESUME.md`](RESUME.md) — work log and session state.
+
+### Standalone (game) build
+
+```powershell
+python setup.py -o GTASA_STANDALONE=ON        # Configure the standalone executable
+python setup.py --build -o GTASA_STANDALONE=ON
+```
+
+This produces `gta_reversed.exe` (in `bin/<config>/`) instead of `gta_reversed.asi`, and makes `WinMain`
+(`source/app/platform/win/WinMain.cpp`) the entry point instead of `DllMain`. In this build the hooks are
+documentation-only (`NullHook`) and the reversed code is called directly.
+
+> [!WARNING]
+> The standalone build is **incomplete** (see `MEMORY.md` §5). It will not run the game yet.
+
+There is also a `GTASA_STANDALONE_DUMP_HOOKS_ONLY` option that builds an executable which only dumps hook metadata
+(used by CI); it requires `GTASA_STANDALONE=ON`.
+
 ## Progress
 The progress of reversed classes can be tracked [here](docs/ReversedClasses.md). (needs to be updated)
 We currently estimate that about 50-60% of the code is done.
@@ -51,6 +81,7 @@ Using other (than the ones we've tested) plugins is strongly discouraged and we 
 ### Coding/Contributing Guidelines
 Before you start writing code, please make sure to read the [coding guidelines](docs/CodingGuidelines.MD) for this project. Consider these points before opening a PR:
 
+* Read [`AGENT.md`](AGENT.md) — it lists the project's working rules and the docs that must be kept up to date.
 * Follow the coding guidelines, it exists for a reason.
 * Try to focus your changes onto single subject, do not create PRs that cover many things at once. This is because it's hard to properly test and review such PRs.
 * If you intend to add non-vanilla features please first consult with us, so you don't waste your time.
