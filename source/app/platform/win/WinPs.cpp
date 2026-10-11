@@ -566,7 +566,9 @@ bool psSelectDevice() {
     RwEngineGetVideoModeInfo(&vmi, GcurSelVM);
 
 #ifdef NOTSA_USE_SDL3
+#ifndef NOTSA_STANDALONE
     SDL_SetWindowSize(PSGLOBAL(sdlWindow), (int)(vmi.width), (int)(vmi.height));
+#endif
 #endif
 
     if (vmi.flags & rwVIDEOMODEEXCLUSIVE) {
@@ -579,6 +581,24 @@ bool psSelectDevice() {
         RsGlobal.maximumWidth  = vmi.width;
         PSGLOBAL(fullScreen)   = true;
     }
+#ifdef NOTSA_STANDALONE
+    else {
+        // Standalone, windowed: the selected librw video mode is a fallback (640x448), so instead render
+        // at the actual window client size (the window is created desktop-sized). Mirrors reVC's windowed
+        // branch of `psSelectDevice` (which reads the client rect after `AdjustWindowRect`).
+        RECT rect{};
+        GetClientRect(wnd, &rect);
+        const auto cw = rect.right - rect.left;
+        const auto ch = rect.bottom - rect.top;
+        if (cw > 0 && ch > 0) {
+            RsGlobal.maximumWidth  = cw;
+            RsGlobal.maximumHeight = ch;
+            PSGLOBAL(fullScreen)   = false;
+        }
+    }
+#endif
+
+    NOTSA_LOG_DEBUG("Screen: RsGlobal={}x{} windowed={}", RsGlobal.maximumWidth, RsGlobal.maximumHeight, !(vmi.flags & rwVIDEOMODEEXCLUSIVE));
 
     RwD3D9EngineSetMultiSamplingLevels(FrontEndMenuManager.m_nPrefsAntialiasing);
 

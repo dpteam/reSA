@@ -359,6 +359,17 @@ void MainLoop(INT nCmdShow) {
             // FPS log (standalone): useful for profiling / telling 2D vs 3D, and there's no on-screen
             // text yet. Prints once per second into logs/log.log.
             {
+                static bool s_loggedSizes = false;
+                if (!s_loggedSizes) {
+                    s_loggedSizes = true;
+                    RECT cr{};
+                    GetClientRect(PSGLOBAL(window), &cr);
+                    NOTSA_LOG_DEBUG("Sizes: RsGlobal.maximum={}x{}, cameraRaster={}x{}, windowClient={}x{}",
+                                    RsGlobal.maximumWidth, RsGlobal.maximumHeight,
+                                    RwRasterGetWidth(RwCameraGetRaster(Scene.m_pRwCamera)),
+                                    RwRasterGetHeight(RwCameraGetRaster(Scene.m_pRwCamera)),
+                                    cr.right - cr.left, cr.bottom - cr.top);
+                }
                 static uint32 s_frameCount = 0;
                 static uint64 s_lastTick   = GetTickCount64();
                 ++s_frameCount;
@@ -448,7 +459,11 @@ INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdL
     SDL_Window* sdlWnd = SDL_CreateWindow(
         APP_CLASS,
         APP_DEFAULT_WIDTH, APP_DEFAULT_HEIGHT,
+#ifdef NOTSA_STANDALONE
+        0  // Standalone: fixed-size window (see MEMORY.md §8 / windowed-mode work in progress)
+#else
         SDL_WINDOW_RESIZABLE  //| SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS// | SDL_WINDOW_MOUSE_GRABBED | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_MOUSE_FOCUS
+#endif
     );
     PSGLOBAL(sdlWindow) = sdlWnd;
     PSGLOBAL(window) = (HWND)(SDL_GetPointerProperty(SDL_GetWindowProperties(sdlWnd), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL)); // NOTE/TODO: Hacky, but required due to RW
