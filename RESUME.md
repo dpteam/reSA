@@ -19,22 +19,23 @@
 > 7. Nothing essential should live only in the chat log.
 
 ## TL;DR — where we are 🎉
-**The standalone game `reSA.exe` RUNS and RENDERS.** It boots, creates its window, and **draws the frontend in 2D**
-(on screen you can see the **VINEWOOD** splash/background). It **does not crash** (stable, ~forever).
+**The standalone game `reSA.exe` RUNS, renders the frontend (menu), and is stable at ~60 FPS.**
 
-Big wins this session:
-1. **RenderWare is provided by `librw`** (vendored, MIT) instead of `gta_sa.exe`, via a C-style **bridge**
-   (`source/game_sa/RenderWare/RwBridge.{h,cpp}`, the only TU that includes librw's `<rw.h>`).
-2. The game runs the boot chain → `MainLoop`/`ProcessGameLogic` → `FRONTEND_LOADING/LOADED/IDLE` →
-   `CMenuManager::Process`/`DrawFrontEnd`, and its draw calls **actually reach librw/D3D9**.
+* Boots → `MainLoop`/`ProcessGameLogic` → `FRONTEND_LOADING/LOADED/IDLE` → `CMenuManager` — real frontend TXD
+  background pictures (VINEWOOD, …) are visible, the menu is **navigable** (keyboard/SDL input works; **Enter**
+  changes screens). No crash. RenderWare is **librw** via the C-style **bridge** (`source/game_sa/RenderWare/RwBridge.*`).
+* A per-second **FPS log** is in `logs/log.log` (standalone; no on-screen text yet). Observed ~60 FPS in the menu.
 
-### Known gaps (all documented in `IDEAS.md`)
-* ❌ **Text doesn't render** — `CFont::RenderFontBuffer` and `CFont::ProcessCurrentString` are **not reversed** (upstream neither);
-  they're no-ops in standalone. Menus/HUD will be text-less until implemented (check `refs/reVC` `src/text/`).
-* ❌ **No sound** — `CAESoundManager::Service` is skipped in standalone (sounds had a garbage `m_AudioEntity`).
+### Known gaps (all in `IDEAS.md`)
+* ❌ **Text doesn't render** — `CFont::RenderFontBuffer`/`ProcessCurrentString`/`CSprite2d::AddToBuffer` are **not
+  reversed** (upstream neither); no-ops in standalone. The menu is therefore unreadable. **Biggest gameplay blocker.**
+  Reference: `refs/reVC`/`refs/re3` `src/renderer/Font.cpp` (same idea as SA) + `refs/AdditionalSources/SOME_GTA_SA_Sources`
+  (has `CSprite2d::AddToBuffer`).
+* ⏳ **Starting an actual game / world load** — not done yet (the menu works, but no new-game/load reached).
+* ❌ **No sound** — `CAESoundManager::Service` skipped in standalone (sounds had a garbage `m_AudioEntity`).
 * ⚠️ **`RwIm3D*`** (effects/lines) still call into the original exe — not bridged yet.
-* ⚠️ RxPipeline cosmetics (car env-map / custom building) disabled; ImGui debug UI disabled.
-* ⚠️ **Windowed mode not forced yet** — needed for RDP testing.
+* ⚠️ RxPipeline cosmetics (car env-map / custom building) + ImGui debug UI disabled.
+* ⚠️ **Windowed mode**: window is now fixed 800×600 (no `SDL_WINDOW_RESIZABLE`) standalone; RDP test later.
 
 ## Build state
 * ✅ Both configs build (VS 2022, MSVC 194, SDK 10.0.26100), **standalone exe is `bin/Debug/reSA.exe`** (target
@@ -73,13 +74,14 @@ Big wins this session:
    - `reSA.exe` output name + window icon (`app.rc` + `app.ico`).
 
 ## Next steps (in order)
-1. **Text rendering** — implement `CFont::RenderFontBuffer` + `ProcessCurrentString` (see how `PrintChar`/`CSprite2d` are used;
-   check `refs/reVC` `src/text/Text.cpp`). Without it the menu/HUD are unreadable.
-2. **Menu navigation / input** — confirm the menu reacts (the VINEWOOD background shows; text is missing).
-3. **Start a new game / world load** — IMG/IPL/IDE streaming, `CGame::InitialiseRenderWare` already done.
-4. **Windowed mode for RDP** (see `MEMORY.md` §8).
-5. **Audio** (fix `m_AudioEntity` usage; then re-enable `CAESoundManager::Service`).
-6. **`RwIm3D*` bridging** (effects/lines) — next big RW task.
+1. **Text rendering** (biggest blocker) — implement `CSprite2d::AddToBuffer` + `CFont::{RenderFontBuffer,ProcessCurrentString,PrintChar}`.
+   Ports/refs: **`refs/reVC` / `refs/re3` `src/renderer/Font.cpp`** (same buffer idea as SA) + `refs/AdditionalSources/
+   SOME_GTA_SA_Sources/Engine/CSprite2d.cpp` (has `AddToBuffer`). Keep everything under `#ifdef NOTSA_STANDALONE`.
+2. **Start a new game / world load** — after the menu works (text), reach `CGame::InitialiseWhenRestarting`/world streaming.
+   Look at `refs/reVC/src/core/Frontend.cpp`/`MenuScreens.cpp` for the new/load-game flow.
+3. **Windowed mode for RDP** — window is fixed 800×600 now; make it robust/fullscreen-toggle.
+4. **Audio** (fix `m_AudioEntity` usage; re-enable `CAESoundManager::Service`).
+5. **`RwIm3D*` bridging** (effects/lines) — next big RW task.
 
 ## Key references / where to look
 * `PROGRESS.md` — boot-chain status table (updated this session).

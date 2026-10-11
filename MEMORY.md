@@ -270,6 +270,18 @@ User-provided. **Read-only, never commit** (in gitignored `refs/`), treat like t
   stubbed `CCustomCarEnvMapPipeline`/`CCustomBuildingPipeline`; also ModelInfo/Camera/Ped/Automobile/script/MemoryMgr/TxdStore.
 * **`SAMP`** — SA-MP 0.2.5 (client/server/RakNet) → reference for a future **built-in multiplayer** (`IDEAS.md` §6).
 
+> 🔑 **Process reminder (user, repeatedly):** *always* consult **`refs/reVC`** (and `refs/re3`) when touching game logic —
+> they contain close analogues of SA subsystems (`Frontend`/`MenuScreens` for `CMenuManager`, `renderer/Font.cpp` for
+> `CFont`/`CSprite2d`, `audio/`, `skel/win/win.cpp` for `psSelectDevice`/boot). Less guessing, faster. Read-only; reimplement.
+
+### 5e. Viewport / windowed-mode (standalone) — fixed 2026-10-12
+Symptom: everything rendered **tiny in the top-left corner**. Cause: `psSelectDevice` (`WinPs.cpp`) only set `RsGlobal`
+in the **fullscreen/exclusive** branch; in windowed mode it stayed at the `640x448` default, and the camera raster
+(`CGame::InitialiseRenderWare`: `RwRasterCreate(RsGlobal.maximumWidth, maximumHeight, …)`) + librw `setViewport`
+(fb->width/height) all derived from it. Fix: mirror **reVC's windowed branch** (`refs/reVC/src/skel/win/win.cpp`
+`psSelectDevice`, ~line 1614) → take the window **client rect**; also made the standalone window **fixed-size**
+(no `SDL_WINDOW_RESIZABLE`) so client size == what we set. Now `RsGlobal`/cameraRaster == window client (800×600).
+
 ## 6. Proposed standalone roadmap ❓
 
 * **Phase 0 — entry point & storage (done):** real `WinMain`, shared bootstrap, config loading, address-keyed storage
