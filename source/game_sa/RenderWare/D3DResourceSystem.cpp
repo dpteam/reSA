@@ -24,7 +24,12 @@ uint32 D3DResourceSystem::GetTotalPixelsSize() {
 
 // 0x730830
 void D3DResourceSystem::Init() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this is a GTA-specific D3D resource-buffering extension over RW. It's not reversed yet
+    // and not critical for boot, so make it a no-op for now.
+#else
     plugin::Call<0x730830>();
+#endif
 }
 
 // 0x730AC0

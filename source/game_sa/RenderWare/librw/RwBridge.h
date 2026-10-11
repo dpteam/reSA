@@ -52,6 +52,10 @@ void SetAutoMipmapping(bool enable);
 bool GetMipmapping();
 bool GetAutoMipmapping();
 
+/*! @brief Callbacks used when loading textures (librw's `Texture::findCB` / `readCB`). */
+void SetTextureFindCallBack(void* cb);
+void SetTextureReadCallBack(void* cb);
+
 int  GetNumSubSystems();bool GetSubSystemInfo(char* nameOut, int nameSize, int index);
 int  GetCurrentSubSystem();
 bool SetSubSystem(int index);

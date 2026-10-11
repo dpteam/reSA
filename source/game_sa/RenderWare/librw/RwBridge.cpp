@@ -90,6 +90,14 @@ bool GetAutoMipmapping() {
     return rw::Texture::getAutoMipmapping() != 0;
 }
 
+void SetTextureFindCallBack(void* cb) {
+    rw::Texture::findCB = reinterpret_cast<rw::Texture* (*)(const char*)>(cb);
+}
+
+void SetTextureReadCallBack(void* cb) {
+    rw::Texture::readCB = reinterpret_cast<rw::Texture* (*)(const char*, const char*)>(cb);
+}
+
 int GetNumSubSystems() {
     return rw::Engine::getNumSubSystems();
 }

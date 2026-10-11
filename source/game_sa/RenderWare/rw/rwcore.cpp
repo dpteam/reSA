@@ -472,15 +472,29 @@ RwTextureCallBackRead RwTextureGetReadCallBack() {
 }
 
 RwBool RwTextureSetReadCallBack(RwTextureCallBackRead callBack) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetTextureReadCallBack((void*)callBack);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwTextureCallBackRead))0x7F3500)(callBack);
+#endif
 }
 
 RwTextureCallBackFind RwTextureGetFindCallBack() {
+#ifdef NOTSA_STANDALONE
+    return nullptr; // TODO: query librw if ever needed
+#else
     return ((RwTextureCallBackFind(__cdecl *)(void))0x7F34F0)();
+#endif
 }
 
 RwBool RwTextureSetFindCallBack(RwTextureCallBackFind callBack) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetTextureFindCallBack((void*)callBack);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwTextureCallBackFind))0x7F34D0)(callBack);
+#endif
 }
 
 RwTexture* RwTextureSetName(RwTexture* texture, const RwChar* name) {

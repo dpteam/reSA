@@ -10,14 +10,15 @@
 | 0 | Компиляция exe | ✅ | `bin/Debug/gta_reversed.exe` |
 | 1 | `InjectHooksMain()` | ✅ | 330–480 мс |
 | 2 | `NOTSA_WinMain` старт | ✅ | «Starting GTA: San Andreas» |
-| 3 | `CdStreamOpen MODELS\GTA3.IMG` | ✅ | нужны игровые данные (положены) |
+| 3 | `CdStreamOpen MODELS\GTA3.IMG` | ✅ | игровые данные положены |
 | 4 | `psGetMemoryFunctions` (0x745510) | ✅ | → CRT-таблица (`CMemoryMgr`) |
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
-| 6 | `AppEventHandler(rsPLUGINATTACH)` → `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
-| 7 | `psSelectDevice` (subsystem+видеорежим+MSAA) | 🚧 | проходит выбор; краш на `RwD3D9EngineSetMultiSamplingLevels` |
-| 8 | `RwEngineStart` + device/videomode | ⏳ | |
-| 9 | Загрузка мира/стриминга | ⏳ | |
-| 10 | Рендер + оконный режим (RDP) | ⏳ | |
+| 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
+| 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
+| 8 | `CGame::InitialiseRenderWare` | 🚧 | `ValidateVersion` ✅, `CVisibilityPlugins::Initialise` ✅; сейчас `CTxdStore::Initialise` → `RwTextureSetFindCallBack` |
+| 9 | Создание камеры/world (`RwCameraCreate`, `RpWorldCreate`…) | ⏳ | |
+| 10 | Загрузка мира/стриминга | ⏳ | |
+| 11 | Рендер + оконный режим (RDP) | ⏳ | |
 
 ## Этап «RenderWare boot» (текущий)
 
