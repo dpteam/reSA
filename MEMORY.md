@@ -78,6 +78,15 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
 * ⇒ In the standalone build there is **no RenderWare at all**. We must supply one ourselves. The natural candidate
   is **`librw`** (`aap/librw`), the RenderWare reimplementation used by re3/reVC. (Ref only — see `refs/`.) ⚠️
 * Also note `target_link_libraries` only links `ddraw/Winmm/dxguid/strmiids/d3d9` — no RW lib exists. ✅
+* **How the references solve it (verified):** re3/reVC do **not** rewrite their `Rw*` call sites. They keep the classic
+  C API and add a thin **compat shim** that maps it onto librw's `rw::` C++ API:
+  `refs/re3/src/fakerw/{rwcore,rwplcore,rpworld,rpskin,rpmatfx,rphanim,rpanisot,rtquat,rtbmp,rtpng,rtcharse}.h`
+  + `fake.cpp` (~2100 lines total). Eg. `typedef rw::Raster RwRaster;`, `RwCameraClear()` → `rw::Camera::clear()`.
+  ⇒ For us that means: add librw, write such a shim, and the address-thunks in
+  `source/game_sa/RenderWare/rw/*.cpp` get real implementations. **No mass rewrite of call sites needed.** ✅
+* **librw version matters:** `aap/librw` has only `master`, which is already the `rw::` namespaced C++ API (it stopped
+  being the C API in commit `14c773d`, 2019-08-04). re3/reVC pin librw at **`5501c4fd…` (2021-08-19)** — the same
+  C++ API. So librw + a shim is the path; do **not** expect a drop-in `RwCameraClear`. ✅
 
 ## 4. Scale of the remaining work (⚠️ measured, but re-verify)
 
@@ -106,17 +115,38 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
    `GetModuleHandleA(nullptr)` (the exe). Used by `VMTInfo.cpp` (`GetProcAddress`) to find exported vtables — this
    in turn relies on `NOTSA_EXPORT_VTABLE` (`__declspec(dllexport)`), which works from an exe too. ⚠️
 
+## 5b. What the references tell us (✅ verified by reading `refs/re3` & `refs/reVC`)
+
+Our project and re3/reVC are the **same lineage** — same boot flow (`RsEventHandler(rsINITIALIZE/…)`,
+`CGame::Initialise`, `InitialiseOnceBeforeRW`), same subsystems (`MemoryMgr`, `MemoryHeap`, `TxdStore`, `RwHelper`,
+`VisibilityPlugins`). So re3/reVC are a near-perfect template. Concrete answers they give:
+
+| Our blocker | What re3/reVC do |
+|---|---|
+| RenderWare | Bind **librw** (submodule, pinned `5501c4fd`) + a ~2100-line **compat shim** (`src/fakerw/*`). See §3. |
+| Global `operator new`/`CMemoryMgr` | The custom allocator is **opt-in** (`USE_CUSTOM_ALLOCATOR`). When OFF, `MemoryMgrMalloc`/`Free`/… just call `malloc`/`free`. When ON, `WinMain` calls `InitMemoryMgr()` as the **first** thing (`gMainHeap.Init(128MB)`). ⇒ Either use the CRT allocator, or guarantee init order. ✅ |
+| Startup order | `refs/re3/src/skel/win/win.cpp` `WinMain` (~line 2012) mirrors our `NOTSA_WinMain` almost 1:1 — window class, `RsEventHandler(rsRWINITIALIZE)`, command line, etc. Good checklist. ✅ |
+| RW memory functions | librw is handed `RwMemoryFunctions memFuncs = { Malloc, Free, Realloc, Calloc }` via `RwEngineInit(memFuncs, …)`. ✅ |
+| Platform/window | `refs/re3/src/skel/{win,glfw}/`; we have `source/oswrapper/` + `app/platform/win/`. GLFW is an alternative to raw Win32 if we ever want it. ✅ |
+
+**Caveat:** III/VC ≠ SA. Different class layouts, addresses and logic — borrow *architecture and boot order*, never code
+(and never copy: incompatible licenses, see `refs/README.md`). ✅
+
 ## 6. Proposed standalone roadmap ❓
 
 * **Phase 0 — entry point & storage (started):** real `WinMain`, shared bootstrap, config loading, and address-keyed
   storage for globals. *Done in this session (unverified build).*
 * **Phase 1 — self-contained memory:** make `CMemoryMgr` initialize/behave in standalone; decouple global `new/delete`
   from the game allocator (or guarantee init order); audit static-initialization heap usage.
+  * Template: re3's `USE_CUSTOM_ALLOCATOR` — see `MEMORY.md` §5b. Simplest option: don't overload the global
+    allocator in standalone at all (use the CRT), at least until everything else works.
 * **Phase 2 — eliminate `plugin::Call`:** reverse the remaining functions reachable from startup (or add explicit,
   clearly-marked stubs that fail loudly). Drive this from the actual startup call graph, not alphabetically.
-* **Phase 3 — subsystems:** RenderWare (likely `librw`) / D3D9, windowing/input, filesystem, audio, save system.
-  Note: RW/D3D9 in SA is engine code we can't "reverse" — it must be *replaced*, see `refs/` + `MEMORY.md` §5.3.
+* **Phase 3 — subsystems:** RenderWare (librw + C-API shim — see §3/§5b) / D3D9, windowing/input, filesystem, audio,
+  save system.
 * **Phase 4 — packaging:** exe name/assets/install flow, replace the ASI install flow in `contrib/install.py`.
+* **Phase 0.5 — sanity checks against `refs/re3`:** walk our `NOTSA_WinMain` against re3's `WinMain` and note
+  differences in `MEMORY.md`. ⚠️
 
 Also cross-check all of this against the closest existing prior art, `refs/re3` (III) and `refs/reVC` (VC) —
 complete standalone games built on the same engine family, plus `refs/librw` for RenderWare. ⚠️

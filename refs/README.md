@@ -3,44 +3,51 @@
 This folder is for **third-party source code we only *read***: other reversals / open-source reimplementations
 used as a reference when turning this project into a standalone game.
 
-> ⚠️ **Everything in here is ignored by git** (see `.gitignore`: `/refs/*`, except this file).
+> ⚠️ **Everything in here is ignored by git** (`.gitignore`: `/refs/*`, except this file).
 > Nothing in `refs/` may ever be committed, and **no code may be copy-pasted from it into `source/`** —
 > these projects have their own licenses (often non-commercial / copyleft) which are **not** compatible with
 > this repository. Use them to *understand architecture and behavior*, then write our own code.
+>
+> Third-party folders here are their own git repos; **don't** add them as submodules of this repo.
 
-## How to populate it
+## What's here (populated 2026-10-11)
+
+| Path | Repo / branch | Why |
+|---|---|---|
+| `refs/re3` | [`rocketguedes/re3`](https://github.com/rocketguedes/re3) @ `master` | GTA III — standalone game, same engine family |
+| `refs/reVC` | [`rocketguedes/re3`](https://github.com/rocketguedes/re3) @ `miami` | GTA Vice City — same, newer |
+| `refs/librw` | [`aap/librw`](https://github.com/aap/librw) @ `master` | RenderWare reimplementation |
+
+> Note: the original `GTAmodding/re3` was DMCA'd and `master`/`miami` no longer exist there — hence the `rocketguedes`
+> mirror, which has exactly `master` (III), `miami` (VC) and `lcs`.
+
+To re-create (or update) them:
 
 ```powershell
-# re3 (GTA III) - standalone game, `master` branch
-git clone --depth 1 https://github.com/GTAmodding/re3 refs/re3
-
-# reVC (GTA Vice City) - standalone game, `miami` branch of the same repo
-git clone --depth 1 --branch miami https://github.com/GTAmodding/re3 refs/reVC
-
-# librw - RenderWare reimplementation used by re3/reVC (MIT-ish licensed)
-git clone --depth 1 https://github.com/aap/librw refs/librw
+git clone --depth 1 --single-branch --branch master https://github.com/rocketguedes/re3 refs/re3
+git clone --depth 1 --single-branch --branch miami  https://github.com/rocketguedes/re3 refs/reVC
+git clone --depth 1 --single-branch --branch master https://github.com/aap/librw      refs/librw
 ```
 
-(The user may also just drop a folder in here manually — that works too; it's ignored either way.)
+(The user may also just drop folders in here manually — it's ignored either way.)
 
-## Why these, and what to look at
+## Findings so far (details in `MEMORY.md` §3, §5b)
 
-| Ref | What it's good for | Watch out for |
-|---|---|---|
-| `refs/re3` (III), `refs/reVC` (miami) | The **closest existing thing to what we want**: complete standalone games (their own `WinMain`, no original exe), with a working platform/RW/memory/file-system layer. | Different game (III/VC ≠ SA). Class layouts, addresses and logic differ — borrow *architecture*, not code. |
-| `refs/librw` | An actual **RenderWare implementation**. We need one: our RW calls are absolute-address calls into `gta_sa.exe` (eg. `((void(*)(...))0x809F90)(...)` in `source/game_sa/RenderWare/rw/rwcore.cpp`), which don't exist in a standalone build. | Different RW version than SA's; needs verifying per call. |
-
-### Specific threads to pull (see `MEMORY.md` §5–6)
-1. **Entry point / startup order** — how re3 boots: windowing, RW init, video mode, input, then game init.
-   Compare with our `NOTSA_WinMain` (`source/app/platform/win/WinMain.cpp`).
-2. **Memory manager** — how re3 does `CMemoryMgr`-style allocation and global `new/delete`, since our global
-   `operator new` routes into `CMemoryMgr` even in standalone (our `MEMORY.md` §5.2).
-3. **RenderWare** — `librw` vs. our `source/game_sa/RenderWare/**` headers; what's needed to actually *provide* RW.
-4. **Platform layer** — `oswrapper/` here vs. re3's `src/platform/**` (windows) for window/message loop/input.
-5. **Asset/file system** — where and how the two expect `models/`, `data/`, etc.
+1. **re3/reVC are the closest prior art.** Same boot flow, same subsystem names (`MemoryMgr`, `MemoryHeap`,
+   `TxdStore`, `RwHelper`, `VisibilityPlugins`). Their `src/skel/win/win.cpp: WinMain` mirrors our `NOTSA_WinMain`.
+2. **RenderWare = librw + a compat shim.** re3 does *not* rewrite its `Rw*` call sites — it keeps the classic C API and
+   maps it onto librw's `rw::` C++ API with `src/fakerw/*.{h,cpp}` (~2100 lines: `typedef rw::Raster RwRaster;`,
+   `RwCameraClear` → `rw::Camera::clear`, ...). **We can do the same**, which avoids touching every RW call site.
+3. **librw is a C++ (`rw::`) API only.** `aap/librw` has just `master`; the C API ended at commit `14c773d`
+   (2019-08-04). re3/reVC pin librw at **`5501c4fd…` (2021-08-19)**. So expect to write the shim, not to get a
+   drop-in `RwCameraClear`.
+4. **Memory manager is opt-in in re3.** `USE_CUSTOM_ALLOCATOR` OFF ⇒ `MemoryMgrMalloc` just calls `malloc`;
+   ON ⇒ `WinMain` calls `InitMemoryMgr()` first. Directly relevant to our global-`operator new` blocker.
+5. **librw is initialized with** `RwEngineInit(memFuncs, 0, rsRESOURCESDEFAULTARENASIZE)` where
+   `memFuncs = { Malloc, Free, Realloc, Calloc }` — that's how it gets our allocator.
 
 ## Rules for using `refs/`
 * Read-only. Never `#include` anything from `refs/`, never link against it.
 * Never copy code verbatim. Reimplement in our own style per `docs/CodingGuidelines.md`.
-* If a reference answers an open question, write the finding (and where you saw it) into `MEMORY.md` —
-  the reference folder may be absent on someone else's machine, the knowledge must not be.
+* If a reference answers an open question, write the finding (and where you saw it) into `MEMORY.md` — the folder
+  may be absent on someone else's machine, the knowledge must not be.

@@ -31,9 +31,13 @@ Started the **mod → standalone game** conversion (scaffolding only):
 
 ## Reference material (refs/)
 `refs/` is gitignored and **may be empty on your machine** — that's fine, it's read-only reference material.
-If present, the useful bits are `refs/re3` (III), `refs/reVC` (miami), `refs/librw`. See `refs/README.md` and
-`MEMORY.md` §3 (RenderWare) — the highest-value use is figuring out how to *provide RenderWare* and how a
-standalone engine boots.
+**It is populated here**: `refs/re3` (III), `refs/reVC` (miami), `refs/librw`. See `refs/README.md` for how they were
+obtained, and `MEMORY.md` §3 + §5b for what we learned from them. Headline findings:
+
+* re3/reVC are the **same lineage** as us — use them as the boot-sequence/architecture template.
+* RenderWare: re3 keeps the classic C API and maps it onto **librw's `rw::` C++ API with a ~2100-line compat shim**
+  (`refs/re3/src/fakerw/*`). We should copy *that idea* (not the code).
+* librw has no C API anymore; re3/reVC pin it at commit `5501c4fd` (2021-08-19).
 
 ## Unverified changes ⚠️
 **Everything code-related in the 2026-10-11 entry.** Highest-risk items to compile first:

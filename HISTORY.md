@@ -56,3 +56,20 @@ session-memory documents requested in `PROMPT.md`.
   `gta_sa.exe`** (not a linked library) ⇒ the standalone build needs a real RW implementation (likely `librw`).
 
 **Verification:** none (still no toolchain). `conanfile.py`, `.gitignore`, docs only.
+
+---
+
+### Follow-up (same day, 2): cloned the references and mined them for a standalone plan
+
+* Cloned the references into the gitignored `refs/` (via the `rocketguedes/re3` mirror, since `GTAmodding/re3` is
+  DMCA'd): `refs/re3` (III, `master`), `refs/reVC` (VC, `miami`), `refs/librw` (RenderWare).
+* Read them and extracted concrete answers to our blockers (all recorded in `MEMORY.md` §5b and `refs/README.md`):
+  * **re3/reVC are the same lineage as us** — same boot flow and subsystem names (`MemoryMgr`, `MemoryHeap`,
+    `TxdStore`, `RwHelper`, `VisibilityPlugins`); their `WinMain` mirrors our `NOTSA_WinMain` almost 1:1.
+  * **RenderWare:** they keep the classic `Rw*` C API and add a ~2100-line **compat shim** (`src/fakerw/*`) that maps
+    it onto librw's `rw::` C++ API. ⇒ We don't have to rewrite every RW call site, just provide such a shim.
+  * **librw is C++-only now** (`rw::`); its C API ended 2019-08-04. re3/reVC pin it at `5501c4fd` (2021-08-19).
+  * **Memory:** re3's custom allocator is opt-in (`USE_CUSTOM_ALLOCATOR`); OFF ⇒ plain `malloc`/`free`;
+    ON ⇒ `InitMemoryMgr()` is called first thing in `WinMain`.
+
+**Verification:** reference reading only; no code changes to our tree, no build.
