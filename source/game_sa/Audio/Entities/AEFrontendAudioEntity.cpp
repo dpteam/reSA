@@ -34,8 +34,11 @@ void CAEFrontendAudioEntity::Reset() {
 
 // 0x4DD4A0
 void CAEFrontendAudioEntity::AddAudioEvent(eAudioEvents event, float fVolumeBoost, float fSpeed) {
+#ifndef NOTSA_STANDALONE
     return plugin::CallMethod<0x4DD4A0, CAEFrontendAudioEntity*, int32, float, float>(this, event, fVolumeBoost, fSpeed);
-
+#else
+    // Standalone: original body lives in gta_sa.exe - use the reversed (untested) body below.
+#endif
     // untested
     CAESound sound;
     CVector XVECP = { +1.0f, 0.0f, 0.0f };
