@@ -13,10 +13,11 @@
 | 3 | `CdStreamOpen MODELS\GTA3.IMG` | ✅ | нужны игровые данные (положены) |
 | 4 | `psGetMemoryFunctions` (0x745510) | ✅ | → CRT-таблица (`CMemoryMgr`) |
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
-| 6 | `AppEventHandler(rsPLUGINATTACH)` → `PluginAttach` | ❌→🚧 | `RpWorldPluginAttach` (0x74FDA0) |
-| 7 | `RwEngineStart` + device/videomode | ⏳ | |
-| 8 | Загрузка мира/стриминга | ⏳ | |
-| 9 | Рендер + оконный режим (RDP) | ⏳ | |
+| 6 | `AppEventHandler(rsPLUGINATTACH)` → `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
+| 7 | `psSelectDevice` (subsystem+видеорежим+MSAA) | 🚧 | проходит выбор; краш на `RwD3D9EngineSetMultiSamplingLevels` |
+| 8 | `RwEngineStart` + device/videomode | ⏳ | |
+| 9 | Загрузка мира/стриминга | ⏳ | |
+| 10 | Рендер + оконный режим (RDP) | ⏳ | |
 
 ## Этап «RenderWare boot» (текущий)
 

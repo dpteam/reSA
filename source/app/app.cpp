@@ -11,6 +11,10 @@
 #include "Plugins/BreakablePlugin/BreakablePlugin.h"
 #include "Pipelines/CustomBuilding/CustomBuildingRenderer.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare plugins (standalone)
+#endif
+
 #include "platform/win/WinPlatform.h"
 
 #include "Enums/eGameState.h"
@@ -130,6 +134,13 @@ RsEventStatus AppEventHandler(RsEvent event, void* param) {
 
 // 0x53D870
 bool PluginAttach() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: RenderWare is librw. The chain below attaches the same RW plugins via the original
+    // game's registration (which lives in gta_sa.exe), so instead register librw's plugins directly.
+    // TODO: the game-specific plugins (Visibility/TxdStore/CustomBuilding/...) may still need attaching.
+    rwbridge::RegisterCorePlugins();
+    return true;
+#else
     const auto Attach = [](auto name, auto attachFn) {
         if (!attachFn()) {
             NOTSA_LOG_DEBUG("Couldn't attach {} plugin", name);
@@ -157,6 +168,7 @@ bool PluginAttach() {
         Attach("2d Effect",                C2dEffect::PluginAttach) &&
         Attach("Pipeline",                 PipelinePluginAttach)
     );
+#endif
 }
 
 // 0x734650
