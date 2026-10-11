@@ -18,7 +18,7 @@
 | 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
 | 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | ✅ `GAME_STATE_INITIAL` (splash), `CLoadingScreen::Init`, `CGamma::Init`, `GetMillisecondTime`, `InitialiseEssentialsAfterRW`, `InitialiseCoreDataAfterRW` (SurfaceInfos, decision makers); сейчас `GAME_STATE_FRONTEND_LOADING` → `RwD3D9GetCaps` |
-| 11 | Фронтенд (`FRONTEND_LOADED`/`IDLE` → меню) | ⏳ | |
+| 11 | Фронтенд (`FRONTEND_LOADED`/`IDLE` → меню) | 🚧 | `FRONTEND_LOADING`/`LOADED` пройдены; в `FRONTEND_IDLE` → `FrontendIdle` → `CMenuManager::Process` |
 | 12 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
 | 13 | Рендер + оконный режим (RDP) | ⏳ | |
 

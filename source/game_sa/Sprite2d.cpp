@@ -180,7 +180,12 @@ void CSprite2d::InitPerFrame() {
     nextBufferVertex = 0;
     nextBufferIndex = 0;
     RecipNearClip = 1.0f / RwCameraGetNearClipPlane(Scene.m_pRwCamera);
+#ifdef NOTSA_STANDALONE
+    // `RWSRCGLOBAL(dOpenDevice)` is the original RW device (absent in standalone) - use the bridge.
+    NearScreenZ = RwIm2DGetNearScreenZ();
+#else
     NearScreenZ = RWSRCGLOBAL(dOpenDevice).zBufferNear;
+#endif
 }
 
 bool CSprite2d::IsVertexBufferEmpty()

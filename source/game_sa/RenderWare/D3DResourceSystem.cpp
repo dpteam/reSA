@@ -1,11 +1,58 @@
 /*
     Plugin-SDK file
-    Authors: GTA Community. See more here
+    Authors: GTA Community. See more here:
     https://github.com/DK22Pac/plugin-sdk
     Do not delete this comment block. Respect others' work!
 */
 
 #include "StdInc.h"
+
+#ifdef NOTSA_STANDALONE
+/*
+ * Standalone: this is a GTA-specific D3D resource-buffering extension over RW (it batches index
+ * buffers and textures into big D3D resources). It's not reversed, and librw manages its own D3D
+ * resources, so we disable it entirely: `Init` does nothing, `SetUseD3DResourceBuffering` doesn't
+ * enable anything, and every tidy-up/destroy is a no-op. Nothing else in our code reads the
+ * buffering flag or calls `Create*`, so this is safe. See IDEAS.md.
+ */
+
+// 0x730900
+void D3DResourceSystem::CancelBuffering() {}
+
+// 0x7307F0
+uint32 D3DResourceSystem::GetTotalIndexDataSize() { return 0; }
+
+// 0x730660
+uint32 D3DResourceSystem::GetTotalPixelsSize() { return 0; }
+
+// 0x730830
+void D3DResourceSystem::Init() {}
+
+// 0x730AC0
+void D3DResourceSystem::SetUseD3DResourceBuffering(bool bUse) {}
+
+// 0x730A00
+void D3DResourceSystem::Shutdown() {}
+
+// 0x730740
+void D3DResourceSystem::TidyUpD3DIndexBuffers(uint32 count) {}
+
+// 0x7305E0
+void D3DResourceSystem::TidyUpD3DTextures(uint32 count) {}
+
+// 0x7306A0
+int32 D3DResourceSystem::CreateIndexBuffer(uint32 numIndices, uint32 format, void** ppIndexBuffer) { return 0; }
+
+// 0x730510
+int32 D3DResourceSystem::CreateTexture(int32 width, int32 height, uint32 format, void** ppTexture) { return 0; }
+
+// 0x730D30
+void D3DResourceSystem::DestroyIndexBuffer(void* pIndexBuffer) {}
+
+// 0x730B70
+void D3DResourceSystem::DestroyTexture(void* texture) {}
+
+#else
 
 // 0x730900
 void D3DResourceSystem::CancelBuffering() {
@@ -24,12 +71,7 @@ uint32 D3DResourceSystem::GetTotalPixelsSize() {
 
 // 0x730830
 void D3DResourceSystem::Init() {
-#ifdef NOTSA_STANDALONE
-    // Standalone: this is a GTA-specific D3D resource-buffering extension over RW. It's not reversed yet
-    // and not critical for boot, so make it a no-op for now.
-#else
     plugin::Call<0x730830>();
-#endif
 }
 
 // 0x730AC0
@@ -73,3 +115,5 @@ void D3DResourceSystem::DestroyIndexBuffer(void* pIndexBuffer) {
 void D3DResourceSystem::DestroyTexture(void* texture) {
     plugin::Call<0x730B70, void*>(texture);
 }
+
+#endif // NOTSA_STANDALONE

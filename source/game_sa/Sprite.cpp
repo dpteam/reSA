@@ -290,7 +290,7 @@ void CSprite::RenderOneXLUSprite(CVector pos, CVector2D halfSize, uint8 r, uint8
         y,
         u,
         v,
-        CalcSpriteScreenZ(pos.z, RWSRCGLOBAL(dOpenDevice).zBufferNear, RWSRCGLOBAL(dOpenDevice).zBufferFar),
+        CalcSpriteScreenZ(pos.z, RwIm2DGetNearScreenZ(), RwIm2DGetFarScreenZ()),
         rhw,
         CalcSpriteColor(r, g, b, a, intensity)
     );
@@ -375,7 +375,7 @@ void CSprite::RenderOneXLUSprite_Rotate_Aspect(CVector pos, CVector2D size, uint
         vertices.data(),
         xs,
         ys,
-        CalcSpriteScreenZ(pos.z, RWSRCGLOBAL(dOpenDevice).zBufferNear, RWSRCGLOBAL(dOpenDevice).zBufferFar),
+        CalcSpriteScreenZ(pos.z, RwIm2DGetNearScreenZ(), RwIm2DGetFarScreenZ()),
         rz,
         CalcSpriteColor(r, g, b, alpha, intensity)
     );
