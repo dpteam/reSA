@@ -17,18 +17,21 @@
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
 | 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
-| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | ✅ `GAME_STATE_INITIAL` (splash), `CLoadingScreen::Init`, `CGamma::Init`, `GetMillisecondTime`, `InitialiseEssentialsAfterRW`, `InitialiseCoreDataAfterRW` (SurfaceInfos, decision makers); сейчас `GAME_STATE_FRONTEND_LOADING` → `RwD3D9GetCaps` |
-| 11 | Фронтенд (`FRONTEND_LOADED`/`IDLE` → меню) | 🚧 | `FRONTEND_LOADING`/`LOADED` пройдены; в `FRONTEND_IDLE` → `FrontendIdle` → `CMenuManager::Process` |
-| 12 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
-| 13 | Рендер + оконный режим (RDP) | ⏳ | |
+| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | ✅ | `GAME_STATE_INITIAL` (splash), `CLoadingScreen`, `CGamma`, `GetMillisecondTime`, `InitialiseEssentialsAfterRW`, `InitialiseCoreDataAfterRW`; дошло до `FRONTEND_IDLE` |
+| 11 | Фронтенд: работает и **рисует** | ✅ | `GAME_STATE_FRONTEND_LOADING/LOADED/IDLE`; `FrontendIdle`→`CMenuManager` **реально выводит 2D** (виден VINEWOOD-фон); **игра не падает** |
+| 12 | Текст на экране | ❌ | `CFont::RenderFontBuffer`/`ProcessCurrentString` не реверснуты → текст не рисуется |
+| 13 | Меню-навигация (ввод) | ⏳ | меню должно реагировать на клавиши |
+| 14 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
+| 15 | Оконный режим (RDP-тест) | ⏳ | standalone-оконный режим ещё не форсится (см. `MEMORY.md` §8) |
 
-> **Веха (2026-10-12):** standalone **полностью проходит инициализацию RenderWare** и входит в **игровой цикл**
-> `MainLoop` / `ProcessGameLogic`: отрабатывают загрузочные экраны (`CLoadingScreen`), таймер, гамма,
-> затем `CGame::InitialiseEssentialsAfterRW` **и** `CGame::InitialiseCoreDataAfterRW` (surface-данные, decision makers,
-> и т.д.) — вплоть до состояния `GAME_STATE_FRONTEND_LOADING`, где приложение **создаёт окно (1692×919)
-> и загружает данные** (`AMERICAN.GXT`, handlings, decision makers).
-> Бинарник — **`reSA.exe`**. Debug/tools-UI (ImGui) и RxPipeline-эффекты (env-map, custom building) в standalone
-> отключены (см. `IDEAS.md`).
+> **Веха (2026-10-12, ночь):** standalone-игра **ЗАПУСКАЕТСЯ и РИСУЕТ**. `reSA.exe` стабильно работает
+> (без краша), создаёт окно и **выводит 2D-графику фронтенда** (на экране виден логотип/фон **VINEWOOD**).
+> Пройдены: инициализация RW, `InitialiseEssentialsAfterRW`/`InitialiseCoreDataAfterRW`, состояния
+> `FRONTEND_LOADING`/`LOADED`/`IDLE`, `CMenuManager::Process`/`DrawFrontEnd` (draw-calls реально доходят
+> до librw). Бинарник — **`reSA.exe`**. Известные пробелы: **текст не рисуется**, **звук не работает**,
+> часть косметики (RxPipeline, RwIm3D) отключена — см. `IDEAS.md`.
+> ⚠️ Также: при прогоне из-под отладчика CRT может ловить проверки — их можно **пропускать** («Пропустить»/Ignore);
+> критичный для стека баг `C_PcSave::GenerateGameFilename` уже исправлен.
 
 ## Этап «RenderWare boot» (текущий)
 
