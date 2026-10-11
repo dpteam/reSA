@@ -30,6 +30,28 @@ int  RegisterPlugin(int size, unsigned pluginID, void* ctor, void* dtor);
 /*! @brief `RwEngineGetPluginOffset`. @return The plugin's object-data offset, or -1 if not registered. */
 int  GetPluginOffset(unsigned pluginID);
 
+/*!
+ * @brief Registers the RenderWare plugins the game expects attached after engine init
+ *        (world/mesh/nativeData/rights, MatFX, skin, HAnim, UVAnim, anisotropy, userdata).
+ * @note  Replaces the game's `PluginAttach()` chain of `RpXxxPluginAttach()` calls - those ultimately
+ *        just call librw's `registerXxxPlugin()`, which is what this does (once).
+ */
+void RegisterCorePlugins();
+
+/*!
+ * @brief D3D9 engine settings that the game sets during device selection.
+ * @note  These are the boot-critical subset of the game's `RwD3D9*` API; the rest is still `plugin::Call`.
+ */
+unsigned GetMaxMultiSamplingLevels();
+void     SetMultiSamplingLevels(unsigned levels);
+void     SetRefreshRate(unsigned hz);        //!< No-op in librw (refresh rate is part of the video mode).
+bool     DeviceSupportsDXTTexture();         //!< librw's D3D9 backend supports DXT textures.
+
+void SetMipmapping(bool enable);
+void SetAutoMipmapping(bool enable);
+bool GetMipmapping();
+bool GetAutoMipmapping();
+
 int  GetNumSubSystems();bool GetSubSystemInfo(char* nameOut, int nameSize, int index);
 int  GetCurrentSubSystem();
 bool SetSubSystem(int index);

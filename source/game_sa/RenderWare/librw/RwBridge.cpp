@@ -44,6 +44,52 @@ int GetPluginOffset(unsigned pluginID) {
     return rw::Engine::s_plglist.getPluginOffset(pluginID);
 }
 
+void RegisterCorePlugins() {
+    rw::registerMeshPlugin();
+    rw::d3d9::registerNativeDataPlugin();
+    rw::registerAtomicRightsPlugin();
+    rw::registerMaterialRightsPlugin();
+    rw::registerMatFXPlugin();
+    rw::registerSkinPlugin();
+    rw::registerHAnimPlugin();
+    rw::registerUVAnimPlugin();
+    rw::registerAnisotropyPlugin();
+    rw::registerUserDataPlugin();
+}
+
+unsigned GetMaxMultiSamplingLevels() {
+    return rw::Engine::getMaxMultiSamplingLevels();
+}
+
+void SetMultiSamplingLevels(unsigned levels) {
+    rw::Engine::setMultiSamplingLevels(levels);
+}
+
+void SetRefreshRate(unsigned) {
+    // librw has no separate refresh-rate setting (it's part of the video mode).
+}
+
+bool DeviceSupportsDXTTexture() {
+    // librw's D3D9 backend always supports DXT (it creates DXT textures directly).
+    return true;
+}
+
+void SetMipmapping(bool enable) {
+    rw::Texture::setMipmapping(enable ? 1 : 0);
+}
+
+void SetAutoMipmapping(bool enable) {
+    rw::Texture::setAutoMipmapping(enable ? 1 : 0);
+}
+
+bool GetMipmapping() {
+    return rw::Texture::getMipmapping() != 0;
+}
+
+bool GetAutoMipmapping() {
+    return rw::Texture::getAutoMipmapping() != 0;
+}
+
 int GetNumSubSystems() {
     return rw::Engine::getNumSubSystems();
 }

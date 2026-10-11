@@ -2,6 +2,10 @@
 
 #include "rwcore.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#endif
+
 void RwCoreInjectHooks() {
     RH_ScopedCategory("Renderware");
     RH_ScopedNamespaceName("RwCore");
@@ -398,19 +402,37 @@ void RwPalQuantMatchImage(RwUInt8* dstpixels, RwInt32 dststride, RwInt32 dstdept
 }
 
 RwBool RwTextureSetMipmapping(RwBool enable) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetMipmapping(enable);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwBool))0x7F3530)(enable);
+#endif
 }
 
 RwBool RwTextureGetMipmapping() {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GetMipmapping();
+#else
     return ((RwBool(__cdecl *)(void))0x7F3550)();
+#endif
 }
 
 RwBool RwTextureSetAutoMipmapping(RwBool enable) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetAutoMipmapping(enable);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwBool))0x7F3560)(enable);
+#endif
 }
 
 RwBool RwTextureGetAutoMipmapping() {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GetAutoMipmapping();
+#else
     return ((RwBool(__cdecl *)(void))0x7F3580)();
+#endif
 }
 
 RwBool RwTextureSetMipmapGenerationCallBack(RwTextureCallBackMipmapGeneration callback) {
@@ -606,7 +628,11 @@ RwBool RwD3D9RasterIsCompressed(const RwRaster* raster) {
 }
 
 RwBool RwD3D9DeviceSupportsDXTTexture() {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::DeviceSupportsDXTTexture();
+#else
     return ((RwBool(__cdecl *)(void))0x7F9C30)();
+#endif
 }
 
 void* RwD3D9GetCurrentD3DDevice() { // IDirect3DDevice9
@@ -614,15 +640,27 @@ void* RwD3D9GetCurrentD3DDevice() { // IDirect3DDevice9
 }
 
 RwUInt32 RwD3D9EngineGetMaxMultiSamplingLevels() {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GetMaxMultiSamplingLevels();
+#else
     return ((RwUInt32(__cdecl *)(void))0x7F84E0)();
+#endif
 }
 
 void RwD3D9EngineSetMultiSamplingLevels(RwUInt32 numLevels) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetMultiSamplingLevels(numLevels);
+#else
     ((void(__cdecl *)(RwUInt32))0x7F84F0)(numLevels);
+#endif
 }
 
 void RwD3D9EngineSetRefreshRate(RwUInt32 refreshRate) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SetRefreshRate(refreshRate);
+#else
     ((void(__cdecl *)(RwUInt32))0x7F8580)(refreshRate);
+#endif
 }
 
 void RwD3D9EngineSetMultiThreadSafe(RwBool enable) {
