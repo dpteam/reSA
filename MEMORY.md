@@ -308,3 +308,40 @@ complete standalone games built on the same engine family, plus `refs/librw` for
 
 * **Effort:** this is the biggest single chunk of the standalone port (multi-session). Start from the *boot-critical*
   path (`RwEngineInit` → `RwEngineOpen` → stream/file system → world/texture loading), not alphabetically. ❓
+
+## 10. Struct-compatibility: SA RW 3.7 vs librw (investigated 2026-10-11) 📐
+
+Compared our SA RW 3.7 headers (`source/game_sa/RenderWare/rw/*.h`) with librw (`refs/librw/src/*.h`).
+
+| Type | Verdict | Detail |
+|---|---|---|
+| `RwV2d`/`RwV3d`, `RwMatrix`, `RwObject`, `RwObjectHasFrame` | ✅ **identical** | eg. `RwMatrixTag` == librw `Matrix` (right/flags/up/pad1/at/pad2/pos/pad3) |
+| `RpMesh`, `RpMorphTarget` | ✅ **same layout** | only field *names* differ (`indices`/`indices`, `parentGeom`/`parent`, `verts`/`vertices`) |
+| `RwTexture` | ⚠️ **prefix-identical** | librw appends `inGlobalList` (`LLLink`) after `refCount` |
+| `RwFrame` | ❌ **different** | SA: `…, modelling, ltm, objectList, …`; librw: `…, objectList, matrix, ltm, …` (matrices vs objectList swapped; names differ too) |
+| `RwCamera` | ❌ **different (major)** | field order fully reordered; librw adds `devView`/`devProj`/`world`/`clump`/`startUpdateCB` |
+| `RwRaster` | ❌ **different** | different order **and** field types: librw uses `int32 type/flags/privateFlags/format` + a `platform` field; SA packs `u8 cType/cFlags/privateFlags/cFormat` |
+| `RwImage` | ❌ **different** | librw inserts `bpp` after `depth` |
+| `RpMaterial` | ❌ **different** | SA: `texture, color, pipeline, surfaceProps, refCount(i16)+pad`; librw: `texture, color, surfaceProps, pipeline, refCount(i32)` |
+| `RpAtomic` | ❌ **different** | SA has `repEntry`, `renderCallBack`, `interpolator`, `renderFrame`; librw has `pipeline`, `renderCB`, `world`, `originalSync` |
+| `RpClump` / `RpWorld` / `RpGeometry` | ⚠️ not exhaustively compared | very likely differ (same pattern) |
+
+**⇒ librw is NOT layout-compatible with SA's RW 3.7. The `typedef rw::X RwX` trick (re3-style) needs adaptation.**
+
+**Good news — the layout-sensitive surface is small.** In `source/{game_sa,app}`:
+* Direct access to divergence-prone RW *fields*: **~115 sites** (sampled), so realistically a few hundred total.
+  Most code touches RW only through *functions* (`RwCameraClear`, `RpAtomicGetGeometry`, …), which don't care about layout. ✅
+* So the coupling is bounded; a `RwHelper.h`-style **accessor** layer (already an established pattern in the repo!) can
+  abstract the differing fields for both builds.
+
+**Key constraint for any approach:** the **mod build needs SA's exact RW layouts** (it runs inside the real game). So
+the standalone (librw-backed) RW must be `#ifdef NOTSA_STANDALONE`-split from the mod's SA RW. The ~115 field-access
+sites must then work for *both* ⇒ migrate them to accessors.
+
+**Approach options (decision pending):**
+* **(A) re3-style, guarded (recommended):** standalone adopts librw types; mod keeps SA RW; add accessors for the
+  differing fields. Keeps librw pristine/updatable; proven pattern. Biggest work = the ~300 RW thunks + accessor migration.
+* **(B) Fork librw's structs to SA's layouts:** closer to "drop-in", but invasive to librw internals (streaming, D3D9
+  native rasters) and still needs the header split. Riskier.
+* **(C) Boot-spike first:** implement only the RW calls needed to get *past* engine init (black window), to validate
+  the whole pipeline, then decide. Smallest first step. ❓

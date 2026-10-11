@@ -138,3 +138,21 @@ the mod path is byte-identical) — mark as not re-verified.
   + the plan + the vendoring decision: `MEMORY.md` §3 and the new §9.
 * **No code changes** in this step (Ran/diagnosed + built librw outside the tree). Next step is the RW integration,
   which needs a decision on how to source librw (§9.1).
+
+---
+
+### Follow-up (same day, 6): struct-compatibility investigation (SA RW 3.7 vs librw)
+
+User chose: vendor librw into the repo, **but first** check struct compatibility.
+
+* Compared SA's RW 3.7 headers with librw (`MEMORY.md` §10):
+  * **Identical:** `RwV2d/V3d`, `RwMatrix`, `RwObject`, `RwObjectHasFrame`, `RpMesh`, `RpMorphTarget` (names aside).
+  * **Differs:** `RwFrame`, `RwCamera`, `RwRaster`, `RwImage`, `RpMaterial`, `RpAtomic`. `RwTexture` only appends a field.
+  * ⇒ librw is **not layout-compatible**; the re3-style `typedef rw::X RwX` needs adaptation.
+* **Encouraging:** direct access to divergence-prone RW fields is only **~115 sites** (sampled) — the code mostly goes
+  through RW *functions*, so the layout-sensitive coupling is bounded and can be abstracted via `RwHelper.h` accessors.
+* **Constraint:** the mod build needs SA's exact layouts ⇒ the librw-backed RW must be `#ifdef NOTSA_STANDALONE`-split.
+* Wrote `MEMORY.md` §10 with the table, the constraint, and three approach options (A: re3-style guarded,
+  B: fork librw layouts, C: boot-spike first). **Decision pending** before any code.
+
+**Verification:** read-only investigation; no build/run.
