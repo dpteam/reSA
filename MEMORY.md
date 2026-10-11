@@ -67,6 +67,10 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
 * ❗ **Deps build from source.** The profile is `arch=x86, build_type=Debug, compiler.cppstd=23, runtime=static`;
   Conan Center has no matching prebuilt binaries (it only offered `compiler.version=193` alternatives, also absent),
   so SDL3/ogg/vorbis/libjpeg-turbo/spdlog/tracy/imgui get **built from source** — slow (tens of minutes) but fine. ⚠️
+* ❗ **Use Conan's CMake, not the pip one.** The build dir is configured by Conan's `tool_requires` **cmake 4.2.0**
+  (from `~/.conan2`). Re-configuring the same dir with pip's `cmake 4.4` (also on PATH) causes
+  *"CMake Configure step failed / no CMAKE_CXX_COMPILER"*. ⇒ Always drive builds via `python setup.py ...` (or call
+  Conan's cmake explicitly); don't mix versions on one build dir. ⚠️ *(hit this 2026-10-11.)*
 * Not admin (VS Installer/SDK can't be run by the agent). Disk: C: ~54 GB free, E: ~61 GB free. ✅
 
 ### Build works (mod config) — ✅ verified 2026-10-11
@@ -292,12 +296,12 @@ complete standalone games built on the same engine family, plus `refs/librw` for
 * **Scale of RW in our tree:** `source/game_sa/RenderWare/**` = 88 files / ~31k lines, with ~1400 absolute-address
   references (967 unique) — it's all thunks. These are the *declarations* (SA RW 3.7 headers) + address-thunks. ✅
 * **Approach (mirrors re3, but for SA):**
-  1. **Provide librw** (MIT, builds under our toolchain — see §3/§5b). ⚠️ *Sourcing decision needed:*
-     * (a) **Git submodule** at e.g. `source/libs/librw` (like re3's `vendor/librw`) — reproducible, no network at build. **Preferred.**
-     * (b) **FetchContent** from GitHub — no vendored code, but needs network at configure time.
-     * (c) **Vendor a copy** into the repo (MIT allows it) — simplest, but bloats the repo.
-     * (d) Conan — no librw recipe in Conan Center. ✗
-     `refs/` is gitignored, so we **cannot** reference `refs/librw` from the build.
+  1. **Provide librw** (MIT, builds under our toolchain — see §3/§5b).
+     * **Decision (2026-10-11): vendored copy** at `extern/librw` (commit `18532c2e13efbc1aa43f0b00b4459831f9414de0`),
+       MIT license kept, wired into CMake **standalone-only** (`add_subdirectory` + `librw::librw`), see §11. ✅
+       ⚠️ **It must live outside `source/`** — `source/CMakeLists.txt` globs all of `source/**/*.h*`+`*.c*`, so putting
+       librw inside would pull its sources (and `.hlsl`, which MSBuild compiles with FXC → `X4541`) into our target.
+     `refs/` is gitignored, so we cannot reference `refs/librw` from the build.
   2. **Write an SA-flavored C-API shim** (our own "fakerw" for RW 3.7.0.2) and replace the address-thunks in
      `source/game_sa/RenderWare/rw/*.cpp` with real implementations backed by librw.
   3. **Risks:** SA's game code uses RW 3.7 struct *layouts* directly (`RwCamera`, `RwFrame`, `RpClump`, `RpAtomic`,
@@ -345,3 +349,29 @@ sites must then work for *both* ⇒ migrate them to accessors.
   native rasters) and still needs the header split. Riskier.
 * **(C) Boot-spike first:** implement only the RW calls needed to get *past* engine init (black window), to validate
   the whole pipeline, then decide. Smallest first step. ❓
+
+## 11. RW integration — decisions & worklist (2026-10-11) 🛠️
+
+**Decisions (by the user):** approach **(A)** (re3-style, `#ifdef NOTSA_STANDALONE`), and **vendor librw** now.
+
+**Vendoring (done):**
+* librw copied to **`extern/librw`** (outside `source/`!), commit `18532c2e13efbc1aa43f0b00b4459831f9414de0`, MIT.
+  Details/rationale: `extern/README.md`.
+* `source/CMakeLists.txt`: standalone-only `add_subdirectory("${CMAKE_SOURCE_DIR}/extern/librw" …)` +
+  `set(LIBRW_PLATFORM "D3D9" CACHE … FORCE)` + `target_link_libraries(... librw::librw)`.
+
+**Boot-critical RW shim worklist** (the minimal set to get past `RsRwInitialize` — `platform.cpp`):
+1. `RwEngineInit(memFuncs, 0, arena)` → `rw::Engine::init(memFuncs)`
+2. `RwEngineOpen(&openParams)` → `rw::Engine::open(...)`
+3. `RwEngineStart()` / `RwEngineStop()` / `RwEngineClose()` / `RwEngineTerm()` → `rw::Engine::{start,stop,close,term}`
+4. Device/video-mode: `psSelectDevice`, `RwEngineSetVideoMode`, `RwEngineGetNumVideoModes`, `RwEngineGetVideoModeInfo`,
+   `RwEngineGetCurrentVideoMode` → librw's `Engine::*SubSystem/VideoMode*` + `Device::system(DEVICE…)`
+5. `RwD3D9DeviceSupportsDXTTexture()` (for `psNativeTextureSupport`)
+6. `RwTextureSetMipmapping` / `RwTextureSetAutoMipmapping` → `rw::Texture::setMipmapping/…`
+7. Stream/file system + resource arenas (`RwStreamOpen`, file callbacks) — librw has its own `Stream`/`StreamFile`.
+   SA's `psInstallFileSystem()` is a no-op, so librw's default file system should do.
+
+Also: `RwEngineInit` is called with SA's `RwMemoryFunctions` (from `psGetMemoryFunctions`, currently `plugin::Call`).
+In standalone that must return a real table — point it at `CMemoryMgr` (CRT) or librw's own (`RwOsGetMemoryInterface`). ⚠️
+
+**Status:** librw integrated into the build (compiles); the shim (actually replacing the thunks) is **not started**. ⚠️

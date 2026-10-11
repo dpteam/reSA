@@ -156,3 +156,28 @@ User chose: vendor librw into the repo, **but first** check struct compatibility
   B: fork librw layouts, C: boot-spike first). **Decision pending** before any code.
 
 **Verification:** read-only investigation; no build/run.
+
+---
+
+### Follow-up (same day, 7): vendored librw + wired it into the (standalone-only) build
+
+User chose approach **(A)** (re3-style, `#ifdef NOTSA_STANDALONE`) and to **vendor librw** now.
+
+* Vendored librw to **`extern/librw`** (commit `18532c2e…`, MIT, license kept). Excluded `skeleton/`, `tools/*`
+  (kept only the `tools/CMakeLists.txt` stub the build needs), CI/premake files. Documented in `extern/README.md`.
+* ❗ **Trap #1:** the first attempt put it at `source/libs/librw` — wrong, because `source/CMakeLists.txt` globs all of
+  `source/**/*.h*`+`*.c*`, so librw's sources **and its `.hlsl` shaders** got added to our target (MSBuild then ran FXC
+  → `error X4541`). Moved it **outside `source/`** to `extern/`.
+* ❗ **Trap #2:** setting `LIBRW_PLATFORM` as a normal variable didn't take (librw's `set(... CACHE)` won) → it built
+  the NULL backend. Fixed with `set(LIBRW_PLATFORM "D3D9" CACHE STRING "…" FORCE)`.
+* ❗ **Trap #3:** re-configuring the build dir with pip's `cmake 4.4` (build dir was made by Conan's cmake 4.2) broke
+  compiler detection. Always build via `python setup.py …` (Conan's cmake).
+* `source/CMakeLists.txt`: standalone-only
+  `add_subdirectory("${CMAKE_SOURCE_DIR}/extern/librw" "${CMAKE_BINARY_DIR}/extern/librw")` + link `librw::librw`.
+* ✅ **Verified:** standalone config now builds `librw` with `LIBRW_PLATFORM=D3D9` (`librw.lib`, ~4 MB) and links it into
+  `bin/Debug/gta_reversed.exe`. The exe still runs and still stops at the RenderWare wall (expected — the RW thunks
+  aren't replaced yet). Mod build unaffected (librw only added under `GTASA_STANDALONE`).
+
+**Next:** start the RW shim (the boot-critical worklist in `MEMORY.md` §11).
+
+**Verification:** built the standalone config (Conan/cmake 4.2), confirmed D3D9 + link, ran the exe (same known crash).

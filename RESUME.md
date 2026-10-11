@@ -18,6 +18,9 @@
   * Build cmd: `python setup.py --build -s compiler.version=194` (⚠️ wrapper reports exit 1 even on success — trust
     `cmake --build build --config Debug`, which returns 0).
 * The `build/` dir is currently configured for **standalone** (`GTASA_STANDALONE=ON`).
+* **librw is vendored** at `extern/librw` (MIT) and wired into the build **standalone-only**; the standalone exe now
+  links it (backend D3D9). See `extern/README.md` and `MEMORY.md` §9/§11. ⚠️ Don't put vendored libs inside `source/`
+  (its CMake globs everything there).
 
 ## Standalone status (2026-10-11) — it BOOTS, needs assets
 `gta_reversed.exe` runs through hook installation and into the game, stopping at `CdStreamOpen: MODELS\GTA3.IMG`
