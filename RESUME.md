@@ -1,122 +1,100 @@
 # RESUME.md — Session snapshot
 
-> **How to use:** at the *start* of a session, read this (plus `MEMORY.md`) to restore context.
-> At the *end* of a session, rewrite this file: state, in-flight work, next steps, and anything unverified.
-> Keep it short — details belong in `MEMORY.md` / `HISTORY.md`.
+> **How to use:** at the *start* of a session, read this + `MEMORY.md` + `PROGRESS.md`. Rewrite at the end of a session.
+> Keep it actionable — details live in `MEMORY.md`/`HISTORY.md`/`PROGRESS.md`.
 
 ---
 
 ## Last updated
-2026-10-11
+2026-10-12 (session 2; before compaction)
 
-## State of the tree
-* Branch: `master` (fork `dpteam/reSA` = `origin`, upstream `gta-reversed/gta-reversed`).
-* Working tree: see `HISTORY.md` (latest entry).
-* ✅ **Both configs build** (VS 2022 / MSVC 194, Windows SDK 10.0.26100):
-  * Mod: `bin/Debug/gta_reversed.asi`
-  * Standalone: `bin/Debug/reSA.exe` (target `gta_reversed`, renamed output)
-  * Build cmd: `python setup.py --build -s compiler.version=194` (⚠️ wrapper reports exit 1 even on success — trust
-    `cmake --build build --config Debug`, which returns 0).
-* The `build/` dir is currently configured for **standalone** (`GTASA_STANDALONE=ON`).
-* **librw is vendored** at `extern/librw` (MIT) and wired into the build **standalone-only**; the standalone exe now
-  links it (backend D3D9). See `extern/README.md` and `MEMORY.md` §9/§11. ⚠️ Don't put vendored libs inside `source/`
-  (its CMake globs everything there).
+## TL;DR — where we are
+**The standalone game `reSA.exe` now runs deep into startup: through RenderWare init and *into the game loop*.**
 
-## Standalone status (2026-10-12) — RenderWare works (via librw); loading assets
-**`reSA.exe` runs through RW engine init, creates camera/world/lights, and is now loading real game assets**
-(font TXD + textures, HUD, player skin) — see `PROGRESS.md` for the step-by-step boot chain and `MEMORY.md` §5a/§9/§11.
-It currently stops at `CPostEffects::SetupBackBufferVertex` (an `RwIm2D*` immediate-mode accessor — being mapped).
-`refs/` holds reference sources (re3/reVC/librw) + the original 1.0 US exe/PDB/CrashList (see `IDEAS.md` §4).
+The big win of this session: **RenderWare is provided via library `librw`** (vendored, MIT) instead of the original
+`gta_sa.exe`, so the standalone build can actually initialize the engine, create the camera/world/lights, load font/
+HUD/skin textures (real assets!), and enter `MainLoop`/`ProcessGameLogic`.
 
-## Standalone (legacy note) — see PROGRESS.md
-See `MEMORY.md` §8 (how to run/debug + **windowed-mode/RDP** caveat: windowed mode is NOT yet enforced in standalone).
-
-⚠️ **Not re-verified:** the mod build wasn't rebuilt after the shared-file changes (`RHManager.cpp`,
-`ReversibleHooks.h`, `MemoryMgr.cpp`). The changes are additive `#ifdef NOTSA_STANDALONE` branches, so the mod path is
-unchanged — but a full mod rebuild is still pending.
-
-## Environment (⚠️ verified 2026-10-11 on this machine — may differ elsewhere)
-* ✅ **Toolchain is fully working now.** VS 2022 Community has the *Desktop development with C++* workload + Windows
-  SDK 10.0.26100 (was incomplete before); `cl` compiles `windows.h`/`d3d9.h`/`dinput.h`. Conan 2.33 / CMake 4.4 /
-  Ninja 1.13 installed via pip.
-* ✅ **The mod build succeeds**: `python setup.py --build -s compiler.version=194` → `bin/Debug/gta_reversed.asi`.
-  ⚠️ That wrapper reports exit code 1 even on success; for a trustworthy code use
-  `cmake --build build --config Debug` (returns 0).
-* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ always pass `-s compiler.version=194`. ⚠️
-* Deps build from source (`GTASA_USE_SDL3=ON` default) — slow the first time, then cached in `~/.conan2`. ⚠️
-
-## How to build (once the Windows SDK is present)
-```powershell
-conan profile detect --force          # only the first time
-python setup.py                       # configure + fetch deps (mod/ASI config, x86 Debug)
-python setup.py --build               # build  ->  bin/Debug/gta_reversed.asi
-# standalone:
-python setup.py -o standalone=True --build     # (add -s compiler.version=194 on VS 2022)
+Current blocking point (last verified run):
 ```
-Verify the toolchain first: `conan --version`, `cmake --version`, and a `cl` compile of a file including `windows.h`.
+MainLoop -> ProcessGameLogic (GAME_STATE_FRONTEND_LOADING)
+  -> CGame::InitialiseCoreDataAfterRW (Game.cpp:568)
+    -> SurfaceInfos_c::Init -> SurfaceInfos_c::LoadAdhesiveLimits (SurfaceInfo_c.cpp:255)
+      -> plugin::CallMethod<0x55D0E0, SurfaceInfos_c*>   <-- CRASH (0x55D0E0 = original exe)
+```
+⇒ Next blocker = `SurfaceInfos_c` (surface data loading). Need to reverse/implement `LoadAdhesiveLimits` and the rest
+of `SurfaceInfos_c::Init` (they use `plugin::Call*` into `gta_sa.exe`). Files: `source/game_sa/SurfaceInfo_c.cpp`,
+`source/game_sa/SurfaceInfos_c.cpp`.
 
-## What was just done (short)
-Started the **mod → standalone game** conversion (scaffolding only):
-1. Real standalone `WinMain` that boots and calls `NOTSA_WinMain` (`source/app/platform/win/WinMain.cpp`).
-2. `DllMain` compiled only in the mod build (`source/dllmain.cpp`).
-3. Shared config startup in `source/Bootstrap.{h,cpp}`.
-4. Address-keyed global storage for standalone via `VirtualAlloc` (`source/StandaloneStorage.cpp`, used by
-   `StaticRef` in `source/Base.h`).
-5. Project-memory docs: `AGENT.md`, `MEMORY.md`, `HISTORY.md`, `RESUME.md`, and the standalone build option
-   (`conanfile.py`: `standalone=True`).
-6. Gitignored **`refs/`** for read-only third-party references (`refs/README.md`: re3, reVC, librw).
+## Build state
+* ✅ Both configs build (VS 2022, MSVC 194, SDK 10.0.26100), **standalone exe is `bin/Debug/reSA.exe`** (target
+  `gta_reversed`); mod is `bin/Debug/gta_reversed.asi`.
+* Build cmd: `python setup.py --build -o standalone=True -s compiler.version=194`
+  (⚠️ the wrapper prints `Exited with code 1` **even on success** — verify via `cmake --build build --config Debug` = 0,
+  or just check that `skipped`+`built`+`gta_reversed.vcxproj -> ...reSA.exe` lines appear and no `error C/LNK`).
+* Run: put assets in `bin/Debug` (already there) and launch `bin/Debug/reSA.exe` from that dir. Log: `bin/Debug/logs/log.log`
+  (full stack on crash). **Always run after building** — it's the fastest feedback loop.
+* ❗ Always pass `-s compiler.version=194` (repo profile says 195 = VS 2026).
+* ❗ Don't reconfigure `build/` with pip's cmake; use Conan's (`python setup.py`). See `MEMORY.md` §2.
 
-## Reference material (refs/)
-`refs/` is gitignored and **may be empty on your machine** — that's fine, it's read-only reference material.
-**It is populated here**: `refs/re3` (III), `refs/reVC` (miami), `refs/librw`. See `refs/README.md` for how they were
-obtained, and `MEMORY.md` §3 + §5b for what we learned from them. Headline findings:
+## What was done in THIS session (all committed, each verified by running)
+RenderWare replaced by librw + a C-style bridge, then worked through the boot chain step by step:
+1. **librw vendored** → `extern/librw` (outside `source/`!). CMake adds it only under `GTASA_STANDALONE`. See `extern/README.md`.
+2. **`source/game_sa/RenderWare/RwBridge.{h,cpp}`** — the ONLY TU that includes librw's `<rw.h>` (PCH disabled for it).
+   Exposes the RW API the game needs through plain C functions/POD. All RW functions in `rwplcore.cpp`/`rwcore.cpp`/
+   `rpworld.cpp` etc. got `#ifndef NOTSA_STANDALONE` (original thunks) / `#ifdef NOTSA_STANDALONE` (bridge) bodies.
+3. **Macros that read SA struct offsets were overridden** under `NOTSA_STANDALONE` to call the bridge:
+   `RwCameraGet/SetRaster`, `Get/SetZRaster`, `GetFrame`, `RwRasterGetWidth/Height/Depth` (in `rwcore.h`);
+   `RpLightSetFlags/SetFrame` (in `rpworld.h`); `RwIm2DGetNear/FarScreenZ` (in `rwplcore.h`). This is the pattern to follow
+   for any other SA-layout-dependent accessor (see `MEMORY.md` §10).
+4. **Fixed `psGetMemoryFunctions`** (standalone → CRT-backed `RwMemoryFunctions` table using `CMemoryMgr`).
+5. **`PluginAttach`** standalone → `rwbridge::RegisterCorePlugins()`.
+6. **Debug/tools UI (ImGui) disabled in standalone** (`UIRenderer`, `DebugModules::CreateModules` no-op, `AESoundManager`
+   debug hook gated). Revisit later — `IDEAS.md`.
+7. **`CGamma::Init` disabled in standalone** (no D3D9 device/caps via librw). Gamma is optional.
+8. **`GetMillisecondTime`** (Timer.cpp) → `OS_TimeMS()` in standalone.
+9. **`CCarFXRenderer::Initialise` / `CCustomBuildingRenderer::Initialise`** → no-op in standalone (they use the classic
+   `RxPipeline` API librw lacks; cosmetic). `RxPipeline*` is a big unported subsystem — see `IDEAS.md`.
+10. **`reSA.exe`** output name + **window icon** (`source/app/platform/win/app.rc` + `app.ico`, id `IDI_MAIN_ICON=1042`).
 
-* re3/reVC are the **same lineage** as us — use them as the boot-sequence/architecture template.
-* RenderWare: re3 keeps the classic C API and maps it onto **librw's `rw::` C++ API with a ~2100-line compat shim**
-  (`refs/re3/src/fakerw/*`). We should copy *that idea* (not the code).
-* librw has no C API anymore; re3/reVC pin it at commit `5501c4fd` (2021-08-19).
+## Files created/changed this session (key ones)
+* `extern/librw/**` (vendored), `extern/README.md`, `.gitignore` (`/refs/*`), `source/CMakeLists.txt` (librw + `reSA` name + `.rc`).
+* `source/game_sa/RenderWare/RwBridge.{h,cpp}`, `app.rc`, `app.ico`.
+* `Base.h` (`StaticRef` standalone storage already existed; refs to bridge), `rwplcore.{h,cpp}`, `rwcore.{h,cpp}`,
+  `rpworld.{h,cpp}`, `rwtexdict.cpp`, `platform.cpp`, `app.cpp`, `dllmain.cpp`, `WinMain.cpp`, `Timer.cpp`, `Gamma.cpp`,
+  `PostEffects.cpp`(no—read only), `UIRenderer.cpp`, `DebugModules.cpp`, `AESoundManager.cpp`, `CarFXRenderer.cpp`,
+  `CustomBuildingRenderer.cpp`, `D3DResourceSystem.cpp`.
+* Docs: `PROGRESS.md` (boot chain table), `IDEAS.md`, `MEMORY.md` §5a/§9/§10/§11, `HISTORY.md`, this file.
 
-## Unverified changes ⚠️
-**Everything code-related in the 2026-10-11 entry.** Highest-risk items to compile first:
+## Next steps (in order)
+1. **Fix `SurfaceInfos_c`** (current crash). Check `SurfaceInfo_c.cpp:255` + `SurfaceInfos_c::Init` — implement with CRT/
+   own data instead of `plugin::CallMethod(0x55D0E0)`. This is CGame init core-data; likely needs `data/surface.dat`
+   (present in assets).
+2. Continue `CGame::InitialiseCoreDataAfterRW` (Game.cpp:565): `CTempColModels::Initialise`, `gHandlingDataMgr.Initialise`,
+   `CPedStats::Initialise`, `CTimeCycle::Initialise`, `CPopCycle::Initialise`, `CVehicleRecording::InitAtStartOfGame`,
+   `AudioEngine.Initialise`, `g_breakMan.Init`, `g_boneNodeMan.Init`, `g_ikChainMan.Init`.
+3. Then `ProcessGameLogic` GAME_STATE_FRONTEND_LOADED → IDLE, then the real frontend/world load (streaming, IMG/IPL/IDE).
+4. **Windowed mode / RDP**: not yet enforced in standalone (see `MEMORY.md` §8) — needed for remote-desktop testing.
+   Likely: call `notsa::WindowedMode::AdjustPresentParams` on present-param creation once we own the D3D9 device.
 
-| File | Risk | What to check |
-|---|---|---|
-| `source/StandaloneStorage.cpp` | new file, compiled in *all* builds (body guarded) | PCH include, `VirtualAlloc`/hash table, `VERIFY`, no unused vars/warnings |
-| `source/Base.h` | affects every TU | `StaticRef` branches; `<cstddef>`; declaration under `#ifdef NOTSA_STANDALONE` |
-| `source/Bootstrap.{h,cpp}` | compiled in *all* builds | `g_ConfigurationMgr` usage confined to this TU; PCH include |
-| `source/dllmain.cpp` | entry point of the mod build | `#ifndef NOTSA_STANDALONE` guard; `GetDLLHandle` standalone branch |
-| `source/app/platform/win/WinMain.cpp` | standalone only | includes (`<clocale>`, `<Bootstrap.h>`), `ScopeGuard` symbols |
+## Open questions / decisions
+* RxPipeline effects (car env-map, custom building): reimplement on librw pipelines later (`IDEAS.md`). Now stubbed.
+* Bring back ImGui debug UI in standalone later (`IDEAS.md`).
+* `plugin::Call` sites remain ~800+; the ones on the *boot path* are what matter now (see `MEMORY.md` §5a).
 
-## Immediate next steps
-1. **Build the mod config first** (`python setup.py`, `python setup.py --build`) to confirm nothing regressed.
-2. **Build the standalone config** (`python setup.py -o standalone=True --build`) and fix compile errors.
-3. **Try running the standalone exe.** Expect an early crash; capture *where* (console log / debugger). That crash is
-   the map for Phase 2 of the roadmap (`MEMORY.md` §6).
-4. **Phase 1 (memory):** confirm/adjust `CMemoryMgr` + global `new/delete` behavior for standalone
-   (`MEMORY.md` §5.2). This likely blocks everything else.
-5. **Read the references** (`refs/README.md`): startup order/bootstrapping (re3), memory manager, and especially how
-   RenderWare is provided (librw).
-
-## Open questions ❓
-* Is there an agreed design for satisfying the ~835 `plugin::Call` sites in standalone (reversal vs. loader vs. stubs)?
-* Should the standalone exe eventually be named `gta_sa.exe` (to reuse the install flow) or stay `gta_reversed.exe`?
-* Should `GTASA_STANDALONE` get a dedicated `CMakePresets.json` preset + a CI job so this path stops rotting?
-* **RenderWare:** adopt `librw` wholesale, or choose another path? (It's the only realistic way to have RW, since
-  SA's RW is closed-source and lives in the original exe.)
+## Key references
+* `PROGRESS.md` — boot-chain table (what's passed / current / next).
+* `MEMORY.md` §2 (env), §3 (RenderWare/librw), §5a (boot progress + crash list), §8 (run/dbg + windowed-mode), §9–§11
+  (RW replacement plan, struct compat, integration worklist).
+* `IDEAS.md` §4 — `refs/` (re3/reVC/librw + `refs/gtasa10us` 1.0 US exe/pdb/CrashList).
+* `refs/README.md` — what's in `refs/` and rules (read-only, no code copying).
 
 ## Commands cheat-sheet
 ```powershell
-# configure + build (Windows)
-python setup.py
-python setup.py --build
-
-# standalone configure (example)
-python setup.py -o standalone=True -s build_type=Debug
-
-# find remaining non-reversed code
-Get-ChildItem -Recurse -Include *.cpp,*.h,*.hpp -Path source | Select-String -Pattern 'plugin::Call'
+# build (standalone)
+python setup.py --build -o standalone=True -s compiler.version=194
+# trustworthy exit code:
+cmake --build build --config Debug
+# run (from assets dir) + read log
+cd bin\Debug; .\reSA.exe; Get-Content logs\log.log
 ```
-
-## refs/ (read-only references, gitignored)
-If the folder is present, look at `refs/re3`, `refs/reVC` (miami), `refs/librw` — architecure/boot/RenderWare
-reference only, **no code copying** (licenses). See `refs/README.md`.

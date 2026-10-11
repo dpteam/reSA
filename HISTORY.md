@@ -7,6 +7,43 @@ Legend: ✅ verified (built/tested) · ⚠️ unverified (no toolchain) · 🚧 
 
 ---
 
+## 2026-10-12 (session 2) — RenderWare via librw; the game reaches MainLoop ✅
+
+**Milestone:** the standalone `reSA.exe` now initializes RenderWare (via **librw**) and enters the game loop
+(`MainLoop`/`ProcessGameLogic`), loading real assets (font/HUD/skin TXDs).
+
+**How:** vendored **librw** (`extern/librw`, MIT, commit `18532c2e…`) + a C-style **bridge**
+(`source/game_sa/RenderWare/RwBridge.{h,cpp}`, the only TU that includes librw's `<rw.h>`). RW functions in
+`rwplcore/rwcore/rpworld/...` got `#ifdef NOTSA_STANDALONE` bridge bodies; SA-layout macros
+(`RwCameraGet/SetRaster`, `RwRasterGetWidth/Height/Depth`, `RpLightSetFlags/Frame`, `RwIm2DGetNear/FarScreenZ`)
+were overridden under standalone to route through the bridge. See `MEMORY.md` §9–§11.
+
+**Boot chain progressed (each step verified by running, fixing one crash at a time):**
+`psGetMemoryFunctions` → `RwEngineInit/Open/Start` → `PluginAttach` → `psSelectDevice` → `RsRwInitialize` →
+`RwCameraCreate/FrameCreate/RasterCreate/MatrixCreate` + `RwCameraClear` → `RpWorldCreate`/`AddCamera`/`AddLight`/
+`RpLightCreate`/`RwFrameRotate` → `CFont::Initialise` (**TXD + textures loaded**) → `CHud::Initialise` →
+`CPlayerSkin::Initialise` → `CPostEffects` → `CGame::InitialiseRenderWare` **complete** → `CGamma::Init` →
+**`MainLoop`** → `CLoadingScreen::Init` → `CGame::InitialiseEssentialsAfterRW` (after stubbing the RxPipeline-based
+custom renderers) → **now at** `CGame::InitialiseCoreDataAfterRW` → `SurfaceInfos_c::Init` (crash: `plugin::CallMethod`
+to `0x55D0E0`).
+
+**Other fixes:** disabled ImGui debug/tools UI in standalone (`UIRenderer`, `DebugModules`) — revisit later;
+`GetMillisecondTime` → `OS_TimeMS()`; `CGamma::Init` disabled; `_rwD3D9DeviceSet/GetRestoreCallback` stubbed;
+`CCarFXRenderer`/`CCustomBuildingRenderer` `Initialise` no-op (RxPipeline cosmetics).
+
+**Product changes:** standalone binary renamed to **`reSA.exe`** (`OUTPUT_NAME reSA`); added **window icon**
+(`app.rc` + `data/Icons/app.ico`, `IDI_MAIN_ICON=1042`).
+
+**Docs:** `PROGRESS.md` (new, boot-chain table), `IDEAS.md` (new, backlog incl. `refs/gtasa10us` 1.0 US exe/PDB/CrashList,
+upstream-PR porting policy, "bring back ImGui", "RxPipeline on librw"). `MEMORY.md` §5a/§9–§11 updated. `RESUME.md`
+rewritten.
+
+**Verification:** standalone built (`bin/Debug/reSA.exe`) and run repeatedly; each blocker above found in
+`logs/log.log` and fixed. ⚠️ Mod config not rebuilt after shared-file changes (all changes are `#ifdef NOTSA_STANDALONE`,
+mod path unchanged) — a mod rebuild is still pending.
+
+---
+
 ## 2026-10-11 — Standalone foundation + project memory docs ⚠️
 
 **Direction:** start converting the mod into a standalone game (`WinMain` instead of `DllMain`), and set up the
