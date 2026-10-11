@@ -124,6 +124,14 @@
 ### 5.1 Исходники других реверсов
 - `refs/re3` (GTA III), `refs/reVC` (VC, ветка `miami`), `refs/librw` — см. `refs/README.md` и `MEMORY.md` §5b.
   Ближайшее существующее «как сделать standalone» на том же движке.
+- **`refs/AdditionalSources/*`** (добавлены 2026-10-12, пользовательские — тоже только для чтения, не коммитим):
+  * `SOME_GTA_SA_Sources` — **частичный реверс движка SA** (списки классов, битовые поля структур в `Docs/`,
+    `Engine/C*.cpp`). Есть **`CSprite2d::AddToBuffer`** — то, чего нам не хватает для текста! `CFont` там
+    частичный (`RenderFontBuffer` нет). Очень полезно для **layout'ов/структур/методов**.
+  * `PartialSAMobileCode` — код **мобильной** SA: `pipes/` = **RxPipeline** (PC/MBR/Xbox + шейдеры `*.vsh`),
+    ModelInfo, Camera, Ped, Automobile, script, MemoryMgr, TxdStore. Пригодится для наших заглушённых
+    custom-пайплайнов и мобильной логики.
+  * `SAMP` — **SA-MP 0.2.5** (клиент+сервер+RakNet). Для будущего **встроенного мультиплеера** (см. §6).
 
 ### 5.2 Оригинальный 1.0 US EXE + PDB + CrashList (`refs/gtasa10us`) 🆕
 - **Что:** `gta_sa.exe` (14 383 616 байт = оригинальный **1.0 US**, НЕ Compact), фанатский `gta_sa.pdb`
@@ -166,6 +174,7 @@
   3. `CFont::ProcessCurrentString` (0x71A220) — разбор строки/токенов → `PrintChar` (сейчас no-op).
   4. `CFont::RenderFontBuffer` (0x719840) — финальный проход по `FontRenderStateBuf` → `CSprite2d` draws + сброс `pEmptyChar`.
   Референс: `refs/reVC/src/renderer/Font.cpp` (там `PrintChar`/`RenderFontBuffer` есть, но VC-структуры отличаются).
+  **+ `refs/AdditionalSources/SOME_GTA_SA_Sources/Engine/CSprite2d.cpp` — там `AddToBuffer` УЖЕ реализован** (см. §5.1).
   Проверять `FontRenderStateBuf` (`CFontChar[9]`, адрес 0xC716B0) и `pEmptyChar` (0xC716A8).
 - 💡 **`RwIm3D*` на librw.** `RwIm3DTransform/RenderPrimitive/RenderIndexedPrimitive/RenderLine/End`
   (`rwcore.cpp`, адреса 0x7EF450…) пока вызываются в оригинальный exe. Их много (эффекты, следы, стёкла,
@@ -181,3 +190,23 @@
   Значения (особенно `Set` float→uint8, `AddDecisionMaker` возвращаемый script-handle, `SetDefault` дефолтные задачи)
   нужно **сверить с оригиналом** (сейчас задача = `TASK_NONE`, вероятности 0..100, маппинг событий — по именам).
   На boot не влияет (затрагивает только ИИ педов), но перед реальной игрой — перепроверить.
+
+## 6. 🌐 Встроенный мультиплеер (future)
+
+> **Идея пользователя:** сделать **встроенный мультиплеер** прямо в standalone-игре (не внешний SA-MP).
+
+- 💡 **Референс протокола/клиента:** `refs/AdditionalSources/SAMP` (SA-MP 0.2.5 client/server + RakNet). Смотреть
+  `client/net/` (raknet-обёртка), `client/game/` (хуки на игровые функции), `client/gui` (chat/labels/tags),
+  `server/` (gamemode/скрипты). Это «как SA-MP внедряется в игру» — но у нас игра уже **наша собственная**, поэтому
+  можно делать чище (свои менеджеры игроков/снапшотов, без memory-хуков).
+- 💡 **re3/GameSpy:** в `refs/re3`/`reVC` от оригинального сетевого кода остался только рудимент — действие
+  `NETWORK_TALK` в `ControllerConfig` (+ пара упоминаний). Полноценной реализации GameSpy там **нет**, «левтоферсов»
+  почти не осталось — рассчитывать на них не стоит, писать своё.
+- 💡 **Транспорт:** RakNet (как в SAMP) или современнее — `ENet`/`GameNetworkingSockets`. SA-MP-протокол можно взять
+  за образец сообщений (RPC/sync), но лучше опереться на уже готовую сетевую библиотеку.
+- 💡 **Архитектура (черновик):** отдельный модуль `net/` в standalone: клиент (подключение, приём снапшотов,
+  интерполяция сущностей) + сервер (авторитетная симуляция игроков/машин, стриминг мира). Синхронизация через
+  уже существующие `CPlayerPed`/`CVehicle` (по аналогии с тем, как это делается в SA-MP, но без чужих хук-хаков).
+- 💡 **UI:** чат/ник-теги/список игроков — можно подсмотреть в `refs/AdditionalSources/SAMP/client` (`chatwindow`,
+  `playertags`, `label`) и использовать наш `CFont`/`CSprite2d` (когда текст заведём — см. §4).
+- 🚫 **Не сейчас.** Сначала — одиночный boot/геймплей. Мультиплеер — после того как мир грузится и играется.

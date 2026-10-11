@@ -260,6 +260,16 @@ Notable differences to keep in mind for the standalone port:
 4. re3 re-inits mouse position (`RsMouseSetPos`) every loop iteration; we commented it out as "useless and annoying"
    (SA difference). Keep ours. ✅
 
+### 5d. Extra reference sources (`refs/AdditionalSources/*`) — added 2026-10-12
+User-provided. **Read-only, never commit** (in gitignored `refs/`), treat like the other refs (no verbatim copying).
+* **`SOME_GTA_SA_Sources`** — partial SA **engine** reverse. Has `Engine/CSprite2d.cpp` with **`AddToBuffer` implemented**
+  (the missing piece for text: writes 4 `RwD3D9Vertex` → temp vertex buffer + 6 indices → temp index list, bumps
+  `nextBufferVertex/Index`, flushes when full). `Docs/` = class list + struct bitfields (good for layouts). `CFont` is
+  only partial (no `RenderFontBuffer`). → our equivalent buffers: `aRadiosityVertexBuffer`/`aTempBufferIndices` (`common.h`).
+* **`PartialSAMobileCode`** — mobile SA: `pipes/` = **RxPipeline** (PC/MBR/Xbox + `*.vsh` shaders) → relevant to our
+  stubbed `CCustomCarEnvMapPipeline`/`CCustomBuildingPipeline`; also ModelInfo/Camera/Ped/Automobile/script/MemoryMgr/TxdStore.
+* **`SAMP`** — SA-MP 0.2.5 (client/server/RakNet) → reference for a future **built-in multiplayer** (`IDEAS.md` §6).
+
 ## 6. Proposed standalone roadmap ❓
 
 * **Phase 0 — entry point & storage (done):** real `WinMain`, shared bootstrap, config loading, address-keyed storage

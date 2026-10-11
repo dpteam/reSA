@@ -17,6 +17,13 @@ used as a reference when turning this project into a standalone game.
 | `refs/re3` | [`rocketguedes/re3`](https://github.com/rocketguedes/re3) @ `master` | GTA III — standalone game, same engine family |
 | `refs/reVC` | [`rocketguedes/re3`](https://github.com/rocketguedes/re3) @ `miami` | GTA Vice City — same, newer |
 | `refs/librw` | [`aap/librw`](https://github.com/aap/librw) @ `master` | RenderWare reimplementation |
+| `refs/AdditionalSources/SOME_GTA_SA_Sources` | (user-provided) | **Partial SA *engine* reverse** (class list, struct field docs, `Engine/C*.cpp`, incl. `CSprite2d::AddToBuffer`). Great for **struct/layout/method reference**. |
+| `refs/AdditionalSources/PartialSAMobileCode` | (user-provided) | **Mobile SA** code slices (`pipes/` = RxPipeline for PC/MBR/Xbox + shaders, ModelInfo, Camera, Ped, Automobile, script, MemoryMgr, TxdStore). Useful for RxPipeline + mobile-specific logic. |
+| `refs/AdditionalSources/SAMP` | SA-MP 0.2.5 (leaked) + RakNet + server | **Multiplayer reference** for a future built-in MP (`client/net`, `gui`, `game`, `chatwindow`, `playertags`, …). |
+
+> ⚠️ `AdditionalSources/*` are **user-provided references** — treat exactly like the rest of `refs/` (read-only, never
+> copy verbatim, never commit — `refs/` is gitignored). They may contain proprietary/leaked code; they are for
+> *understanding*, not for inclusion.
 
 > Note: the original `GTAmodding/re3` was DMCA'd and `master`/`miami` no longer exist there — hence the `rocketguedes`
 > mirror, which has exactly `master` (III), `miami` (VC) and `lcs`.
@@ -49,6 +56,14 @@ git clone --depth 1 --single-branch --branch master https://github.com/aap/librw
    ON ⇒ `WinMain` calls `InitMemoryMgr()` first. Directly relevant to our global-`operator new` blocker.
 5. **librw is initialized with** `RwEngineInit(memFuncs, 0, rsRESOURCESDEFAULTARENASIZE)` where
    `memFuncs = { Malloc, Free, Realloc, Calloc }` — that's how it gets our allocator.
+6. **`AdditionalSources/SOME_GTA_SA_Sources`** — partial SA engine reverse. Notably **has `CSprite2d::AddToBuffer`**
+   (writes 4 `RwD3D9Vertex` into a temp buffer + 6 indices into a temp index list, advancing `nextBufferVertex/Index`,
+   flushing via `RenderVertexBuffer` when full) — exactly the piece gta-reversed is missing for **text**. Its `Docs/`
+   (class list, struct field bitfields) is useful for layouts. Its `CFont` is only partial (`RenderFontBuffer` absent).
+7. **`AdditionalSources/PartialSAMobileCode/pipes/`** — RxPipeline implementations (PC/MBR/Xbox) incl. shaders. Relevant
+   to our currently-stubbed `CCustomCarEnvMapPipeline`/`CCustomBuildingPipeline`.
+8. **Multiplayer**: re3/reVC only keep a vestigial `NETWORK_TALK` action (GameSpy leftovers) — no netcode to reuse.
+   For a future built-in MP, use **`AdditionalSources/SAMP`** (SA-MP client/server/RakNet) as the protocol reference.
 
 ## Rules for using `refs/`
 * Read-only. Never `#include` anything from `refs/`, never link against it.

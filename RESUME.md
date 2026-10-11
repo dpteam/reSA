@@ -8,6 +8,16 @@
 ## Last updated
 2026-10-12 (session 2, night)
 
+> ### ✅ Before compacting the NEXT session (checklist — do this while there's budget)
+> The user wants a "hand-off" state each session so work can continue after compaction. Before ending a session, make sure:
+> 1. **`RESUME.md`** — rewritten (TL;DR, current state, blockers, next steps, commands). *This file.*
+> 2. **`PROGRESS.md`** — boot-chain table updated with what's ✅/❌/⏳.
+> 3. **`HISTORY.md`** — one entry for the session (what changed + how it was verified).
+> 4. **`MEMORY.md`** — new findings (structs/layouts/refs) that shouldn't be lost.
+> 5. **`IDEAS.md`** — anything new that was deferred (stubs, gaps, future features).
+> 6. **`git`** — everything committed (clean tree), with a message that says *how it was verified*.
+> 7. Nothing essential should live only in the chat log.
+
 ## TL;DR — where we are 🎉
 **The standalone game `reSA.exe` RUNS and RENDERS.** It boots, creates its window, and **draws the frontend in 2D**
 (on screen you can see the **VINEWOOD** splash/background). It **does not crash** (stable, ~forever).
