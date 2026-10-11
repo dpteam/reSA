@@ -19,6 +19,8 @@ namespace rngv = std::views;
 #include <filesystem>
 namespace fs = std::filesystem;
 
+#include <cstddef>
+
 #define PLUGIN_API
 
 #define VALIDATE_SIZE(struc, size) static_assert(sizeof(struc) == size, "Invalid structure size of " #struc)
@@ -154,6 +156,24 @@ template<typename... Ts>
 
 #define NOTSA_FORCEINLINE __forceinline
 
+#ifdef NOTSA_STANDALONE
+namespace notsa::detail {
+/*!
+ * @brief Returns zero-initialized, process-lifetime storage that stands in for a global variable which,
+ *        in the original game, lives at `addr`.
+ *
+ * @details The standalone executable doesn't have the original game's memory mapped, so globals which are
+ *          normally accessed through their hardcoded addresses (see `StaticRef`) have to live in our own memory.
+ *          The same `addr` always maps to the same storage (ie two `StaticRef`s of different types pointing to the
+ *          same address alias each other, just like they do in the original game).
+ *
+ * @note    Implemented without the heap on purpose - global `operator new` is overloaded to use `CMemoryMgr`,
+ *          which isn't initialized yet when the first `StaticRef` is used. See `StandaloneStorage.cpp`.
+ */
+void* GetStandaloneStaticStorage(uintptr addr, size_t size, size_t alignment);
+} // namespace notsa::detail
+#endif
+
 /*!
 * @brief Used for static variable references
 *
@@ -162,7 +182,10 @@ template<typename... Ts>
 */
 template<typename T>
 T& StaticRef(uintptr addr) {
-#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
+#if defined(NOTSA_STANDALONE) && !defined(NOTSA_STANDALONE_DUMP_HOOKS_ONLY)
+    // Standalone: There's no original game mapped, so back the variable with our own, address-keyed storage.
+    return *reinterpret_cast<T*>(notsa::detail::GetStandaloneStaticStorage(addr, sizeof(T), alignof(T)));
+#elif defined(NOTSA_STANDALONE_DUMP_HOOKS_ONLY)
     // NOTE/BUG:
     // In NOTSA_STANDALONE_DUMP_HOOKS_ONLY, StaticRef() returns a single per-type static buffer for all addresses.
     // That aliases unrelated globals of the same type (e.g., many StaticRef<int32>(...)), so writes intended for one address will overwrite the dummy storage for another.

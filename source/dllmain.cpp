@@ -1,32 +1,27 @@
 #include "StdInc.h"
 #include <cstdlib>
 #include <app_debug.h>
+#include "Bootstrap.h"
 #include "extensions/CommandLine.h"
 #include "extensions/debug.hpp"
-#include "extensions/Configuration.hpp"
 #include "InjectHooksMain.h"
-
-static constexpr auto DEFAULT_INI_FILENAME = "gta-reversed.ini";
-
-#include "extensions/Configs/FastLoader.hpp"
-#include "extensions/Configs/Miscellaneous.hpp"
 #include "dllmain.h"
+
+/*
+ * This file contains the entry point of the regular (ASI/DLL) build of the project.
+ *
+ * In the standalone (game) build there's no `DllMain` - the executable's entry point is `WinMain`
+ * (See `app/platform/win/WinMain.cpp`), and the bootstrap logic it shares with `DllMain` lives in
+ * `Bootstrap.cpp`.
+ */
+
+#ifndef NOTSA_STANDALONE
 
 HMODULE s_HandleOfDLL{};
 
-void LoadConfigurations() {
-    // Firstly load the INI into the memory.
-    g_ConfigurationMgr.Load(DEFAULT_INI_FILENAME);
-
-    // Then load all specific configurations.
-    g_FastLoaderConfig.Load();
-    g_MiscConfig.Load();
-    // ...
-}
-
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved) {
     switch (ul_reason_for_call) {
-        case DLL_PROCESS_ATTACH: {
+    case DLL_PROCESS_ATTACH: {
         s_HandleOfDLL = hModule;
 
         // Fail if RenderWare has already been started
@@ -45,7 +40,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
         if (CommandLine::s_WaitForDebugger) {
             notsa::debug::WaitForDebugger();
         }
-        LoadConfigurations();
+        notsa::bootstrap::LoadConfigurations();
 
         ReversibleHooks::RHManager::CreateInstance();
         InjectHooksMain();
@@ -74,6 +69,13 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserv
     return TRUE;
 }
 
+#endif // NOTSA_STANDALONE
+
 HMODULE notsa::GetDLLHandle() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: We're the executable (Not a DLL), so our own module is the one exporting the vtables.
+    return GetModuleHandleA(nullptr);
+#else
     return s_HandleOfDLL;
+#endif
 }

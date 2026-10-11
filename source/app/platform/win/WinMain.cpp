@@ -25,6 +25,9 @@
 #endif
 
 #ifdef NOTSA_STANDALONE
+#include <clocale>
+
+#include <Bootstrap.h>
 #include <InjectHooksMain.h>
 #include <extensions/CommandLine.h>
 #include <extensions/debug.hpp>
@@ -531,37 +534,62 @@ INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdL
 }
 
 #ifdef NOTSA_STANDALONE
-INT WINAPI WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdLine, INT nCmdShow) {
+namespace {
+/*!
+ * @brief Common initialization of the standalone executable.
+ * @note The order of the calls matters - `LoadSymbols` uses the command line (Ie. the exe path).
+ */
+void BootstrapStandalone() {
+    std::setlocale(LC_ALL, "en_US.UTF-8");
+
+    notsa::debug::DisplayConsole();
+
     CommandLine::Load(__argc, __argv);
     if (CommandLine::s_WaitForDebugger) {
         notsa::debug::WaitForDebugger();
     }
 
-    notsa::debug::DisplayConsole();
-    notsa::debug::LoadSymbols();
+    notsa::debug::LoadSymbols(); // Used by logging
     notsa::Logging::CreateInstance();
+}
+} // anonymous namespace
+
+/*!
+ * @brief Entry point of the standalone (game) build.
+ *
+ * Unlike the regular (ASI) build - which is injected into the original `gta_sa.exe` and hooks its `WinMain` -
+ * this executable *is* the game: It does the same initialization `DllMain` does, installs the reversed hooks
+ * and then runs the (reversed) game loop directly.
+ */
+INT WINAPI WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdLine, INT nCmdShow) {
+    BootstrapStandalone();
+
     notsa::ScopeGuard cleanupLogging{ [] {
         notsa::Logging::DestroyInstance();
         notsa::debug::UnloadSymbols();
     } };
 
-#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
     ReversibleHooks::RHManager::CreateInstance();
     notsa::ScopeGuard cleanupRH{ [] {
         ReversibleHooks::RHManager::DestroyInstance();
-    }};
+    } };
 
+#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
     NOTSA_LOG_INFO("Dumping hooks only, no memory writing will be performed");
 
     InjectHooksMain(); // This will also end up calling the CLI to dump the hooks
 
     return 0;
 #else
-    notsa::ui::UIRenderer::CreateInstance();
-    // code..
-    notsa::ui::UIRenderer::CreateInstance();
-    NOTSA_LOG_ERR("This executable is meant to be used for dumping hooks only, see `NOTSA_STANDALONE_DUMP_HOOKS_ONLY` option");
-    return 1;
+    notsa::bootstrap::LoadConfigurations();
+
+    InjectHooksMain();
+
+    // NOTE: The reversing isn't complete yet, so this only works for the parts that have been reversed -
+    //       non-reversed code still lives in the original executable (See `plugin::Call`) and is thus
+    //       unavailable here.
+    NOTSA_LOG_INFO("Starting GTA: San Andreas (standalone build)...");
+    return NOTSA_WinMain(instance, hPrevInstance, cmdLine, nCmdShow);
 #endif
 }
 #endif
