@@ -663,7 +663,13 @@ void CFont::DrawFonts() {
 
 // 0x71A220
 int16 CFont::ProcessCurrentString(bool print, float x, float y, const GxtChar* text) {
+#ifdef NOTSA_STANDALONE
+    // TODO: Not reversed (upstream neither). Parses the string + appends glyphs to the render buffer.
+    // No-op for now (text won't render) - see RenderFontBuffer + IDEAS.md.
+    return 0;
+#else
     return plugin::CallAndReturn<int16, 0x71A220, bool, float, float, const GxtChar*>(print, x, y, text);
+#endif
 }
 
 // 0x71A5E0
@@ -764,7 +770,12 @@ float CFont::GetHeight(bool a1) {
 
 // 0x719670, original name unknown
 float GetScriptLetterSize(uint8 letterId) {
+#ifdef NOTSA_STANDALONE
+    // TODO: Not reversed. Only used by CFont::GetStringWidth(scriptText=true) - return a rough estimate.
+    return 8.0f;
+#else
     return plugin::CallAndReturn<float, 0x719670, uint8>(letterId);
+#endif
 }
 
 // 0x7192C0

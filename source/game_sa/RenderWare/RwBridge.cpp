@@ -253,6 +253,75 @@ float Im2DGetFarScreenZ() {
     return rw::engine->device.zFar;
 }
 
+// Maps SA's `RwRenderState` to librw's `rw::RenderState`. Returns -1 if librw has no equivalent.
+// (SA: rwplcore.h `enum RwRenderState`; librw: src/rwrender.h `enum RenderState`.)
+static int TranslateRenderState(int sa) {
+    switch (sa) {
+    case  1: return  0; // TEXTURERASTER
+    case  2: return  1; // TEXTUREADDRESS
+    case  3: return  2; // TEXTUREADDRESSU
+    case  4: return  3; // TEXTUREADDRESSV
+    case  9: return  4; // TEXTUREFILTER
+    case 12: return  5; // VERTEXALPHAENABLE
+    case 10: return  6; // SRCBLEND
+    case 11: return  7; // DESTBLEND
+    case  6: return  8; // ZTESTENABLE
+    case  8: return  9; // ZWRITEENABLE
+    case 14: return 10; // FOGENABLE
+    case 15: return 11; // FOGCOLOR
+    case 20: return 12; // CULLMODE
+    case 21: return 13; // STENCILENABLE
+    case 22: return 14; // STENCILFAIL
+    case 23: return 15; // STENCILZFAIL
+    case 24: return 16; // STENCILPASS
+    case 25: return 17; // STENCILFUNCTION
+    case 26: return 18; // STENCILFUNCTIONREF
+    case 27: return 19; // STENCILFUNCTIONMASK
+    case 28: return 20; // STENCILFUNCTIONWRITEMASK
+    case 29: return 21; // ALPHATESTFUNCTION
+    case 30: return 22; // ALPHATESTFUNCTIONREF
+    default: return -1; // NARENDERSTATE, TEXTUREPERSPECTIVE, SHADEMODE, BORDERCOLOR, FOGTYPE, FOGDENSITY
+    }
+}
+
+bool RenderStateSet(int state, void* value) {
+    const int s = TranslateRenderState(state);
+    if (s < 0) {
+        return true; // No librw equivalent (eg. shademode/perspective/fogtype) - ignore.
+    }
+    rw::SetRenderStatePtr(s, value);
+    return true;
+}
+
+bool RenderStateGet(int state, void* value) {
+    const int s = TranslateRenderState(state);
+    if (s < 0) {
+        return true;
+    }
+    *static_cast<void**>(value) = rw::GetRenderStatePtr(s);
+    return true;
+}
+
+bool Im2DRenderLine(void* verts, int numVerts, int vert1, int vert2) {
+    rw::im2d::RenderLine(verts, numVerts, vert1, vert2);
+    return true;
+}
+
+bool Im2DRenderTriangle(void* verts, int numVerts, int vert1, int vert2, int vert3) {
+    rw::im2d::RenderTriangle(verts, numVerts, vert1, vert2, vert3);
+    return true;
+}
+
+bool Im2DRenderPrimitive(int primType, void* verts, int numVerts) {
+    rw::im2d::RenderPrimitive(static_cast<rw::PrimitiveType>(primType), verts, numVerts);
+    return true;
+}
+
+bool Im2DRenderIndexedPrimitive(int primType, void* verts, int numVerts, void* indices, int numIndices) {
+    rw::im2d::RenderIndexedPrimitive(static_cast<rw::PrimitiveType>(primType), verts, numVerts, indices, numIndices);
+    return true;
+}
+
 void* MatrixCreate() {
     return rw::Matrix::create();
 }

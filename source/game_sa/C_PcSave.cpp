@@ -30,7 +30,10 @@ void C_PcSave::SetSaveDirectory(const char* path) {
 void C_PcSave::GenerateGameFilename(int32 slot, char* out) {
     assert(slot < MAX_SAVEGAME_SLOTS);
 
-    const auto maxSize = std::size(DefaultPCSaveFileName) + std::size(std::to_string(MAX_SAVEGAME_SLOTS)) + std::size(".b") - 2u;
+    // The original sized this buffer with `... - 2u`, which is larger than `MAX_PATH` - 1, while several
+    // call sites pass `char[MAX_PATH]` (and `ms_LoadFileNameWithPath` is only `char[104]`!). Cap it so it
+    // never overflows the destination (and account for the `%i` above slot 9).
+    const auto maxSize = MAX_PATH;
     sprintf_s(out, maxSize, "%s%i%s", DefaultPCSaveFileName, slot + 1, ".b");
 }
 

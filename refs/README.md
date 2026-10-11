@@ -33,6 +33,10 @@ git clone --depth 1 --single-branch --branch master https://github.com/aap/librw
 
 ## Findings so far (details in `MEMORY.md` §3, §5b)
 
+> **Tip (from the user):** when something on our side isn't reversed (a `plugin::Call` stub), **check `refs/reVC`** first —
+> many SA systems have a direct or near-equivalent VC implementation (`audio/`, `text/`, `renderer/`, `fakerw/`, `core/`).
+> Reimplement in our own style; don't copy verbatim.
+
 1. **re3/reVC are the closest prior art.** Same boot flow, same subsystem names (`MemoryMgr`, `MemoryHeap`,
    `TxdStore`, `RwHelper`, `VisibilityPlugins`). Their `src/skel/win/win.cpp: WinMain` mirrors our `NOTSA_WinMain`.
 2. **RenderWare = librw + a compat shim.** re3 does *not* rewrite its `Rw*` call sites — it keeps the classic C API and

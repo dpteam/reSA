@@ -101,6 +101,16 @@ void  RasterUnlock(void* raster);
 float Im2DGetNearScreenZ();
 float Im2DGetFarScreenZ();
 
+/*! @brief Render-state set/get (SA `RwRenderStateSet`/`RwRenderStateGet`). Set returns true. */
+bool  RenderStateSet(int state, void* value);
+bool  RenderStateGet(int state, void* value);
+
+/*! @brief 2D immediate-mode drawing (SA `RwIm2DRender*`). `primType` is `rwPRIMTYPE*`. Return true. */
+bool  Im2DRenderLine(void* verts, int numVerts, int vert1, int vert2);
+bool  Im2DRenderTriangle(void* verts, int numVerts, int vert1, int vert2, int vert3);
+bool  Im2DRenderPrimitive(int primType, void* verts, int numVerts);
+bool  Im2DRenderIndexedPrimitive(int primType, void* verts, int numVerts, void* indices, int numIndices);
+
 void* MatrixCreate();
 
 /*! @brief `rwObjectHasFrameSetFrame` - attach a frame to an object-has-frame (camera/atomic/light). */

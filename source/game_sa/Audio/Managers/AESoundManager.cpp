@@ -93,6 +93,12 @@ void CAESoundManager::PauseManually(uint8 bPause) {
 
 // 0x4F0000
 void CAESoundManager::Service() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: sound playback isn't ready yet (sounds end up with dangling/garbage `m_AudioEntity`,
+    // which crashes on `m_AudioEntity->UpdateParameters(...)`). Skip audio servicing entirely for now -
+    // there's simply no sound. TODO: fix the audio path & re-enable. See IDEAS.md.
+    return;
+#endif
     // Clear sounds uncancellable status for this frame
     std::fill_n(m_PrioritisedSoundList, m_NumAllocatedPhysicalChannels, -1);
 

@@ -49,7 +49,7 @@ public:
     struct tSoundPlayParams {
         eSoundBankSlot  BankSlotID;               //!< The slot to play the sound from
         eSoundID        SoundID;                  //!< The sound ID to play (From the specified bank slot)
-        CAEAudioEntity* AudioEntity;              //!< The audio entity that requested this sound
+        CAEAudioEntity* AudioEntity{};            //!< The audio entity that requested this sound
         CVector         Pos;                      //!< The position
         float           Volume;                   //!< The volume (in dB)
         float           RollOffFactor{ 1.f };     //!< ??

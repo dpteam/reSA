@@ -760,8 +760,11 @@ bool CAEFrontendAudioEntity::IsLoadingTuneActive() {
 
 // 0x4DEDA0
 void CAEFrontendAudioEntity::UpdateParameters(CAESound* sound, int16 curPlayPos) {
+#ifndef NOTSA_STANDALONE
     return plugin::CallMethod<0x4DEDA0, CAEFrontendAudioEntity*, CAESound*, int16>(this, sound, curPlayPos);
-
+#else
+    // Standalone: original body lives in gta_sa.exe - use the reversed (untested) body below.
+#endif
     // untested
     if (!sound)
         return;

@@ -5621,6 +5621,20 @@ extern RwBool RwIm2DRenderIndexedPrimitive(RwPrimitiveType primType, RwIm2DVerte
 #define RwIm2DGetNearScreenZ() rwbridge::Im2DGetNearScreenZ()
 #undef RwIm2DGetFarScreenZ
 #define RwIm2DGetFarScreenZ()  rwbridge::Im2DGetFarScreenZ()
+
+// Same for the render-state and immediate-2D macros (they all dispatch through `dOpenDevice`).
+#undef RwRenderStateSet
+#define RwRenderStateSet(_state, _value) rwbridge::RenderStateSet(_state, (void*)(_value))
+#undef RwRenderStateGet
+#define RwRenderStateGet(_state, _value) rwbridge::RenderStateGet(_state, (void*)(_value))
+#undef RwIm2DRenderLine
+#define RwIm2DRenderLine(_vertices, _numVertices, _vert1, _vert2) rwbridge::Im2DRenderLine(_vertices, _numVertices, _vert1, _vert2)
+#undef RwIm2DRenderTriangle
+#define RwIm2DRenderTriangle(_vertices, _numVertices, _vert1, _vert2, _vert3) rwbridge::Im2DRenderTriangle(_vertices, _numVertices, _vert1, _vert2, _vert3)
+#undef RwIm2DRenderPrimitive
+#define RwIm2DRenderPrimitive(_primType, _vertices, _numVertices) rwbridge::Im2DRenderPrimitive(_primType, _vertices, _numVertices)
+#undef RwIm2DRenderIndexedPrimitive
+#define RwIm2DRenderIndexedPrimitive(_primType, _vertices, _numVertices, _indices, _numIndices) rwbridge::Im2DRenderIndexedPrimitive(_primType, _vertices, _numVertices, _indices, _numIndices)
 #endif /* NOTSA_STANDALONE */
 
 

@@ -163,6 +163,11 @@
   (`rwcore.cpp`, адреса 0x7EF450…) пока вызываются в оригинальный exe. Их много (эффекты, следы, стёкла,
   линии отладки). Нужен маппинг на librw `im3d::*` — но у librw другой layout `Im3DVertex` (position/normal/color/uv),
   проверить совместимость. Сейчас — **не сделано** (следующая крупная RW-задача после текста).
+- 💡 **Аудио (sound playback) не работает в standalone.** Сейчас заглушены: `CAESoundManager::Service`
+  (иначе крэш на `m_AudioEntity->UpdateParameters`), `CAERadioTrackManager::Service`. Причина — где-то
+  `CAESound::m_AudioEntity` оказывается мусорным (возможно несовместимость layout/reinterpret_cast в audio-сущностях,
+  либо неинициализированный `AudioEntity`). Нужно разобрать весь audio-путь (и `CAEAudioEntity` vtable/размеры —
+  `VALIDATE_SIZE` только для размера, не для полей). Как всегда — сверяться с `refs/reVC` (`src/audio/`).
 - 💡 **Проверить семантику decision-maker'ов.** Под standalone реализованы (best-effort) `CDecision::SetDefault/Set`,
   `CDecisionMakerTypes::{GetInstance,LoadEventIndices,AddDecisionMaker,RemoveDecisionMaker}` (в оригинале — `plugin::Call`).
   Значения (особенно `Set` float→uint8, `AddDecisionMaker` возвращаемый script-handle, `SetDefault` дефолтные задачи)

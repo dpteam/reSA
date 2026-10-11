@@ -172,6 +172,19 @@ Crashes fixed (each verified by running), in order:
    (`UIRenderer` + `DebugModules` are no-ops; `AESoundManager`'s debug hook gated). Revisit later — see `IDEAS.md`.
 5. **`CGamma::Init`** — disabled in standalone (needs the D3D9 device/caps librw doesn't expose here; gamma is optional).
 6. **`GetMillisecondTime`** (`0x5617C0`) — implemented via `OS_TimeMS()` in standalone (it's just a 64-bit `RsTimer`).
+7. **`CDecisionMakerTypes`** — `GetInstance`/`LoadEventIndices`/`Add`/`RemoveDecisionMaker` and `CDecision::SetDefault/Set`
+   implemented (best-effort, in `DecisionMakerTypes.cpp`/`Decision.cpp`) — they were `plugin::Call`s.
+8. **`SurfaceInfos_c::LoadAdhesiveLimits`** — implemented (parses `data/surface.dat` adhesion matrix).
+9. **Frontend/menu path** — `RwD3D9GetCaps` (via librw `getD3D9Caps`), `Sprite2d`/`Sprite` screen-Z, `D3DResourceSystem`
+   (no-op), `CAEFrontendAudioEntity::AddAudioEvent` (use reversed body), `CAEWMADecoder::WMCreateSyncReader` (`StaticRef`),
+   `CAERadioTrackManager::Service` (no-op), `CFont::RenderFontBuffer` (no-op — **text doesn't render yet**).
+   Also: **`RwRenderStateSet`/`RwIm2D*`/`RwRenderStateGet` are translated** in `RwBridge` — SA's `RwRenderState` and librw's
+   `RenderState` are ordered differently, so the bridge maps them (see `TranslateRenderState`).
+   The game now reaches the **frontend menu** and actually submits draw calls to librw.
+
+**Unreversed pieces still stubbed/skipped in standalone** (see `IDEAS.md`): `CFont::RenderFontBuffer` (text!), the
+`RwIm3D*` immediate-mode family, `CAERadioTrackManager::Service`, `D3DResourceSystem`, RxPipeline cosmetics, the
+empty `CDecisionMakerTypes::MakeDecision*`. **Check `refs/reVC` for equivalents** when reversing these.
 
 **How to run it:** build → `bin/Debug/reSA.exe`; put the full GTA:SA assets next to it and run with that as the working
 directory (it opens relative paths like `MODELS\GTA3.IMG`). `logs/log.log` has a full stack on every crash.
