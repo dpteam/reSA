@@ -592,7 +592,12 @@ void CFont::InitPerFrame() {
 // Draw text we have in buffer
 // 0x719840
 void CFont::RenderFontBuffer() {
+#ifdef NOTSA_STANDALONE
+    // TODO: Not reversed (upstream neither). It flushes the accumulated characters (FontRenderStateBuf)
+    // into CSprite draws. Until it's implemented, text won't render at all (menus/HUD/loading) - see IDEAS.md.
+#else
     plugin::Call<0x719840>();
+#endif
 }
 
 // 0x71A0E0

@@ -791,7 +791,12 @@ void CAERadioTrackManager::CheckForPause() {
 
 // 0x4EB9A0
 void CAERadioTrackManager::Service(int32 playTime) {
+#ifndef NOTSA_STANDALONE
     plugin::CallMethod<0x4EB9A0, CAERadioTrackManager*, int32>(this, playTime);
+#else
+    // Standalone: not reversed (upstream neither). This drives the radio (music/idents/adverts);
+    // safe to skip - the radio simply won't play. TODO: implement - see IDEAS.md.
+#endif
 }
 
 // 0x5D40E0

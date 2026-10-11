@@ -5,7 +5,12 @@
 #include "MemoryMgr.h"
 
 // WMA functions
+#ifdef NOTSA_STANDALONE
+// Standalone: the original game isn't mapped - back the variable with our own storage.
+HRESULT(__stdcall*& CAEWMADecoder::WMCreateSyncReader)(IUnknown*, DWORD, IWMSyncReader**) = StaticRef<HRESULT(__stdcall*)(IUnknown*, DWORD, IWMSyncReader**)>(0xb6bad8);
+#else
 HRESULT(__stdcall*& CAEWMADecoder::WMCreateSyncReader)(IUnknown*, DWORD, IWMSyncReader**) = *(HRESULT(__stdcall**)(IUnknown*, DWORD, IWMSyncReader**))0xb6bad8;
+#endif
 
 // 0x502720
 CAEWMADecoder::CAEWMADecoder(CAEDataStream* dataStream) : CAEStreamingDecoder(dataStream) {

@@ -155,6 +155,14 @@
   эффекты поверх пайплайнов/плагинов librw** (отдельная крупная задача).
 - 💡 **Аксессоры RW-полей** — свести все прямые обращения к полям RW-структур (см. `MEMORY.md` §10, ~115 мест)
   к одному слою, чтобы bridge был единственной точкой правды.
+- 💡 **`CFont::RenderFontBuffer` (0x719840) не реверснут** (и в апстриме тоже). Сейчас под `NOTSA_STANDALONE`
+  это **no-op**, поэтому **текст не рисуется вообще** (меню/HUD/загрузка). Нужно реализовать: он проходит по
+  накопленному `FontRenderStateBuf` и рисует глифы через `CSprite2d` (см. `CFont::PrintChar` — там уже есть
+  логика UV). Крупная задача, но важная для играбельности.
+- 💡 **`RwIm3D*` на librw.** `RwIm3DTransform/RenderPrimitive/RenderIndexedPrimitive/RenderLine/End`
+  (`rwcore.cpp`, адреса 0x7EF450…) пока вызываются в оригинальный exe. Их много (эффекты, следы, стёкла,
+  линии отладки). Нужен маппинг на librw `im3d::*` — но у librw другой layout `Im3DVertex` (position/normal/color/uv),
+  проверить совместимость. Сейчас — **не сделано** (следующая крупная RW-задача после текста).
 - 💡 **Проверить семантику decision-maker'ов.** Под standalone реализованы (best-effort) `CDecision::SetDefault/Set`,
   `CDecisionMakerTypes::{GetInstance,LoadEventIndices,AddDecisionMaker,RemoveDecisionMaker}` (в оригинале — `plugin::Call`).
   Значения (особенно `Set` float→uint8, `AddDecisionMaker` возвращаемый script-handle, `SetDefault` дефолтные задачи)
