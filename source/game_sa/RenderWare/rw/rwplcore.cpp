@@ -3,7 +3,7 @@
 #include "rwplcore.h"
 
 #ifdef NOTSA_STANDALONE
-#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#include "RwBridge.h" // librw-backed RenderWare (standalone build)
 #endif
 
 RwMemoryFunctions* RwOsGetMemoryInterface() {
@@ -51,15 +51,37 @@ RwStream* _rwStreamInitialize(RwStream* stream, RwBool rwOwned, RwStreamType typ
 }
 
 RwStream* RwStreamOpen(RwStreamType type, RwStreamAccessType accessType, const void* data) {
+#ifdef NOTSA_STANDALONE
+    switch (type) {
+    case rwSTREAMFILENAME:
+        return (RwStream*)rwbridge::StreamOpenFile((const char*)data);
+    case rwSTREAMMEMORY: {
+        const auto* mem = (const RwStreamMemory*)data;
+        return (RwStream*)rwbridge::StreamOpenMemory(mem->memBlock, mem->nSize);
+    }
+    default:
+        return nullptr; // TODO: custom streams
+    }
+#else
     return ((RwStream*(__cdecl *)(RwStreamType, RwStreamAccessType, const void*))0x7ECEF0)(type, accessType, data);
+#endif
 }
 
 RwBool RwStreamClose(RwStream* stream, void* data) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::StreamClose(stream);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwStream*, void*))0x7ECE20)(stream, data);
+#endif
 }
 
 RwUInt32 RwStreamRead(RwStream* stream, void* buffer, RwUInt32 length) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::StreamRead(stream, buffer, length);
+#else
     return ((RwUInt32(__cdecl *)(RwStream*, void*, RwUInt32))0x7EC9D0)(stream, buffer, length);
+#endif
 }
 
 RwStream* RwStreamWrite(RwStream* stream, const void* buffer, RwUInt32 length) {
@@ -67,7 +89,12 @@ RwStream* RwStreamWrite(RwStream* stream, const void* buffer, RwUInt32 length) {
 }
 
 RwStream* RwStreamSkip(RwStream* stream, RwUInt32 offset) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::StreamSkip(stream, offset);
+    return stream;
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwUInt32))0x7ECD00)(stream, offset);
+#endif
 }
 
 RwBool _rwStringOpen() {
@@ -515,7 +542,11 @@ void _rwResourcesPurge() {
 }
 
 RwBool RwStreamFindChunk(RwStream* stream, RwUInt32 type, RwUInt32* lengthOut, RwUInt32* versionOut) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::StreamFindChunk(stream, type, lengthOut, versionOut);
+#else
     return ((RwBool(__cdecl *)(RwStream*, RwUInt32, RwUInt32*, RwUInt32*))0x7ED2D0)(stream, type, lengthOut, versionOut);
+#endif
 }
 
 RwStream* _rwStreamWriteVersionedChunkHeader(RwStream* stream, RwInt32 type, RwInt32 size, RwUInt32 version, RwUInt32 buildNum) {

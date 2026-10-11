@@ -4,7 +4,7 @@
 #include <rpdbgerr.h>
 
 #ifdef NOTSA_STANDALONE
-#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#include "RwBridge.h" // librw-backed RenderWare (standalone build)
 #endif
 
 void _rwD3D9VSSetActiveWorldMatrix(const RwMatrix* worldMatrix) {

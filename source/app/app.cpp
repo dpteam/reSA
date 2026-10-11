@@ -12,7 +12,7 @@
 #include "Pipelines/CustomBuilding/CustomBuildingRenderer.h"
 
 #ifdef NOTSA_STANDALONE
-#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare plugins (standalone)
+#include "RwBridge.h" // librw-backed RenderWare plugins (standalone)
 #endif
 
 #include "platform/win/WinPlatform.h"

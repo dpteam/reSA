@@ -1,0 +1,12 @@
+// Resource script for the standalone executable.
+//
+// Provides the window icon (`IDI_MAIN_ICON`, see `WinPlatform.h` / `Win32_InitApplication`).
+// In the mod build the game's own resources provide it; in the standalone build we must ship it ourselves.
+//
+// NOTE: The resource compiler doesn't include `WinPlatform.h`, so the id is repeated here - keep it in sync.
+
+#include <windows.h>
+
+#define IDI_MAIN_ICON 1042
+
+IDI_MAIN_ICON ICON "app.ico"

@@ -2,6 +2,10 @@
 
 #include "rwtexdict.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RwBridge.h" // librw-backed RenderWare (standalone)
+#endif
+
 RwTexture* GetFirstTexture(RwTexDictionary* txd) {
     return plugin::CallAndReturn<RwTexture*, 0x734940, RwTexDictionary*>(txd);
 }
@@ -15,7 +19,11 @@ RwTexture* RwTextureGtaStreamRead(RwStream* stream) {
 }
 
 RwTexDictionary* RwTexDictionaryGtaStreamRead(RwStream* stream) {
+#ifdef NOTSA_STANDALONE
+    return (RwTexDictionary*)rwbridge::TexDictionaryStreamRead(stream);
+#else
     return plugin::CallAndReturn<RwTexDictionary*, 0x730FC0, RwStream*>(stream);
+#endif
 }
 
 RwTexDictionary* RwTexDictionaryGtaStreamRead1(RwStream* stream) {

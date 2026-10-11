@@ -4833,7 +4833,7 @@ MACRO_STOP
 #ifdef NOTSA_STANDALONE
 // Standalone: RenderWare is provided by librw, whose struct layouts differ from SA's (see MEMORY.md §10).
 // These accessors must NOT read the SA offsets directly - route them through the librw bridge.
-#include "RenderWare/librw/RwBridge.h"
+#include "RwBridge.h"
 
 #undef RwCameraGetRaster
 #define RwCameraGetRaster(_camera)          ((RwRaster*)rwbridge::CameraGetRaster((_camera)))

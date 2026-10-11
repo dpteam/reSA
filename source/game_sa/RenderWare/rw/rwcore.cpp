@@ -3,7 +3,7 @@
 #include "rwcore.h"
 
 #ifdef NOTSA_STANDALONE
-#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#include "RwBridge.h" // librw-backed RenderWare (standalone build)
 #endif
 
 void RwCoreInjectHooks() {
@@ -519,7 +519,11 @@ void RwTexDictionarySetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocks
 }
 
 RwTexDictionary* RwTexDictionaryCreate() {
+#ifdef NOTSA_STANDALONE
+    return (RwTexDictionary*)rwbridge::TexDictionaryCreate();
+#else
     return ((RwTexDictionary*(__cdecl *)(void))0x7F3600)();
+#endif
 }
 
 RwBool RwTexDictionaryDestroy(RwTexDictionary* dict) {
@@ -527,39 +531,79 @@ RwBool RwTexDictionaryDestroy(RwTexDictionary* dict) {
 }
 
 RwTexture* RwTextureCreate(RwRaster* raster) {
+#ifdef NOTSA_STANDALONE
+    return (RwTexture*)rwbridge::TextureCreate(raster);
+#else
     return ((RwTexture*(__cdecl *)(RwRaster*))0x7F37C0)(raster);
+#endif
 }
 
 RwTexture* RwTextureRead(const char* name, const char* maskName) {
+#ifdef NOTSA_STANDALONE
+    return (RwTexture*)rwbridge::TextureRead(name, maskName);
+#else
     return plugin::CallAndReturn<RwTexture*, 0x7F3AC0, const char*, const char*>(name, maskName);
+#endif
 }
 
 RwBool RwTextureDestroy(RwTexture* texture) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::TextureDestroy(texture);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwTexture*))0x7F3820)(texture);
+#endif
 }
 
 RwTexture* RwTextureSetRaster(RwTexture* texture, RwRaster* raster) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::TextureSetRaster(texture, raster);
+    return texture;
+#else
     return ((RwTexture*(__cdecl *)(RwTexture*, RwRaster*))0x7F35D0)(texture, raster);
+#endif
 }
 
 RwTexture* RwTexDictionaryAddTexture(RwTexDictionary* dict, RwTexture* texture) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::TexDictionaryAddTexture(dict, texture);
+    return texture;
+#else
     return ((RwTexture*(__cdecl *)(RwTexDictionary*, RwTexture*))0x7F3980)(dict, texture);
+#endif
 }
 
 RwTexture* RwTexDictionaryRemoveTexture(RwTexture* texture) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::TexDictionaryRemoveTexture(texture);
+    return texture;
+#else
     return ((RwTexture*(__cdecl *)(RwTexture*))0x7F39C0)(texture);
+#endif
 }
 
 RwTexture* RwTexDictionaryFindNamedTexture(RwTexDictionary* dict, const RwChar* name) {
+#ifdef NOTSA_STANDALONE
+    return (RwTexture*)rwbridge::TexDictionaryFindNamedTexture(dict, name);
+#else
     return ((RwTexture*(__cdecl *)(RwTexDictionary*, const RwChar*))0x7F39F0)(dict, name);
+#endif
 }
 
 RwTexDictionary* RwTexDictionaryGetCurrent() {
+#ifdef NOTSA_STANDALONE
+    return (RwTexDictionary*)rwbridge::TexDictionaryGetCurrent();
+#else
     return ((RwTexDictionary*(__cdecl *)(void))0x7F3A90)();
+#endif
 }
 
 RwTexDictionary* RwTexDictionarySetCurrent(RwTexDictionary* dict) {
+#ifdef NOTSA_STANDALONE
+    return (RwTexDictionary*)rwbridge::TexDictionarySetCurrent(dict);
+#else
     return ((RwTexDictionary*(__cdecl *)(RwTexDictionary*))0x7F3A70)(dict);
+#endif
 }
 
 const RwTexDictionary* RwTexDictionaryForAllTextures(const RwTexDictionary* dict, RwTextureCallBack fpCallBack, void* data) {

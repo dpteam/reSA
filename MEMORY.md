@@ -30,7 +30,7 @@
 | CMake option | Target | Entry point | Purpose |
 |---|---|---|---|
 | *(default)* | `gta_reversed.asi` (MODULE) | `DllMain` (`source/dllmain.cpp`) | Injected into the original `gta_sa.exe`; real hooks redirect game functions to our reversed code. |
-| `GTASA_STANDALONE=ON` | `gta_reversed.exe` (WIN32) | `WinMain` (`source/app/platform/win/WinMain.cpp`) | The standalone game. **WIP.** |
+| `GTASA_STANDALONE=ON` | `reSA.exe` (WIN32, target `gta_reversed`) | `WinMain` (`source/app/platform/win/WinMain.cpp`) | The standalone game. **WIP.** |
 | `..._STANDALONE_DUMP_HOOKS_ONLY=ON` | exe | `WinMain` | CI-only: dumps hook metadata as JSON, does nothing else. |
 
 Both suffix/output dir: `bin/<config>/`. ✅
@@ -269,7 +269,7 @@ complete standalone games built on the same engine family, plus `refs/librw` for
 
 ## 8. Running & debugging the standalone build
 
-* **Command:** build → `bin/Debug/gta_reversed.exe`. Run it from a directory that has the game's assets
+* **Command:** build → `bin/Debug/reSA.exe` (standalone; the mod is `gta_reversed.asi`). Run it from a directory that has the game's assets
   (or put the exe into the GTA:SA folder). It opens relative paths (`MODELS\GTA3.IMG`, …), so cwd matters.
 * **Logs:** `logs/log.log` (next to cwd) + console. The unhandled-exception handler
   (`app_debug.cpp: WindowsExceptionHandler`) logs the exception code, registers and a **full call stack** —

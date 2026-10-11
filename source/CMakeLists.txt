@@ -139,7 +139,7 @@ if (${RE_PROJECT}_STANDALONE)
     add_subdirectory("${CMAKE_SOURCE_DIR}/extern/librw" "${CMAKE_BINARY_DIR}/extern/librw")
 
     # The librw bridge must NOT get our PCH (`StdInc.h`), as it deliberately avoids SA headers.
-    set_source_files_properties(game_sa/RenderWare/librw/RwBridge.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(game_sa/RenderWare/RwBridge.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 #--------------------------------------------------------------------
@@ -205,6 +205,9 @@ if (${RE_PROJECT}_STANDALONE)
     target_link_libraries(${RE_PROJECT_LIB_NAME} PRIVATE
         librw::librw
     )
+
+    # The standalone game is called `reSA.exe` (the mod/DLL keeps the `gta_reversed` name).
+    set_target_properties(${RE_PROJECT_LIB_NAME} PROPERTIES OUTPUT_NAME "reSA")
 endif()
 
 target_include_directories(${RE_PROJECT_LIB_NAME} PRIVATE
@@ -271,6 +274,13 @@ target_include_directories(${RE_PROJECT_LIB_NAME} PRIVATE
 target_sources(${RE_PROJECT_LIB_NAME} PRIVATE
     notsa.natvis
 )
+
+# Windows resource script (window icon). Only relevant for the executable; harmless for the DLL.
+if (WIN32)
+    target_sources(${RE_PROJECT_LIB_NAME} PRIVATE
+        app/platform/win/app.rc
+    )
+endif()
 
 target_compile_definitions(${RE_PROJECT_LIB_NAME} PRIVATE
     _CRT_SECURE_NO_WARNINGS

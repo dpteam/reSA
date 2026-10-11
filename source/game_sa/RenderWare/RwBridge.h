@@ -109,6 +109,35 @@ void  LightSetRadius(void* light, float radius);
 void  LightSetColor(void* light, const float* rgba);  //!< rgba: 4 floats (red,green,blue,alpha).
 void  LightSetFlags(void* light, unsigned flags);
 
+//-------------------------------------------------------------------------
+// Streams (librw `Stream` subclass instances, kept as opaque handles)
+//-------------------------------------------------------------------------
+void* StreamOpenFile(const char* filename);
+void* StreamOpenMemory(const unsigned char* data, unsigned size);
+void  StreamClose(void* stream);
+unsigned StreamRead(void* stream, void* buffer, unsigned length);
+void  StreamSkip(void* stream, unsigned offset);
+bool  StreamFindChunk(void* stream, unsigned type, unsigned* lengthOut, unsigned* versionOut);
+void* TexDictionaryStreamRead(void* stream); //!< librw `TexDictionary::streamRead`
+
+//-------------------------------------------------------------------------
+// TexDictionary / Texture
+//-------------------------------------------------------------------------
+void* TexDictionaryCreate();
+void* TexDictionaryGetCurrent();
+void* TexDictionarySetCurrent(void* txd);
+void  TexDictionaryAddTexture(void* txd, void* texture);
+void* TexDictionaryFindNamedTexture(void* txd, const char* name);
+void  TextureDestroy(void* texture);
+int   TexDictionaryCount(void* txd);
+void* TextureRead(const char* name, const char* maskName);
+void* TextureCreate(void* raster);
+void  TextureSetRaster(void* texture, void* raster);
+void  TextureSetName(void* texture, const char* name);
+void  TextureSetMaskName(void* texture, const char* name);
+void  TexDictionaryRemoveTexture(void* texture);
+void  TextureSetFilterAddressing(void* texture, unsigned filterAddressing);
+
 int  GetNumSubSystems();bool GetSubSystemInfo(char* nameOut, int nameSize, int index);
 int  GetCurrentSubSystem();
 bool SetSubSystem(int index);

@@ -8,6 +8,7 @@
 #ifdef NOTSA_STANDALONE
 
 #include <windows.h>
+#include <string.h>
 
 #include <rw.h>
 
@@ -274,6 +275,116 @@ void LightSetColor(void* light, const float* rgba) {
 
 void LightSetFlags(void* light, unsigned flags) {
     static_cast<rw::Light*>(light)->setFlags(flags);
+}
+
+//-------------------------------------------------------------------------
+// Streams
+//-------------------------------------------------------------------------
+void* StreamOpenFile(const char* filename) {
+    auto* stream = new rw::StreamFile();
+    if (!stream->open(filename, "rb")) {
+        delete stream;
+        return nullptr;
+    }
+    return stream;
+}
+
+void* StreamOpenMemory(const unsigned char* data, unsigned size) {
+    auto* stream = new rw::StreamMemory();
+    stream->open(const_cast<rw::uint8*>(data), size);
+    return stream;
+}
+
+void StreamClose(void* stream) {
+    if (auto* s = static_cast<rw::Stream*>(stream)) {
+        s->close();
+        delete s;
+    }
+}
+
+unsigned StreamRead(void* stream, void* buffer, unsigned length) {
+    return static_cast<rw::Stream*>(stream)->read8(buffer, length);
+}
+
+void StreamSkip(void* stream, unsigned offset) {
+    static_cast<rw::Stream*>(stream)->seek(static_cast<rw::int32>(offset), 1 /* SEEK_CUR */);
+}
+
+bool StreamFindChunk(void* stream, unsigned type, unsigned* lengthOut, unsigned* versionOut) {
+    rw::uint32 length{}, version{};
+    if (!rw::findChunk(static_cast<rw::Stream*>(stream), type, &length, &version)) {
+        return false;
+    }
+    if (lengthOut)  *lengthOut  = length;
+    if (versionOut) *versionOut = version;
+    return true;
+}
+
+void* TexDictionaryStreamRead(void* stream) {
+    return rw::TexDictionary::streamRead(static_cast<rw::Stream*>(stream));
+}
+
+void* TexDictionaryGetCurrent() {
+    return rw::TexDictionary::getCurrent();
+}
+
+void* TexDictionaryCreate() {
+    return rw::TexDictionary::create();
+}
+
+void* TexDictionarySetCurrent(void* txd) {
+    rw::TexDictionary::setCurrent(static_cast<rw::TexDictionary*>(txd));
+    return txd;
+}
+
+void TexDictionaryAddTexture(void* txd, void* texture) {
+    static_cast<rw::TexDictionary*>(txd)->add(static_cast<rw::Texture*>(texture));
+}
+
+void* TexDictionaryFindNamedTexture(void* txd, const char* name) {
+    return static_cast<rw::TexDictionary*>(txd)->find(name);
+}
+
+void TextureDestroy(void* texture) {
+    if (texture) {
+        static_cast<rw::Texture*>(texture)->destroy();
+    }
+}
+
+int TexDictionaryCount(void* txd) {
+    return static_cast<rw::TexDictionary*>(txd)->count();
+}
+
+void* TextureRead(const char* name, const char* maskName) {
+    return rw::Texture::read(name, maskName);
+}
+
+void* TextureCreate(void* raster) {
+    return rw::Texture::create(static_cast<rw::Raster*>(raster));
+}
+
+void TextureSetRaster(void* texture, void* raster) {
+    static_cast<rw::Texture*>(texture)->raster = static_cast<rw::Raster*>(raster);
+}
+
+void TextureSetName(void* texture, const char* name) {
+    strncpy_s(static_cast<rw::Texture*>(texture)->name, name, _TRUNCATE);
+}
+
+void TextureSetMaskName(void* texture, const char* name) {
+    strncpy_s(static_cast<rw::Texture*>(texture)->mask, name, _TRUNCATE);
+}
+
+void TexDictionaryRemoveTexture(void* texture) {
+    if (auto* tex = static_cast<rw::Texture*>(texture)) {
+        if (tex->dict) {
+            tex->dict->remove(tex);
+        }
+    }
+}
+
+void TextureSetFilterAddressing(void* texture, unsigned filterAddressing) {
+    static_cast<rw::Texture*>(texture)->filterAddressing = filterAddressing;
 }
 
 int GetNumSubSystems() {

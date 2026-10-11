@@ -15,8 +15,8 @@
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
 | 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
-| 8 | `CGame::InitialiseRenderWare` | 🚧 | камера/frame/растры/матрицы ✅, `RwCameraClear` ✅, world+свет ✅, `CreateDebugFont` ✅; сейчас `CFont::Initialise` → `CTxdStore::LoadTxd` (RW-стриминг) |
-| 9 | Загрузка ассетов (TXD/DFF/стриминг) | 🚧 | `RwStreamOpen`/`Close`/`Read`/`Skip`/`FindChunk` + `RwTexDictionaryGtaStreamRead` (через librw) |
+| 8 | `CGame::InitialiseRenderWare` | 🚧 | камера/frame/растры/матрицы ✅, world+свет ✅, `CreateDebugFont` ✅, `CFont::Initialise`: TXD загружен ✅ → сейчас `RwTextureRead` (текстуры шрифта) |
+| 9 | Загрузка ассетов (TXD/DFF/стриминг) | 🚧 | streams + TXD + TexDictionary текущий + Texture (read/create/add) — через librw |
 | 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
 | 11 | Рендер + оконный режим (RDP) | ⏳ | |
 
