@@ -87,6 +87,10 @@ void DebugModules::Render3D() {
 }
 
 void DebugModules::CreateModules() {
+#ifdef NOTSA_STANDALONE
+    // The debug/tools UI isn't initialized in standalone (no ImGui context) - don't create any modules.
+    return;
+#else
     // "Tools" menu
     Add<TeleportDebugModule>();
     Add<SpawnerDebugModule>();
@@ -138,6 +142,7 @@ void DebugModules::CreateModules() {
 
     // Restore state of modules
     DoDeserializeModules();
+#endif // NOTSA_STANDALONE
 }
 
 void DebugModules::RenderMenuBarInfo() {

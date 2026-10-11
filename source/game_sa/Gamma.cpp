@@ -17,6 +17,11 @@ void CGamma::Init() {
     m_TargetLevel  = -1000.0f;
     m_PrevLevel    = 1000.0f;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: the D3D9 device/caps aren't exposed by librw's Qt-less API here.
+    // Gamma is optional (screen brightness) - disable it rather than dereference a null device.
+    m_IsEnabled = false;
+#else
     auto* caps = (D3DCAPS9*)const_cast<void*>(RwD3D9GetCaps());
     auto* dev  = (IDirect3DDevice9*)RwD3D9GetCurrentD3DDevice();
     D3DCAPS9 devCaps{}; // TODO: what's the difference with `caps`?
@@ -29,6 +34,7 @@ void CGamma::Init() {
     if (!(devCaps.Caps2 & D3DCAPS2_FULLSCREENGAMMA) && !(devCaps.Caps2 & D3DCAPS2_CANCALIBRATEGAMMA)) {
         m_IsEnabled = false; // No gamma support
     }
+#endif
 }
 
 // 0x747200

@@ -15,18 +15,14 @@
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
 | 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
-| 8 | `CGame::InitialiseRenderWare` | 🚧 | всё проходит (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`); финал: `_rwD3D9DeviceSetRestoreCallback` |
+| 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
-| 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
+| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | debug-UI (ImGui) отключён в standalone; дальше состояния игры |
 | 11 | Рендер + оконный режим (RDP) | ⏳ | |
 
-> **Веха:** движок RenderWare в standalone **работает** (через librw). Создание камеры, мира, света,
-> растров и матриц — проходит. Дошли до **загрузки игровых ассетов** (первый реальный TXD).
-| 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
-| 11 | Рендер + оконный режим (RDP) | ⏳ | |
-
-> **Веха:** движок RenderWare в standalone **работает** (через librw). Создание камеры, мира, света,
-> растров и матриц — проходит. Дошли до **загрузки игровых ассетов** (первый реальный TXD).
+> **Веха (2026-10-12):** standalone **полностью проходит инициализацию RenderWare** (движок, камера, мир, свет,
+> шрифт, HUD, скин игрока, пост-эффекты — реально, через librw) и входит в **игровой цикл** `MainLoop`.
+> Бинарник — **`reSA.exe`**. Debug/tools-UI (ImGui) в standalone отключён (не нужен для игры).
 
 ## Этап «RenderWare boot» (текущий)
 

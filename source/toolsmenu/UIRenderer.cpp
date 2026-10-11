@@ -29,10 +29,13 @@
 
 namespace notsa {
 namespace ui {
-UIRenderer::UIRenderer() :
-    m_ImCtx{ ImGui::CreateContext() },
-    m_ImIO{ &m_ImCtx->IO }
+UIRenderer::UIRenderer()
+#ifndef NOTSA_STANDALONE
+    : m_ImCtx{ ImGui::CreateContext() },
+      m_ImIO{ &m_ImCtx->IO }
+#endif
 {
+#ifndef NOTSA_STANDALONE
     IMGUI_CHECKVERSION();
 
     m_ImIO->ConfigFlags = ImGuiConfigFlags_NavEnableKeyboard
@@ -51,9 +54,11 @@ UIRenderer::UIRenderer() :
     SetIsActive(false);
 
     NOTSA_LOG_DEBUG("I say hello!");
+#endif // NOTSA_STANDALONE
 }
 
 UIRenderer::~UIRenderer() {
+#ifndef NOTSA_STANDALONE
     ImGui_ImplDX9_Shutdown();
 #ifdef NOTSA_USE_SDL3
     ImGui_ImplSDL3_Shutdown();
@@ -61,11 +66,16 @@ UIRenderer::~UIRenderer() {
     ImGui_ImplWin32_Shutdown();
 #endif
     ImGui::DestroyContext(m_ImCtx);
+#endif // NOTSA_STANDALONE
 
     //NOTSA_LOG_DEBUG("Good bye!");
 }
 
 void UIRenderer::SetIsActive(bool active) {
+#ifdef NOTSA_STANDALONE
+    // The debug/tools UI (ImGui) isn't supported in the standalone build - keep it disabled.
+    m_InputActive = active;
+#else
     const auto pad = CPad::GetPad(0);
 
     m_InputActive = active;
@@ -97,11 +107,16 @@ void UIRenderer::SetIsActive(bool active) {
 #ifdef NOTSA_USE_SDL3
     SDL_SetWindowRelativeMouseMode(PSGLOBAL(sdlWindow), !active);
 #endif
+#endif // NOTSA_STANDALONE
 }
 
 void UIRenderer::PreRenderUpdate() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    ReversibleHooks::RHManager::GetInstance().CheckAll();
+    return;
+#else
     m_ImIO->DeltaTime   = CTimer::GetTimeStepInSeconds();
     m_ImIO->DisplaySize = ImVec2(SCREEN_WIDTH, SCREEN_HEIGHT); // Update display size, in case of window resize after ImGui was already initialized
 
@@ -112,6 +127,7 @@ void UIRenderer::PreRenderUpdate() {
     if (ImGui::IsKeyChordPressed(ImGuiKey_F7, ImGuiInputFlags_RouteAlways) || CPad::GetPad()->IsFKeyJustDown(FKEY7)) {
         SetIsActive(!m_InputActive);
     }
+#endif // NOTSA_STANDALONE
 }
 
 void UIRenderer::PostRenderUpdate() {
@@ -119,6 +135,9 @@ void UIRenderer::PostRenderUpdate() {
 }
 
 void UIRenderer::DrawLoop() {
+#ifdef NOTSA_STANDALONE
+    return;
+#else
     ZoneScoped;
 
     if (m_ReInitRequested) {
@@ -149,21 +168,29 @@ void UIRenderer::DrawLoop() {
         ImGui::UpdatePlatformWindows();
         ImGui::RenderPlatformWindowsDefault();
     }
+#endif // NOTSA_STANDALONE
 }
 
 void UIRenderer::Render2D() {
+#ifndef NOTSA_STANDALONE
     ZoneScoped;
 
     m_DebugModules.Render2D();
+#endif
 }
 
 void UIRenderer::Render3D() {
+#ifndef NOTSA_STANDALONE
     ZoneScoped;
 
     m_DebugModules.Render3D();
+#endif
 }
 
 void UIRenderer::DebugCode() {
+#ifdef NOTSA_STANDALONE
+    return;
+#else
     CPad* pad = CPad::GetPad();
 
     const auto player = FindPlayerPed();
@@ -244,6 +271,7 @@ void UIRenderer::DebugCode() {
         CCheat::WantedLevelUpCheat();
         CCheat::WantedLevelUpCheat();
     }
+#endif // NOTSA_STANDALONE
 }
 }; // namespace ui
 }; // namespace notsa

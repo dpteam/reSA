@@ -341,7 +341,7 @@ CAESound* CAESoundManager::RequestNewSound(CAESound* pSound) {
         AEAudioHardware.RequestVirtualChannelSoundInfo((uint16)sidx, s->m_SoundID, s->m_BankSlot);
     }
 
-#ifdef NOTSA_DEBUG
+#if defined(NOTSA_DEBUG) && !defined(NOTSA_STANDALONE)
     notsa::ui::UIRenderer::GetInstance().GetDebugModules().GetModule<notsa::debugmodules::SoundManagerDebugModule>()->SetSoundInfo(sidx, {
         .StackTrace = std::stacktrace::current()
     });
