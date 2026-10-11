@@ -15,10 +15,13 @@
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
 | 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
-| 8 | `CGame::InitialiseRenderWare` | 🚧 | `ValidateVersion` ✅, `CVisibilityPlugins::Initialise` ✅, `CTxdStore::Initialise` ✅, `RwCameraCreate`/`RwFrameCreate`/`RwRasterCreate`/`RwMatrixCreate` ✅, `RwCameraClear` ✅; сейчас `LightsCreate` (`RwFrameRotate`) |
-| 9 | Создание world/света | 🚧 | `RpWorldCreate`/`AddCamera`/`AddLight`/`RpLightCreate`/`Set*` ✅; свет: `RwFrameRotate` в работе |
-| 10 | Загрузка мира/стриминга | ⏳ | |
+| 8 | `CGame::InitialiseRenderWare` | 🚧 | камера/frame/растры/матрицы ✅, `RwCameraClear` ✅, world+свет ✅, `CreateDebugFont` ✅; сейчас `CFont::Initialise` → `CTxdStore::LoadTxd` (RW-стриминг) |
+| 9 | Загрузка ассетов (TXD/DFF/стриминг) | 🚧 | `RwStreamOpen`/`Close`/`Read`/`Skip`/`FindChunk` + `RwTexDictionaryGtaStreamRead` (через librw) |
+| 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
 | 11 | Рендер + оконный режим (RDP) | ⏳ | |
+
+> **Веха:** движок RenderWare в standalone **работает** (через librw). Создание камеры, мира, света,
+> растров и матриц — проходит. Дошли до **загрузки игровых ассетов** (первый реальный TXD).
 
 ## Этап «RenderWare boot» (текущий)
 
@@ -29,13 +32,17 @@ librw изолирован в отдельном `.cpp`, чтобы не кон�
 - [x] `RwBridge` (engine): init/open/start/stop/close/term, subsystem, videomode, version, plugin register/offset
 - [x] `rwplcore.cpp`: engine-функции под `#ifdef NOTSA_STANDALONE` → мост (PCH отключён для моста в CMake)
 - [x] `psGetMemoryFunctions` → CRT-таблица (standalone)
-- [x] **`RwEngineInit` + `RwEngineOpen` проходят** (проверено прогоном)
-- [ ] Плагины: `PluginAttach` → `RpWorldPluginAttach` (следующий блокер)
+- [x] `RwEngineInit`/`Open`/`Start`, `PluginAttach`, `psSelectDevice`, `RsRwInitialize` — проходят
+- [x] Камера/frame/растры/матрицы, world, свет — проходят (через мост)
+- [ ] Загрузка ассетов: `RwStreamOpen`/`FindChunk` + `RwTexDictionaryGtaStreamRead` — в работе
 
 ### Заметки по реализации
-- Мост: `source/game_sa/RenderWare/librw/RwBridge.{h,cpp}`. `.cpp` **не** включает `StdInc.h` (PCH off).
-- `libw::librw` даёт нашим TU include-путь librw и `RW_D3D9` (PUBLIC), так что мост компилится.
-- Проверено: конфликтов `rw.h`/`args.h` между SA и librw нет.
+- Мост: `source/game_sa/RenderWare/RwBridge.{h,cpp}` (рядом с `RenderWare.h`). `.cpp` **не** включает `StdInc.h`
+  (PCH отключён в CMake). Единственный TU, который включает `<rw.h>` (librw).
+- Макросы, читающие SA-офсеты («расходящиеся» поля), переопределяются под `NOTSA_STANDALONE` на вызовы моста:
+  `RwCameraGet/SetRaster`, `Get/SetZRaster`, `GetFrame`, `RwRasterGetWidth/Height` (`rwcore.h`),
+  `RpLightSetFlags`/`SetFrame` (`rpworld.h`).
+- Проверено: конфликтов `rw.h`/`args.h` между SA-заголовками и librw нет.
 
 ## Как проверяем
 `bin/Debug/gta_reversed.exe` из папки с данными (`bin/Debug`), лог — `logs/log.log` (там стек при падении).
