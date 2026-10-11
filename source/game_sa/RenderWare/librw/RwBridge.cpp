@@ -98,6 +98,184 @@ void SetTextureReadCallBack(void* cb) {
     rw::Texture::readCB = reinterpret_cast<rw::Texture* (*)(const char*, const char*)>(cb);
 }
 
+//-------------------------------------------------------------------------
+// Object creation / access
+//-------------------------------------------------------------------------
+void* CameraCreate() {
+    // NOTE: the frame + rasters are created by the game afterwards (RwFrameCreate / RwRasterCreate).
+    return rw::Camera::create();
+}
+
+void CameraDestroy(void* camera) {
+    if (!camera) {
+        return;
+    }
+    static_cast<rw::Camera*>(camera)->destroy();
+}
+
+void CameraSetRaster(void* camera, void* raster) {
+    static_cast<rw::Camera*>(camera)->frameBuffer = static_cast<rw::Raster*>(raster);
+}
+
+void* CameraGetRaster(const void* camera) {
+    return const_cast<rw::Camera*>(static_cast<const rw::Camera*>(camera))->frameBuffer;
+}
+
+void CameraSetZRaster(void* camera, void* raster) {
+    static_cast<rw::Camera*>(camera)->zBuffer = static_cast<rw::Raster*>(raster);
+}
+
+void* CameraGetZRaster(const void* camera) {
+    return const_cast<rw::Camera*>(static_cast<const rw::Camera*>(camera))->zBuffer;
+}
+
+void* CameraGetFrame(const void* camera) {
+    return const_cast<rw::Camera*>(static_cast<const rw::Camera*>(camera))->getFrame();
+}
+
+void CameraSetNearClipPlane(void* camera, float nearClip) {
+    static_cast<rw::Camera*>(camera)->setNearPlane(nearClip);
+}
+
+void CameraSetFarClipPlane(void* camera, float farClip) {
+    static_cast<rw::Camera*>(camera)->setFarPlane(farClip);
+}
+
+void CameraSetViewWindow(void* camera, const float* xy) {
+    const rw::V2d v{xy[0], xy[1]};
+    static_cast<rw::Camera*>(camera)->setViewWindow(&v);
+}
+
+void CameraSetViewOffset(void* camera, const float* xy) {
+    const rw::V2d v{xy[0], xy[1]};
+    static_cast<rw::Camera*>(camera)->setViewOffset(&v);
+}
+
+void CameraSetProjection(void* camera, int projection) {
+    static_cast<rw::Camera*>(camera)->setProjection(projection);
+}
+
+void CameraBeginUpdate(void* camera) {
+    static_cast<rw::Camera*>(camera)->beginUpdate();
+}
+
+void CameraEndUpdate(void* camera) {
+    static_cast<rw::Camera*>(camera)->endUpdate();
+}
+
+void CameraClear(void* camera, const unsigned char* rgba, int clearMode) {
+    rw::RGBA col{rgba[0], rgba[1], rgba[2], rgba[3]};
+    static_cast<rw::Camera*>(camera)->clear(&col, static_cast<rw::uint32>(clearMode));
+}
+
+void CameraShowRaster(void* camera, unsigned flags) {
+    static_cast<rw::Camera*>(camera)->showRaster(flags);
+}
+
+void* FrameCreate() {
+    return rw::Frame::create();
+}
+
+void FrameDestroy(void* frame) {
+    if (frame) {
+        static_cast<rw::Frame*>(frame)->destroy();
+    }
+}
+
+void* FrameGetLTM(void* frame) {
+    return static_cast<rw::Frame*>(frame)->getLTM();
+}
+
+void FrameRotate(void* frame, const float* axis, float angle, int combineOp) {
+    const rw::V3d v{axis[0], axis[1], axis[2]};
+    static_cast<rw::Frame*>(frame)->rotate(&v, angle, static_cast<rw::CombineOp>(combineOp));
+}
+
+void FrameTranslate(void* frame, const float* translation, int combineOp) {
+    const rw::V3d v{translation[0], translation[1], translation[2]};
+    static_cast<rw::Frame*>(frame)->translate(&v, static_cast<rw::CombineOp>(combineOp));
+}
+
+void FrameScale(void* frame, const float* scale, int combineOp) {
+    const rw::V3d v{scale[0], scale[1], scale[2]};
+    static_cast<rw::Frame*>(frame)->scale(&v, static_cast<rw::CombineOp>(combineOp));
+}
+
+void FrameTransform(void* frame, const void* matrix, int combineOp) {
+    static_cast<rw::Frame*>(frame)->transform(static_cast<const rw::Matrix*>(matrix), static_cast<rw::CombineOp>(combineOp));
+}
+
+void FrameSetIdentity(void* frame) {
+    static_cast<rw::Frame*>(frame)->matrix.setIdentity();
+}
+
+void* RasterCreate(int width, int height, int depth, int flags) {
+    return rw::Raster::create(width, height, depth, flags);
+}
+
+void RasterDestroy(void* raster) {
+    if (raster) {
+        static_cast<rw::Raster*>(raster)->destroy();
+    }
+}
+
+int RasterGetWidth(const void* raster) {
+    return static_cast<const rw::Raster*>(raster)->width;
+}
+
+int RasterGetHeight(const void* raster) {
+    return static_cast<const rw::Raster*>(raster)->height;
+}
+
+void* MatrixCreate() {
+    return rw::Matrix::create();
+}
+
+void ObjectHasFrameSetFrame(void* object, void* frame) {
+    static_cast<rw::ObjectWithFrame*>(object)->setFrame(static_cast<rw::Frame*>(frame));
+}
+
+//-------------------------------------------------------------------------
+// World / Light
+//-------------------------------------------------------------------------
+void* WorldCreate(const void* bbox) {
+    return rw::World::create(const_cast<rw::BBox*>(reinterpret_cast<const rw::BBox*>(bbox)));
+}
+
+void WorldAddCamera(void* world, void* camera) {
+    static_cast<rw::World*>(world)->addCamera(static_cast<rw::Camera*>(camera));
+}
+
+void WorldAddLight(void* world, void* light) {
+    static_cast<rw::World*>(world)->addLight(static_cast<rw::Light*>(light));
+}
+
+void* LightCreate(int type) {
+    return rw::Light::create(type);
+}
+
+void LightDestroy(void* light) {
+    if (light) {
+        static_cast<rw::Light*>(light)->destroy();
+    }
+}
+
+void LightSetRadius(void* light, float radius) {
+    static_cast<rw::Light*>(light)->radius = radius;
+}
+
+void LightSetColor(void* light, const float* rgba) {
+    auto* l = static_cast<rw::Light*>(light);
+    l->color.red   = rgba[0];
+    l->color.green = rgba[1];
+    l->color.blue  = rgba[2];
+    l->color.alpha = rgba[3];
+}
+
+void LightSetFlags(void* light, unsigned flags) {
+    static_cast<rw::Light*>(light)->setFlags(flags);
+}
+
 int GetNumSubSystems() {
     return rw::Engine::getNumSubSystems();
 }

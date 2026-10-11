@@ -253,11 +253,20 @@ void RwRasterSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreal
 }
 
 RwRaster* RwRasterCreate(RwInt32 width, RwInt32 height, RwInt32 depth, RwInt32 flags) {
+#ifdef NOTSA_STANDALONE
+    return (RwRaster*)rwbridge::RasterCreate(width, height, depth, flags);
+#else
     return ((RwRaster*(__cdecl *)(RwInt32, RwInt32, RwInt32, RwInt32))0x7FB230)(width, height, depth, flags);
+#endif
 }
 
 RwBool RwRasterDestroy(RwRaster* raster) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::RasterDestroy(raster);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwRaster*))0x7FB020)(raster);
+#endif
 }
 
 RwRaster* RwRasterGetOffset(RwRaster* raster, RwInt16* xOffset, RwInt16* yOffset) {
@@ -906,19 +915,39 @@ RwFrame* RwFrameForAllObjects(RwFrame* frame, RwObjectCallBack callBack, void* d
 }
 
 RwFrame* RwFrameTranslate(RwFrame* frame, const RwV3d* v, RwOpCombineType combine) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameTranslate(frame, &v->x, combine);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, const RwV3d*, RwOpCombineType))0x7F0E30)(frame, v, combine);
+#endif
 }
 
 RwFrame* RwFrameRotate(RwFrame* frame, const RwV3d* axis, RwReal angle, RwOpCombineType combine) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameRotate(frame, &axis->x, angle, combine);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, const RwV3d*, RwReal, RwOpCombineType))0x7F1010)(frame, axis, angle, combine);
+#endif
 }
 
 RwFrame* RwFrameScale(RwFrame* frame, const RwV3d* v, RwOpCombineType combine) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameScale(frame, &v->x, combine);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, const RwV3d*, RwOpCombineType))0x7F0ED0)(frame, v, combine);
+#endif
 }
 
 RwFrame* RwFrameTransform(RwFrame* frame, const RwMatrix* m, RwOpCombineType combine) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameTransform(frame, m, combine);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, const RwMatrix*, RwOpCombineType))0x7F0F70)(frame, m, combine);
+#endif
 }
 
 RwFrame* RwFrameOrthoNormalize(RwFrame* frame) {
@@ -970,12 +999,21 @@ void RwFrameSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreall
 }
 
 RwFrame* RwFrameCreate() {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameCreate();
+#else
     return ((RwFrame*(__cdecl *)(void))0x7F0410)();
+#endif
 }
 
 RwBool RwFrameDestroy(RwFrame* frame) {
     assert(frame);
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameDestroy(frame);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwFrame*))0x7F05A0)(frame);
+#endif
 }
 
 RwBool _rwFrameInit(RwFrame* frame) {
@@ -1124,22 +1162,42 @@ RwBool RwBBoxContainsPoint(const RwBBox* boundBox, const RwV3d* vertex) {
 
 RwCamera* RwCameraBeginUpdate(RwCamera* camera) {
     ZoneScoped;
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraBeginUpdate(camera);
+    return camera;
+#else
     return camera->beginUpdate(camera);
+#endif
 }
 
 RwCamera* RwCameraEndUpdate(RwCamera* camera) {
     ZoneScoped;
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraEndUpdate(camera);
+    return camera;
+#else
     return camera->endUpdate(camera);
+#endif
 }
 
 RwCamera* RwCameraClear(RwCamera* camera, RwRGBA* colour, RwInt32 clearMode) {
     ZoneScoped;
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraClear(camera, reinterpret_cast<const unsigned char*>(colour), clearMode);
+    return camera;
+#else
     return RwEngineInstance->stdFunc[rwSTANDARDCAMERACLEAR](camera, colour, clearMode) ? camera : nullptr;
+#endif
 }
 
 RwCamera* RwCameraShowRaster(RwCamera* camera, void* pDev, RwUInt32 flags) {
     ZoneScoped;
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraShowRaster(camera, flags);
+    return camera;
+#else
     return RwRasterShowRaster(RwCameraGetRaster(camera), pDev, flags) != 0 ? camera : nullptr;
+#endif
 }
 
 void RwCameraSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
@@ -1147,11 +1205,20 @@ void RwCameraSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreal
 }
 
 RwBool RwCameraDestroy(RwCamera* camera) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraDestroy(camera);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwCamera*))0x7EE4B0)(camera);
+#endif
 }
 
 RwCamera* RwCameraCreate() {
+#ifdef NOTSA_STANDALONE
+    return (RwCamera*)rwbridge::CameraCreate();
+#else
     return ((RwCamera*(__cdecl *)(void))0x7EE4F0)();
+#endif
 }
 
 RwCamera* RwCameraClone(RwCamera* camera) {
@@ -1159,23 +1226,50 @@ RwCamera* RwCameraClone(RwCamera* camera) {
 }
 
 RwCamera* RwCameraSetViewOffset(RwCamera* camera, const RwV2d* offset) {
+#ifdef NOTSA_STANDALONE
+    const float xy[2] = { offset->x, offset->y };
+    rwbridge::CameraSetViewOffset(camera, xy);
+    return camera;
+#else
     return ((RwCamera*(__cdecl *)(RwCamera*, const RwV2d*))0x7EE1A0)(camera, offset);
+#endif
 }
 
 RwCamera* RwCameraSetViewWindow(RwCamera* camera, const RwV2d* viewWindow) {
+#ifdef NOTSA_STANDALONE
+    const float xy[2] = { viewWindow->x, viewWindow->y };
+    rwbridge::CameraSetViewWindow(camera, xy);
+    return camera;
+#else
     return ((RwCamera*(__cdecl *)(RwCamera*, const RwV2d*))0x7EE410)(camera, viewWindow);
+#endif
 }
 
 RwCamera* RwCameraSetProjection(RwCamera* camera, RwCameraProjection projection) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraSetProjection(camera, projection);
+    return camera;
+#else
     return ((RwCamera*(__cdecl *)(RwCamera*, RwCameraProjection))0x7EE3A0)(camera, projection);
+#endif
 }
 
 RwCamera* RwCameraSetNearClipPlane(RwCamera* camera, RwReal nearClip) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraSetNearClipPlane(camera, nearClip);
+    return camera;
+#else
     return ((RwCamera*(__cdecl *)(RwCamera*, RwReal))0x7EE1D0)(camera, nearClip);
+#endif
 }
 
 RwCamera* RwCameraSetFarClipPlane(RwCamera* camera, RwReal farClip) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::CameraSetFarClipPlane(camera, farClip);
+    return camera;
+#else
     return ((RwCamera*(__cdecl *)(RwCamera*, RwReal))0x7EE2A0)(camera, farClip);
+#endif
 }
 
 RwInt32 RwCameraRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
@@ -1219,7 +1313,11 @@ RwCameraChunkInfo* RwCameraChunkInfoRead(RwStream* stream, RwCameraChunkInfo* ca
 }
 
 void _rwObjectHasFrameSetFrame(void *object, RwFrame *frame) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::ObjectHasFrameSetFrame(object, frame);
+#else
     plugin::Call<0x804EF0, void*, RwFrame*>(object, frame);
+#endif
 }
 
 void _rwObjectHasFrameReleaseFrame(void *object) {

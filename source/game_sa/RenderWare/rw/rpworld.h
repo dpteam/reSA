@@ -1377,6 +1377,16 @@ struct RpLightTie
 
 #endif /* !(defined(RWDEBUG) || defined(RWSUPPRESSINLINE)) */
 
+#ifdef NOTSA_STANDALONE
+// Standalone: librw-backed RenderWare (see MEMORY.md §10). `RpLightSetFlags`/`RpLightSetFrame` normally
+// write to the SA-struct offsets directly, which is wrong for librw's layout - route through the bridge.
+#include "RenderWare/librw/RwBridge.h"
+#undef RpLightSetFlags
+#define RpLightSetFlags(_light, _flags)  (((void)rwbridge::LightSetFlags((_light), (RwUInt32)(_flags))), (_light))
+#undef RpLightSetFrame
+#define RpLightSetFrame(_light, _frame)  (((void)rwbridge::ObjectHasFrameSetFrame((_light), (_frame))), (_light))
+#endif /* NOTSA_STANDALONE */
+
 /*--- Automatically derived from: C:/daily/rwsdk/world/pipe/p2/d3d9/D3D9lights.h ---*/
 /*
  * typedef for struct RpD3D9AttenuationParams

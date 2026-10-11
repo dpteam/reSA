@@ -15,8 +15,8 @@
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
 | 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
-| 8 | `CGame::InitialiseRenderWare` | 🚧 | `ValidateVersion` ✅, `CVisibilityPlugins::Initialise` ✅; сейчас `CTxdStore::Initialise` → `RwTextureSetFindCallBack` |
-| 9 | Создание камеры/world (`RwCameraCreate`, `RpWorldCreate`…) | ⏳ | |
+| 8 | `CGame::InitialiseRenderWare` | 🚧 | `ValidateVersion` ✅, `CVisibilityPlugins::Initialise` ✅, `CTxdStore::Initialise` ✅, `RwCameraCreate`/`RwFrameCreate`/`RwRasterCreate`/`RwMatrixCreate` ✅, `RwCameraClear` ✅; сейчас `LightsCreate` (`RwFrameRotate`) |
+| 9 | Создание world/света | 🚧 | `RpWorldCreate`/`AddCamera`/`AddLight`/`RpLightCreate`/`Set*` ✅; свет: `RwFrameRotate` в работе |
 | 10 | Загрузка мира/стриминга | ⏳ | |
 | 11 | Рендер + оконный режим (RDP) | ⏳ | |
 

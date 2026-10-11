@@ -4830,6 +4830,28 @@ MACRO_STOP
 
 #endif /* !(defined(RWDEBUG) || defined(RWSUPPRESSINLINE)) */
 
+#ifdef NOTSA_STANDALONE
+// Standalone: RenderWare is provided by librw, whose struct layouts differ from SA's (see MEMORY.md §10).
+// These accessors must NOT read the SA offsets directly - route them through the librw bridge.
+#include "RenderWare/librw/RwBridge.h"
+
+#undef RwCameraGetRaster
+#define RwCameraGetRaster(_camera)          ((RwRaster*)rwbridge::CameraGetRaster((_camera)))
+#undef RwCameraSetRaster
+#define RwCameraSetRaster(_camera, _raster) (((void)rwbridge::CameraSetRaster((_camera), (_raster))), (_camera))
+#undef RwCameraGetZRaster
+#define RwCameraGetZRaster(_camera)         ((RwRaster*)rwbridge::CameraGetZRaster((_camera)))
+#undef RwCameraSetZRaster
+#define RwCameraSetZRaster(_camera, _raster) (((void)rwbridge::CameraSetZRaster((_camera), (_raster))), (_camera))
+#undef RwCameraGetFrame
+#define RwCameraGetFrame(_camera)           ((RwFrame*)rwbridge::CameraGetFrame((_camera)))
+
+#undef RwRasterGetWidth
+#define RwRasterGetWidth(_raster)           ((RwInt32)rwbridge::RasterGetWidth((_raster)))
+#undef RwRasterGetHeight
+#define RwRasterGetHeight(_raster)          ((RwInt32)rwbridge::RasterGetHeight((_raster)))
+#endif /* NOTSA_STANDALONE */
+
 
 /****************************************************************************
  Global Types

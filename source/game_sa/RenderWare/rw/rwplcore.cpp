@@ -171,7 +171,11 @@ RwBool RwMatrixDestroy(RwMatrix* mpMat) {
 }
 
 RwMatrix* RwMatrixCreate() {
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixCreate();
+#else
     return ((RwMatrix*(__cdecl *)(void))0x7F2A50)();
+#endif
 }
 
 RwMatrix* RwMatrixMultiply(RwMatrix* matrixOut, const RwMatrix* MatrixIn1, const RwMatrix* matrixIn2) {

@@ -56,6 +56,59 @@ bool GetAutoMipmapping();
 void SetTextureFindCallBack(void* cb);
 void SetTextureReadCallBack(void* cb);
 
+//-------------------------------------------------------------------------
+// Object creation / access (opaque `void*` = librw objects).
+// NOTE: The game treats these as the SA RW types; only the *prefix* of the
+//       structs is shared (ObjectWithFrame), so all field access must go through here.
+//-------------------------------------------------------------------------
+void* CameraCreate();
+void  CameraDestroy(void* camera);
+void  CameraSetRaster(void* camera, void* raster);
+void* CameraGetRaster(const void* camera);
+void  CameraSetZRaster(void* camera, void* raster);
+void* CameraGetZRaster(const void* camera);
+void* CameraGetFrame(const void* camera);
+void  CameraSetNearClipPlane(void* camera, float nearClip);
+void  CameraSetFarClipPlane(void* camera, float farClip);
+void  CameraSetViewWindow(void* camera, const float* xy);
+void  CameraSetViewOffset(void* camera, const float* xy);
+void  CameraSetProjection(void* camera, int projection);
+void  CameraBeginUpdate(void* camera);
+void  CameraEndUpdate(void* camera);
+void  CameraClear(void* camera, const unsigned char* rgba, int clearMode);
+void  CameraShowRaster(void* camera, unsigned flags);
+
+void* FrameCreate();
+void  FrameDestroy(void* frame);
+void* FrameGetLTM(void* frame);
+void  FrameRotate(void* frame, const float* axis, float angle, int combineOp);
+void  FrameTranslate(void* frame, const float* translation, int combineOp);
+void  FrameScale(void* frame, const float* scale, int combineOp);
+void  FrameTransform(void* frame, const void* matrix, int combineOp);
+void  FrameSetIdentity(void* frame);
+
+void* RasterCreate(int width, int height, int depth, int flags);
+void  RasterDestroy(void* raster);
+int   RasterGetWidth(const void* raster);
+int   RasterGetHeight(const void* raster);
+
+void* MatrixCreate();
+
+/*! @brief `rwObjectHasFrameSetFrame` - attach a frame to an object-has-frame (camera/atomic/light). */
+void  ObjectHasFrameSetFrame(void* object, void* frame);
+
+//-------------------------------------------------------------------------
+// World / Light
+//-------------------------------------------------------------------------
+void* WorldCreate(const void* bbox);   //!< bbox: SA `RwBBox` (sup,inf), layout-compatible with librw's BBox; may be null.
+void  WorldAddCamera(void* world, void* camera);
+void  WorldAddLight(void* world, void* light);
+void* LightCreate(int type);
+void  LightDestroy(void* light);
+void  LightSetRadius(void* light, float radius);
+void  LightSetColor(void* light, const float* rgba);  //!< rgba: 4 floats (red,green,blue,alpha).
+void  LightSetFlags(void* light, unsigned flags);
+
 int  GetNumSubSystems();bool GetSubSystemInfo(char* nameOut, int nameSize, int index);
 int  GetCurrentSubSystem();
 bool SetSubSystem(int index);

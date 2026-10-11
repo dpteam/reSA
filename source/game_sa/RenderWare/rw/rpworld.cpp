@@ -3,6 +3,10 @@
 #include "rpworld.h"
 #include <rpdbgerr.h>
 
+#ifdef NOTSA_STANDALONE
+#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#endif
+
 void _rwD3D9VSSetActiveWorldMatrix(const RwMatrix* worldMatrix) {
     ((void(__cdecl *)(const RwMatrix*))0x764650)(worldMatrix);
 }
@@ -488,19 +492,38 @@ void RpLightSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreall
 }
 
 RpLight* RpLightCreate(RwInt32 type) {
+#ifdef NOTSA_STANDALONE
+    return (RpLight*)rwbridge::LightCreate(type);
+#else
     return ((RpLight*(__cdecl *)(RwInt32))0x752110)(type);
+#endif
 }
 
 RwBool RpLightDestroy(RpLight* light) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::LightDestroy(light);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RpLight*))0x7520D0)(light);
+#endif
 }
 
 RpLight* RpLightSetRadius(RpLight* light, RwReal radius) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::LightSetRadius(light, radius);
+    return light;
+#else
     return ((RpLight*(__cdecl *)(RpLight*, RwReal))0x751A70)(light, radius);
+#endif
 }
 
 RpLight* RpLightSetColor(RpLight* light, const RwRGBAReal* color) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::LightSetColor(light, &color->red);
+    return light;
+#else
     return ((RpLight*(__cdecl *)(RpLight*, const RwRGBAReal*))0x751A90)(light, color);
+#endif
 }
 
 RwReal RpLightGetConeAngle(const RpLight* light) {
@@ -852,7 +875,11 @@ RwBool RpWorldDestroy(RpWorld* world) {
 }
 
 RpWorld* RpWorldCreate(RwBBox* boundingBox) {
+#ifdef NOTSA_STANDALONE
+    return (RpWorld*)rwbridge::WorldCreate(boundingBox);
+#else
     return ((RpWorld*(__cdecl *)(RwBBox*))0x74F760)(boundingBox);
+#endif
 }
 
 RpWorld* RpWorldSetSectorRenderCallBack(RpWorld* world, RpWorldSectorCallBackRender fpCallBack) {
@@ -1048,7 +1075,12 @@ RpWorld* RpWorldRemoveCamera(RpWorld* world, RwCamera* camera) {
 }
 
 RpWorld* RpWorldAddCamera(RpWorld* world, RwCamera* camera) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::WorldAddCamera(world, camera);
+    return world;
+#else
     return ((RpWorld*(__cdecl *)(RpWorld*, RwCamera*))0x750F20)(world, camera);
+#endif
 }
 
 RpWorld* RwCameraGetWorld(const RwCamera* camera) {
@@ -1080,7 +1112,12 @@ RpWorld* RpClumpGetWorld(const RpClump* clump) {
 }
 
 RpWorld* RpWorldAddLight(RpWorld* world, RpLight* light) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::WorldAddLight(world, light);
+    return world;
+#else
     return ((RpWorld*(__cdecl *)(RpWorld*, RpLight*))0x751910)(world, light);
+#endif
 }
 
 RpWorld* RpWorldRemoveLight(RpWorld* world, RpLight* light) {
