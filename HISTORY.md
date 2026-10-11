@@ -40,3 +40,19 @@ session-memory documents requested in `PROMPT.md`.
   conservative and guarded so the default (mod) build is unaffected.
 
 **Verification:** none (no toolchain available). Reviewed by hand only.
+
+---
+
+### Follow-up (same day): external references (`refs/`) + standalone build option
+
+* Added a gitignored **`refs/`** folder for read-only third-party reference sources (`.gitignore`: `/refs/*`,
+  `!/refs/README.md`) plus `refs/README.md` describing what to drop in (re3 `master`, reVC `miami`, `librw`) and how
+  to use it (architecture only; **no code copying** — incompatible licenses).
+* `conanfile.py`: added `True` to the `standalone` option so the standalone executable can actually be configured
+  (`python setup.py -o standalone=True`); upstream only allowed `False`/`'dump_hooks_only'`.
+* `README.md`: corrected the standalone build instructions (the earlier `-o GTASA_STANDALONE=ON` was wrong — that's a
+  raw CMake var, not a Conan option).
+* `MEMORY.md`/`AGENT.md`: documented `refs/`, and the key finding that **RenderWare is address-called into
+  `gta_sa.exe`** (not a linked library) ⇒ the standalone build needs a real RW implementation (likely `librw`).
+
+**Verification:** none (still no toolchain). `conanfile.py`, `.gitignore`, docs only.

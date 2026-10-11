@@ -24,19 +24,21 @@ not run the full game yet. See:
 ### Standalone (game) build
 
 ```powershell
-python setup.py -o GTASA_STANDALONE=ON        # Configure the standalone executable
-python setup.py --build -o GTASA_STANDALONE=ON
+python setup.py -o standalone=True        # Configure the standalone executable
+python setup.py --build -o standalone=True
 ```
 
 This produces `gta_reversed.exe` (in `bin/<config>/`) instead of `gta_reversed.asi`, and makes `WinMain`
 (`source/app/platform/win/WinMain.cpp`) the entry point instead of `DllMain`. In this build the hooks are
 documentation-only (`NullHook`) and the reversed code is called directly.
 
+If you're using CMake directly (without Conan), the equivalent switch is `-DGTASA_STANDALONE=ON`.
+
 > [!WARNING]
 > The standalone build is **incomplete** (see `MEMORY.md` §5). It will not run the game yet.
 
-There is also a `GTASA_STANDALONE_DUMP_HOOKS_ONLY` option that builds an executable which only dumps hook metadata
-(used by CI); it requires `GTASA_STANDALONE=ON`.
+There is also a `standalone=dump_hooks_only` option that builds an executable which only dumps hook metadata
+(used by CI).
 
 ## Progress
 The progress of reversed classes can be tracked [here](docs/ReversedClasses.md). (needs to be updated)

@@ -35,6 +35,11 @@
 
 Both suffix/output dir: `bin/<config>/`. ✅
 
+Conan wrapper: `conanfile.py` option **`standalone`** = `False` (default) | `True` | `'dump_hooks_only'`; the Conan
+toolchain maps it onto `GTASA_STANDALONE` / `GTASA_STANDALONE_DUMP_HOOKS_ONLY`. `True` was **added by us** (upstream
+only had `False`/`'dump_hooks_only'`), so standalone can be configured via `python setup.py -o standalone=True`. ⚠️
+CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_only`. ✅
+
 ## 3. Architecture essentials
 
 ### Entry points & startup
@@ -66,6 +71,14 @@ Both suffix/output dir: `bin/<config>/`. ✅
 * Scale: **~2373 `StaticRef<...>` uses**. ⚠️ (Measured via grep; re-measure with
   `Get-ChildItem -Recurse -Include *.cpp,*.h,*.hpp -Path source | Select-String -Pattern 'StaticRef<'`.)
 
+### RenderWare is address-called, not linked ⚠️ (important for standalone)
+* The `source/game_sa/RenderWare/rw/**` files are largely **headers + thunks that call absolute addresses in
+  `gta_sa.exe`** — eg. `rwcore.cpp`: `void* RxHeapAlloc(...) { return ((void*(__cdecl*)(...))0x809AA0)(...); }`.
+  So "RenderWare" is *not* a linked library; it's part of the original executable. ✅
+* ⇒ In the standalone build there is **no RenderWare at all**. We must supply one ourselves. The natural candidate
+  is **`librw`** (`aap/librw`), the RenderWare reimplementation used by re3/reVC. (Ref only — see `refs/`.) ⚠️
+* Also note `target_link_libraries` only links `ddraw/Winmm/dxguid/strmiids/d3d9` — no RW lib exists. ✅
+
 ## 4. Scale of the remaining work (⚠️ measured, but re-verify)
 
 * **~835 `plugin::Call*` uses across ~190 files.** These are **absolute-address calls into the original executable**.
@@ -84,6 +97,8 @@ Both suffix/output dir: `bin/<config>/`. ✅
    (`MemoryMgr.cpp` *does* correctly guard the *other* `operator new(size_t)` — the one that calls `0x82119A` — with
    `#ifndef NOTSA_STANDALONE`. ✅)
 3. **Startup that isn't reversed** (RenderWare init, D3D9, file system, audio, save system) will fail until reversed. ⚠️
+   * See §3 "RenderWare is address-called" — RW itself has to be *provided* (likely via `librw`), it can't be reversed
+     because GTA:SA's RW was not written by this project.
 4. **`g_ConfigurationMgr` has internal linkage** (`static inline class {...} g_ConfigurationMgr;` in
    `extensions/Configuration.hpp`) ⇒ **one copy per translation unit**. Therefore only **one** TU may ever load/read
    the INI; today that TU is `Bootstrap.cpp`. Do **not** call `g_ConfigurationMgr` from a second TU. ⚠️
@@ -99,8 +114,12 @@ Both suffix/output dir: `bin/<config>/`. ✅
   from the game allocator (or guarantee init order); audit static-initialization heap usage.
 * **Phase 2 — eliminate `plugin::Call`:** reverse the remaining functions reachable from startup (or add explicit,
   clearly-marked stubs that fail loudly). Drive this from the actual startup call graph, not alphabetically.
-* **Phase 3 — subsystems:** RenderWare/D3D9, windowing/input, filesystem, audio, save system.
+* **Phase 3 — subsystems:** RenderWare (likely `librw`) / D3D9, windowing/input, filesystem, audio, save system.
+  Note: RW/D3D9 in SA is engine code we can't "reverse" — it must be *replaced*, see `refs/` + `MEMORY.md` §5.3.
 * **Phase 4 — packaging:** exe name/assets/install flow, replace the ASI install flow in `contrib/install.py`.
+
+Also cross-check all of this against the closest existing prior art, `refs/re3` (III) and `refs/reVC` (VC) —
+complete standalone games built on the same engine family, plus `refs/librw` for RenderWare. ⚠️
 
 ## 7. Useful facts / commands
 

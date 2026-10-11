@@ -28,7 +28,10 @@ class saRecipe(ConanFile):
         "unity_build": [True, False],
 
         # Standalone build mode
-        "standalone": [False, 'dump_hooks_only'], # There's no `True` yet, as we can't build a fully standalone version yet
+        # - False            -> build the regular ASI (mod) target
+        # - True             -> build the standalone game executable (WIP, see MEMORY.md)
+        # - 'dump_hooks_only'-> build an exe that only dumps hook metadata (CI)
+        "standalone": [False, True, 'dump_hooks_only'],
     }
 
     default_options = {
@@ -65,7 +68,7 @@ class saRecipe(ConanFile):
         tc = CMakeToolchain(self) 
         tc.user_presets_path = 'ConanPresets.json'
         tc.cache_variables["GTASA_STANDALONE_DUMP_HOOKS_ONLY"] = self.options.standalone == 'dump_hooks_only'
-        tc.cache_variables["GTASA_STANDALONE"] = str(self.options.standalone) != 'False' # This can be either `False` or `dump_hooks_only`, but `... is not False` doesn't work
+        tc.cache_variables["GTASA_STANDALONE"] = str(self.options.standalone) != 'False' # `False`, `True` or `dump_hooks_only` -> the latter two both enable standalone, `... is not False` doesn't work
         tc.cache_variables["GTASA_WITH_SCRIPT_COMMAND_HOOKS"] = self.options.with_script_command_hooks
         tc.cache_variables["GTASA_USE_SDL3"] = self.options.use_sdl3
         tc.cache_variables["GTASA_UNITY_BUILD"] = self.options.unity_build

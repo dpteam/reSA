@@ -25,7 +25,15 @@ Started the **mod → standalone game** conversion (scaffolding only):
 3. Shared config startup in `source/Bootstrap.{h,cpp}`.
 4. Address-keyed global storage for standalone via `VirtualAlloc` (`source/StandaloneStorage.cpp`, used by
    `StaticRef` in `source/Base.h`).
-5. Project-memory docs: `AGENT.md`, `MEMORY.md`, `HISTORY.md`, `RESUME.md`.
+5. Project-memory docs: `AGENT.md`, `MEMORY.md`, `HISTORY.md`, `RESUME.md`, and the standalone build option
+   (`conanfile.py`: `standalone=True`).
+6. Gitignored **`refs/`** for read-only third-party references (`refs/README.md`: re3, reVC, librw).
+
+## Reference material (refs/)
+`refs/` is gitignored and **may be empty on your machine** — that's fine, it's read-only reference material.
+If present, the useful bits are `refs/re3` (III), `refs/reVC` (miami), `refs/librw`. See `refs/README.md` and
+`MEMORY.md` §3 (RenderWare) — the highest-value use is figuring out how to *provide RenderWare* and how a
+standalone engine boots.
 
 ## Unverified changes ⚠️
 **Everything code-related in the 2026-10-11 entry.** Highest-risk items to compile first:
@@ -40,16 +48,20 @@ Started the **mod → standalone game** conversion (scaffolding only):
 
 ## Immediate next steps
 1. **Build the mod config first** (`python setup.py`, `python setup.py --build`) to confirm nothing regressed.
-2. **Build the standalone config** (`-o GTASA_STANDALONE=ON`) and fix compile errors.
+2. **Build the standalone config** (`python setup.py -o standalone=True --build`) and fix compile errors.
 3. **Try running the standalone exe.** Expect an early crash; capture *where* (console log / debugger). That crash is
    the map for Phase 2 of the roadmap (`MEMORY.md` §6).
 4. **Phase 1 (memory):** confirm/adjust `CMemoryMgr` + global `new/delete` behavior for standalone
    (`MEMORY.md` §5.2). This likely blocks everything else.
+5. **Read the references** (`refs/README.md`): startup order/bootstrapping (re3), memory manager, and especially how
+   RenderWare is provided (librw).
 
 ## Open questions ❓
 * Is there an agreed design for satisfying the ~835 `plugin::Call` sites in standalone (reversal vs. loader vs. stubs)?
 * Should the standalone exe eventually be named `gta_sa.exe` (to reuse the install flow) or stay `gta_reversed.exe`?
 * Should `GTASA_STANDALONE` get a dedicated `CMakePresets.json` preset + a CI job so this path stops rotting?
+* **RenderWare:** adopt `librw` wholesale, or choose another path? (It's the only realistic way to have RW, since
+  SA's RW is closed-source and lives in the original exe.)
 
 ## Commands cheat-sheet
 ```powershell
@@ -58,8 +70,12 @@ python setup.py
 python setup.py --build
 
 # standalone configure (example)
-python setup.py -o GTASA_STANDALONE=ON -s build_type=Debug
+python setup.py -o standalone=True -s build_type=Debug
 
 # find remaining non-reversed code
 Get-ChildItem -Recurse -Include *.cpp,*.h,*.hpp -Path source | Select-String -Pattern 'plugin::Call'
 ```
+
+## refs/ (read-only references, gitignored)
+If the folder is present, look at `refs/re3`, `refs/reVC` (miami), `refs/librw` — architecure/boot/RenderWare
+reference only, **no code copying** (licenses). See `refs/README.md`.

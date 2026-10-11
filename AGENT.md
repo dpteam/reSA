@@ -22,6 +22,7 @@ Read it before touching code. It is intentionally short — the details live in 
 | `docs/CodingGuidelines.md` | The upstream coding standard. **Authoritative for code style.** | As upstream. |
 | `docs/HookRegistration.md` | Rules for registering reversed functions. | As upstream. |
 | `docs/ai/TipsAndTricks.md` | Aggregated reversing knowledge base. | Append when you discover something. |
+| `refs/` | Read-only third-party reference sources (re3/reVC/librw). **Gitignored.** See `refs/README.md`. | When you learn something from them, copy the *knowledge* into `MEMORY.md`. |
 
 Never delete a rule/document without replacing it. Prefer **appending** to `MEMORY.md`/`HISTORY.md`.
 
@@ -41,6 +42,8 @@ Never delete a rule/document without replacing it. Prefer **appending** to `MEMO
 6. **Document verification honestly.** If you could not build/test (see §4), say so explicitly in the commit body
    and in `RESUME.md`. Never claim it "works" without a build.
 7. **Keep the docs in §1 in sync** — an undocumented session is a lost session.
+8. **`refs/` is read-only and gitignored.** Use it to understand architecture/behavior, never copy code from it
+   (different, incompatible licenses) and never `#include`/link against it. Findings go into `MEMORY.md`.
 
 ---
 
