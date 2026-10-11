@@ -159,6 +159,14 @@
   это **no-op**, поэтому **текст не рисуется вообще** (меню/HUD/загрузка). Нужно реализовать: он проходит по
   накопленному `FontRenderStateBuf` и рисует глифы через `CSprite2d` (см. `CFont::PrintChar` — там уже есть
   логика UV). Крупная задача, но важная для играбельности.
+  **Полная цепочка текста (нужно реализовать всё):**
+  1. `CFont::PrintChar` (0x718A10) — есть тело под заглушкой (не хватает лишь `else if (RenderState.m_bContainImages)`).
+  2. `CSprite2d::AddToBuffer` (0x728200) — **не реверснут**; кодит `CFontChar` (12 × 0x30) в `FontRenderStateBuf`
+     и глифы в буфер `aRadiosityVertexBuffer`. Нужен реверс (посмотреть как `RenderVertexBuffer` рисует).
+  3. `CFont::ProcessCurrentString` (0x71A220) — разбор строки/токенов → `PrintChar` (сейчас no-op).
+  4. `CFont::RenderFontBuffer` (0x719840) — финальный проход по `FontRenderStateBuf` → `CSprite2d` draws + сброс `pEmptyChar`.
+  Референс: `refs/reVC/src/renderer/Font.cpp` (там `PrintChar`/`RenderFontBuffer` есть, но VC-структуры отличаются).
+  Проверять `FontRenderStateBuf` (`CFontChar[9]`, адрес 0xC716B0) и `pEmptyChar` (0xC716A8).
 - 💡 **`RwIm3D*` на librw.** `RwIm3DTransform/RenderPrimitive/RenderIndexedPrimitive/RenderLine/End`
   (`rwcore.cpp`, адреса 0x7EF450…) пока вызываются в оригинальный exe. Их много (эффекты, следы, стёкла,
   линии отладки). Нужен маппинг на librw `im3d::*` — но у librw другой layout `Im3DVertex` (position/normal/color/uv),
