@@ -252,7 +252,27 @@ SurfaceId SurfaceInfos_c::GetSurfaceIdFromName(Const char* cName)
 // 0x55D0E0
 void SurfaceInfos_c::LoadAdhesiveLimits()
 {
+#ifndef NOTSA_STANDALONE
     return plugin::CallMethod<0x55D0E0, SurfaceInfos_c*>(this);
+#else
+    // Standalone: `surface.dat` is a lower-triangular 6x6 adhesion matrix
+    // (row = adhesion group, values = adhesion limit against every group up to & incl. itself).
+    auto GetGroupFromName = [](const char* name) -> int32 {
+        static const struct { const char* name; eAdhesionGroup group; } mapping[]{
+            { "Rubber", ADHESION_GROUP_RUBBER },
+            { "Hard",   ADHESION_GROUP_HARD   },
+            { "Road",   ADHESION_GROUP_ROAD   },
+            { "Loose",  ADHESION_GROUP_LOOSE  },
+            { "Sand",   ADHESION_GROUP_SAND   },
+            { "Wet",    ADHESION_GROUP_WET    },
+        };
+        for (const auto& [n, g] : mapping) {
+            if (notsa::ci_string_view{ n } != name)
+                continue;
+            return (int32)g;
+        }
+        return -1;
+    };
 
     CFileMgr::SetDir("");
     auto* file = CFileMgr::OpenFile("data\\surface.dat", "rb");
@@ -267,14 +287,34 @@ void SurfaceInfos_c::LoadAdhesiveLimits()
         if (*line == ';' || !*line)
             continue;
 
-        char value[4];
-        VERIFY(sscanf_s(line, "%s", SCANF_S_STR(value)) == 1);
-        for (auto i = *line; i != ' '; i = *++line) {
-            if (i == '\t')
+        char name[32]{};
+        if (sscanf_s(line, "%31s", SCANF_S_STR(name)) != 1)
+            continue;
+
+        const auto row = GetGroupFromName(name);
+        if (row < 0)
+            continue;
+
+        // Values follow the name; fill the row (and mirror it, the matrix is symmetric)
+        const char* p = line + strlen(name);
+        for (auto col = 0; col <= row; col++) {
+            while (*p && isspace(static_cast<uint8>(*p)))
+                p++;
+            if (!*p)
                 break;
+
+            char* end{};
+            const float value = std::strtof(p, &end);
+            if (end == p)
+                break;
+            p = end;
+
+            m_adhesiveLimits[row][col] = value;
+            m_adhesiveLimits[col][row] = value;
         }
     }
     CFileMgr::CloseFile(file);
+#endif
 }
 
 // 0x55EB90
