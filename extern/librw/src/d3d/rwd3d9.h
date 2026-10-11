@@ -3,6 +3,10 @@ namespace d3d9 {
 
 void registerPlatformPlugins(void);
 
+// Exposes the D3D9 device caps queried during device creation (returns `D3DCAPS9*` as `void*`).
+// Added for the gta-reversed fork's standalone build (see extern/README.md).
+void *getD3D9Caps(void);
+
 struct VertexElement
 {
 	uint16   stream;

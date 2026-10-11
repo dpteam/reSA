@@ -75,6 +75,11 @@ bool DeviceSupportsDXTTexture() {
     return true;
 }
 
+const void* D3D9GetCaps() {
+    // librw queries the device caps during device creation and caches them (returns `D3DCAPS9*`).
+    return rw::d3d9::getD3D9Caps();
+}
+
 void SetMipmapping(bool enable) {
     rw::Texture::setMipmapping(enable ? 1 : 0);
 }

@@ -46,6 +46,8 @@ unsigned GetMaxMultiSamplingLevels();
 void     SetMultiSamplingLevels(unsigned levels);
 void     SetRefreshRate(unsigned hz);        //!< No-op in librw (refresh rate is part of the video mode).
 bool     DeviceSupportsDXTTexture();         //!< librw's D3D9 backend supports DXT textures.
+/*! @brief The D3D9 device capabilities (`D3DCAPS9*`) librw queried during device creation, or nullptr. */
+const void* D3D9GetCaps();
 
 void SetMipmapping(bool enable);
 void SetAutoMipmapping(bool enable);

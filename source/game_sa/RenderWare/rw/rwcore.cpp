@@ -908,7 +908,11 @@ void _rwD3D9SetStreams(const RxD3D9VertexStream* streams, RwBool useOffsets) {
 }
 
 const void* RwD3D9GetCaps() { // D3DCAPS9*
+#ifdef NOTSA_STANDALONE
+   return rwbridge::D3D9GetCaps();
+#else
    return ((const void*(__cdecl *)(void))0x7FAD20)();
+#endif
 }
 
 RwBool RwD3D9CameraIsSphereFullyInsideFrustum(const void* camera, const void* sphere) {

@@ -17,6 +17,9 @@ network-independent. They are **not** part of our reversed code.
 * **Upstream:** <https://github.com/aap/librw>
 * **Vendored commit:** `18532c2e13efbc1aa43f0b00b4459831f9414de0` (branch `master`).
 * **License:** MIT — see `librw/LICENSE` (compatible with this repo; attribution kept in that file).
+* **Local modifications (must be re-applied if re-vendored):**
+  1. `src/d3d/rwd3d9.h` + `src/d3d/d3d9.cpp`: added `rw::d3d9::getD3D9Caps()` (exposes the cached `D3DCAPS9` as
+     `void*`). The game's `RwD3D9GetCaps()` needs it (e.g. `anisotropySupportedByGFX`), and librw exposes no accessor.
 * **What was copied:** everything except `skeleton/`, `tools/*` (only `tools/CMakeLists.txt`, a no-op stub that the
   build requires), `.github/`, CI files and the `premake*` scripts. Platform sources for all backends are kept because
   librw's build compiles them unconditionally; we only *use* the **D3D9** backend.

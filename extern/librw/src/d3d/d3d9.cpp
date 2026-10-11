@@ -18,6 +18,11 @@
 #define PLUGIN_ID 2
 
 namespace rw {
+
+namespace d3d9 {
+// Added for the gta-reversed fork's standalone build: expose the cached D3DCAPS9 (see extern/README.md).
+void *getD3D9Caps(void) { return &rw::d3d::d3d9Globals.caps; }
+}
 namespace d3d9 {
 using namespace d3d;
 

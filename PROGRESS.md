@@ -17,12 +17,16 @@
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
 | 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
-| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | ✅ `GAME_STATE_INITIAL` (splash), `CLoadingScreen::Init`, `CGamma::Init`, `GetMillisecondTime`; сейчас `CGame::InitialiseEssentialsAfterRW` → косметические рендереры (RxPipeline) |
-| 11 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
-| 12 | Рендер + оконный режим (RDP) | ⏳ | |
+| 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | 🚧 | ✅ `GAME_STATE_INITIAL` (splash), `CLoadingScreen::Init`, `CGamma::Init`, `GetMillisecondTime`, `InitialiseEssentialsAfterRW`, `InitialiseCoreDataAfterRW` (SurfaceInfos, decision makers); сейчас `GAME_STATE_FRONTEND_LOADING` → `RwD3D9GetCaps` |
+| 11 | Фронтенд (`FRONTEND_LOADED`/`IDLE` → меню) | ⏳ | |
+| 12 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
+| 13 | Рендер + оконный режим (RDP) | ⏳ | |
 
 > **Веха (2026-10-12):** standalone **полностью проходит инициализацию RenderWare** и входит в **игровой цикл**
-> `MainLoop` / `ProcessGameLogic`: отрабатывают загрузочные экраны (`CLoadingScreen`), таймер, гамма.
+> `MainLoop` / `ProcessGameLogic`: отрабатывают загрузочные экраны (`CLoadingScreen`), таймер, гамма,
+> затем `CGame::InitialiseEssentialsAfterRW` **и** `CGame::InitialiseCoreDataAfterRW` (surface-данные, decision makers,
+> и т.д.) — вплоть до состояния `GAME_STATE_FRONTEND_LOADING`, где приложение **создаёт окно (1692×919)
+> и загружает данные** (`AMERICAN.GXT`, handlings, decision makers).
 > Бинарник — **`reSA.exe`**. Debug/tools-UI (ImGui) и RxPipeline-эффекты (env-map, custom building) в standalone
 > отключены (см. `IDEAS.md`).
 
