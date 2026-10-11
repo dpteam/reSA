@@ -928,11 +928,20 @@ RwBool _rwDeviceRegisterPlugin() {
 }
 
 void _rwD3D9DeviceSetRestoreCallback(rwD3D9DeviceRestoreCallBack callback) {
+#ifdef NOTSA_STANDALONE
+    // librw manages its own D3D9 device; no restore callback plumbing needed.
+    (void)callback;
+#else
    ((void(__cdecl *)(rwD3D9DeviceRestoreCallBack))0x7FAE20)(callback);
+#endif
 }
 
 rwD3D9DeviceRestoreCallBack _rwD3D9DeviceGetRestoreCallback() {
+#ifdef NOTSA_STANDALONE
+    return nullptr;
+#else
    return ((rwD3D9DeviceRestoreCallBack(__cdecl *)(void))0x7FAE30)();
+#endif
 }
 
 RwImage* RwImageResample(RwImage* dstImage, const RwImage* srcImage) {

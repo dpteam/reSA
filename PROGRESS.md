@@ -15,8 +15,13 @@
 | 5 | `RwEngineInit` / `RwEngineOpen` | ✅ | через мост над librw |
 | 6 | `PluginAttach` | ✅ | librw `RegisterCorePlugins()` |
 | 7 | `psSelectDevice` + **`RsRwInitialize` целиком** | ✅ | движок стартовал, текстурные настройки |
-| 8 | `CGame::InitialiseRenderWare` | 🚧 | камера/frame/растры/матрицы ✅, world+свет ✅, `CreateDebugFont` ✅, `CFont::Initialise`: TXD загружен ✅ → сейчас `RwTextureRead` (текстуры шрифта) |
-| 9 | Загрузка ассетов (TXD/DFF/стриминг) | 🚧 | streams + TXD + TexDictionary текущий + Texture (read/create/add) — через librw |
+| 8 | `CGame::InitialiseRenderWare` | 🚧 | всё проходит (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`); финал: `_rwD3D9DeviceSetRestoreCallback` |
+| 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
+| 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
+| 11 | Рендер + оконный режим (RDP) | ⏳ | |
+
+> **Веха:** движок RenderWare в standalone **работает** (через librw). Создание камеры, мира, света,
+> растров и матриц — проходит. Дошли до **загрузки игровых ассетов** (первый реальный TXD).
 | 10 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
 | 11 | Рендер + оконный режим (RDP) | ⏳ | |
 
