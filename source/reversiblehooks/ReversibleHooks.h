@@ -33,7 +33,9 @@
     RH_InstallProlouge(name) \
     using RHCurrentNS = cls;
 
-#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
+// In standalone there is no original game, so the GTA vtable address must not be dereferenced.
+// (The mod build reads the real vtables; the dump-only build also leaves them empty.)
+#ifdef NOTSA_STANDALONE
 #define RH_ScopedVirtualClass(cls, addrGTAVtbl, nVirtFns_) \
     RH_InstallProlouge(#cls) \
     const  ReversibleHooks::Utility::VMTInfo pGTAVTbl{}; \

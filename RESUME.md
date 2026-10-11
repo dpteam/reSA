@@ -11,25 +11,33 @@
 
 ## State of the tree
 * Branch: `master` (fork `dpteam/reSA` = `origin`, upstream `gta-reversed/gta-reversed`).
-* Working tree: clean (all work committed — see `HISTORY.md`).
-* **Build status: UNVERIFIED.** Re-check the toolchain early in your session (see "Environment" below).
+* Working tree: see `HISTORY.md` (latest entry).
+* ✅ **Both configs build** (VS 2022 / MSVC 194, Windows SDK 10.0.26100):
+  * Mod: `bin/Debug/gta_reversed.asi`
+  * Standalone: `bin/Debug/gta_reversed.exe`
+  * Build cmd: `python setup.py --build -s compiler.version=194` (⚠️ wrapper reports exit 1 even on success — trust
+    `cmake --build build --config Debug`, which returns 0).
+* The `build/` dir is currently configured for **standalone** (`GTASA_STANDALONE=ON`).
+
+## Standalone status (2026-10-11) — it BOOTS, needs assets
+`gta_reversed.exe` runs through hook installation and into the game, stopping at `CdStreamOpen: MODELS\GTA3.IMG`
+→ **it now needs the GTA:SA game files** next to the exe. Next expected blocker after that: RenderWare init.
+See `MEMORY.md` §5a (crash-by-crash progress) and §8 (how to run/debug + **windowed-mode/RDP** caveat: windowed mode
+is NOT currently enforced in standalone).
+
+⚠️ **Not re-verified:** the mod build wasn't rebuilt after the shared-file changes (`RHManager.cpp`,
+`ReversibleHooks.h`, `MemoryMgr.cpp`). The changes are additive `#ifdef NOTSA_STANDALONE` branches, so the mod path is
+unchanged — but a full mod rebuild is still pending.
 
 ## Environment (⚠️ verified 2026-10-11 on this machine — may differ elsewhere)
-* VS 2022 Community (instance `14ba42e0`) + BuildTools present; MSVC **14.44** (`_MSC_VER` 1944), x86 OK, `cl` works. ✅
-* ❗ **The VS instance is incomplete**: it has the *.NET desktop* workload + `VC.Tools.x86.x64`, but **NOT** the
-  **"Desktop development with C++"** workload and **NOT** the **Windows SDK**. Hence:
-  1. no `windows.h` → `cl` fails with **C1083** (hard blocker for *any* build);
-  2. CMake's VS generator fails with *"could not find any instance of Visual Studio"* (it only accepts complete
-     instances), which is exactly where `conan install` stopped.
-  **Fix (needs admin):** VS Installer → *Modify* → check **"Desktop development with C++"** → Install.
-  ```powershell
-  & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
-    --installPath "C:\Program Files\Microsoft Visual Studio\2022\Community" `
-    --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --norestart
-  ```
-* Conan 2.33 / CMake 4.4 / Ninja 1.13 installed via pip; `conan profile detect` reports msvc 194. ⚠️
-* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ pass `-s compiler.version=194`. ⚠️
-* Note: dependencies will be **built from source** (no Conan binaries for x86/Debug/cppstd23) — slow but expected. ⚠️
+* ✅ **Toolchain is fully working now.** VS 2022 Community has the *Desktop development with C++* workload + Windows
+  SDK 10.0.26100 (was incomplete before); `cl` compiles `windows.h`/`d3d9.h`/`dinput.h`. Conan 2.33 / CMake 4.4 /
+  Ninja 1.13 installed via pip.
+* ✅ **The mod build succeeds**: `python setup.py --build -s compiler.version=194` → `bin/Debug/gta_reversed.asi`.
+  ⚠️ That wrapper reports exit code 1 even on success; for a trustworthy code use
+  `cmake --build build --config Debug` (returns 0).
+* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ always pass `-s compiler.version=194`. ⚠️
+* Deps build from source (`GTASA_USE_SDL3=ON` default) — slow the first time, then cached in `~/.conan2`. ⚠️
 
 ## How to build (once the Windows SDK is present)
 ```powershell

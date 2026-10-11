@@ -1,6 +1,6 @@
 #include "StdInc.h"
 
-#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
+#ifdef NOTSA_STANDALONE
 #include "ReversibleHook/NullHook.h"
 #else
 #include "ReversibleHook/VirtualHook.h"
@@ -50,7 +50,9 @@ void RHManager::InstallVirtual(
     void*              fnAddressGTA,
     HookInstallOptions opt
 ) {
-#ifdef NOTSA_STANDALONE_DUMP_HOOKS_ONLY
+#ifdef NOTSA_STANDALONE
+    // Standalone: There's no original game to patch, so hooks are documentation-only.
+    // (Our reversed code *is* the game, and virtual dispatch happens through our own vtables.)
     AddHookToCategory(category, opt, std::make_shared<ReversibleHook::NullHook>(
         std::move(fnName),
         fnAddressOur,

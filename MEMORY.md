@@ -68,8 +68,19 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
   Conan Center has no matching prebuilt binaries (it only offered `compiler.version=193` alternatives, also absent),
   so SDL3/ogg/vorbis/libjpeg-turbo/spdlog/tracy/imgui get **built from source** — slow (tens of minutes) but fine. ⚠️
 * Not admin (VS Installer/SDK can't be run by the agent). Disk: C: ~54 GB free, E: ~61 GB free. ✅
-* The Conan install was attempted and stopped exactly at the CMake/VS step (after downloading cmake/nasm/etc.). Re-run
-  once the workload is added.
+
+### Build works (mod config) — ✅ verified 2026-10-11
+* After the workstation was completed, the **mod build succeeds**:
+  `python setup.py --build -s compiler.version=194` → **`bin/Debug/gta_reversed.asi`** (~47 MB),
+  plus `gta_reversed.lib` / `.exp` / `.pdb` in the same folder. *(Expected path per `source/CMakeLists.txt`'s
+  `RUNTIME_OUTPUT_DIRECTORY .../bin/${CMAKE_BUILD_TYPE}/`; on the VS generator `CMAKE_BUILD_TYPE` is empty but CMake
+  appends the config, giving `bin/Debug/`.)* ✅
+* ⚠️ The `python setup.py ...` wrapper reports **exit code 1 even on success** (PowerShell treats Conan's stderr
+  output as errors; the `create_source_group` custom rule is also the last thing printed). To get a trustworthy code,
+  use the direct `cmake --build build --config Debug` instead — it returns **0**. ✅
+* All our new files compile cleanly in the mod config (`Bootstrap.cpp`, `StandaloneStorage.cpp`, `dllmain.cpp`,
+  `WinMain.cpp`). ✅
+* Deps are built from source (`GTASA_USE_SDL3=ON` by default ⇒ SDL3, plus ogg/vorbis/libjpeg-turbo/spdlog/tracy/imgui). ⚠️
 
 ## 3. Architecture essentials
 
@@ -126,6 +137,30 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
 * Progress is tracked in `docs/ReversedClasses.md` and `docs/hooks.json`; upstream estimates ~50–60% reversed. ⚠️
 
 ## 5. Known blockers / gotchas for the standalone build 🚧
+
+### 5a. Standalone boot progress (observed, 2026-10-11) ✅
+The standalone `gta_reversed.exe` now boots (verified by running it and reading `logs/log.log`).
+Sequence of crashes fixed so far, in order:
+1. **Crash during hook installation** — `InjectHooksMain` → `CCopPed::InjectHooks` → `RHManager::InstallVirtual`
+   → `VMTInfo::FindIndexOf` (C++ exception). *Cause:* `InstallVirtual` (and `RH_ScopedVirtualClass`) guarded on
+   `NOTSA_STANDALONE_DUMP_HOOKS_ONLY` instead of `NOTSA_STANDALONE`, so the full standalone build still tried to
+   read the original game's vtables. **Fixed** (`RHManager.cpp`, `ReversibleHooks.h`).
+2. **Crash in the memory manager** — `CGame::InitialiseOnceBeforeRW` → `CdStreamInit` → `CMemoryMgr::MallocAlign`
+   (`EIP 0x72F4C0`, i.e. the `plugin::Call` to the original game). *Cause:* `CMemoryMgr` falls back to `plugin::Call`
+   when `MEMORY_MGR_USE_MEMORY_HEAP` is off, and the 2-arg `MallocAlign` overload called `0x72F4C0` unconditionally.
+   **Fixed** — under `NOTSA_STANDALONE`, `Malloc`/`Free`/`Realloc`/`Calloc`/`MallocAlign`/`FreeAlign` now use the CRT.
+3. **Reached game-data loading** — `CdStreamOpen: MODELS\GTA3.IMG`. It hangs here because there are no game assets.
+   ⬅ **This is where the game data is needed.** Remaining `CMemoryMgr::InitScratchPad` (0x72F480) still calls the game
+   but isn't reached (heap path is off). ⚠️
+4. **Next expected blocker:** `RsRwInitialize` (rsRWINITIALIZE) → RenderWare (`plugin::Call` into the original exe).
+   Needs a real RW implementation (librw + shim) — see §3/§5b/§6. ⚠️
+
+**How to run it** (once assets exist): put the full GTA:SA assets (`models/`, `data/`, `audio/`, `anim/`, `movies/`,
+`text/`, ...) next to `gta_reversed.exe` and run it with the assets as the working directory
+(it opens relative paths like `MODELS\GTA3.IMG`). Logs + crash dumps land in `logs/log.log`, so a run always tells us
+exactly where it died.
+
+### 5b. Other blockers
 
 1. **`plugin::Call` / `CallAndReturn` to absolute addresses.** Non-reversed code physically lives in `gta_sa.exe`.
    Standalone needs either (a) all of it reversed, or (b) a strategy to satisfy those calls. ~835 sites. ⚠️
@@ -194,26 +229,18 @@ Notable differences to keep in mind for the standalone port:
 
 ## 6. Proposed standalone roadmap ❓
 
-* **Phase 0 — entry point & storage (started):** real `WinMain`, shared bootstrap, config loading, and address-keyed
-  storage for globals. *Done in this session (unverified build).*
-* **Phase 1 — self-contained memory:** give `CMemoryMgr` a working, non-`plugin::Call` path for standalone.
-  * `MEMORY_MGR_USE_MEMORY_HEAP` is a dead end: it's never defined, its `Init()` body is **bit-rotted** (refers to
-    `_MEMORYMGR_HEAP_SIZE`/`gmemoryHeapCS` which aren't the declared names), and `CMemoryHeap` itself still has a
-    `plugin::CallMethod(0x72E8E0)` stub. So we can't just flip it on. ✅ *(verified 2026-10-11)*
-  * **Plan:** in `game_sa/MemoryMgr.cpp`, under `#ifdef NOTSA_STANDALONE`, route `CMemoryMgr::Malloc`/`Free`/`Realloc`/
-    `Calloc`/`FreeAlign`/`MallocAlign` straight to the CRT (`malloc`/`free`/`realloc`/`calloc`) and skip the memory
-    *tracking* (`RegisterMalloc`/`RegisterFree`/heap-block descriptors only make sense with the real heap). This mirrors
-    re3's default (non-custom) allocator. Keep the mod path untouched. ⚠️ *Not yet implemented.*
-  * Template: re3's `USE_CUSTOM_ALLOCATOR` — see `MEMORY.md` §5b. Simplest option: don't overload the global
-    allocator in standalone at all (use the CRT), at least until everything else works — in fact we already don't
-    (§5.2), so only `CMemoryMgr` itself needs this. ✅
+* **Phase 0 — entry point & storage (done):** real `WinMain`, shared bootstrap, config loading, address-keyed storage
+  for globals, hook-framework fix. ✅ *Verified by building and running (2026-10-11).*
+* **Phase 0.5 — verify boot:** the exe now boots to game-data loading (`MODELS\GTA3.IMG`). ✅
+* **Phase 1 — self-contained memory (mostly done):** `CMemoryMgr::{Malloc,Free,Realloc,Calloc,MallocAlign,FreeAlign}`
+  are CRT-backed under `NOTSA_STANDALONE`. ✅ Remaining: `InitScratchPad` (0x72F480, not reached yet). ⚠️
 * **Phase 2 — eliminate `plugin::Call`:** reverse the remaining functions reachable from startup (or add explicit,
   clearly-marked stubs that fail loudly). Drive this from the actual startup call graph, not alphabetically.
+  **Next concrete target:** `RsRwInitialize` / RenderWare init (see §5a.4).
 * **Phase 3 — subsystems:** RenderWare (librw + C-API shim — see §3/§5b) / D3D9, windowing/input, filesystem, audio,
   save system.
 * **Phase 4 — packaging:** exe name/assets/install flow, replace the ASI install flow in `contrib/install.py`.
-* **Phase 0.5 — sanity checks against `refs/re3`:** walk our `NOTSA_WinMain` against re3's `WinMain` and note
-  differences in `MEMORY.md`. ⚠️
+* **Phase 0.5 — sanity checks against `refs/re3` (done):** walked our `NOTSA_WinMain` against re3's `WinMain`. ✅
 
 Also cross-check all of this against the closest existing prior art, `refs/re3` (III) and `refs/reVC` (VC) —
 complete standalone games built on the same engine family, plus `refs/librw` for RenderWare. ⚠️
@@ -225,3 +252,24 @@ complete standalone games built on the same engine family, plus `refs/librw` for
 * `docs/ai/TipsAndTricks.md` — aggregated reversing knowledge (enums, struct offsets, IDA quirks). ✅
 * Grep helper for outstanding work:
   `Select-String -Path source -Pattern 'plugin::Call' -Recurse` .
+
+## 8. Running & debugging the standalone build
+
+* **Command:** build → `bin/Debug/gta_reversed.exe`. Run it from a directory that has the game's assets
+  (or put the exe into the GTA:SA folder). It opens relative paths (`MODELS\GTA3.IMG`, …), so cwd matters.
+* **Logs:** `logs/log.log` (next to cwd) + console. The unhandled-exception handler
+  (`app_debug.cpp: WindowsExceptionHandler`) logs the exception code, registers and a **full call stack** —
+  so every run tells us exactly where it died. This is our main debugging tool. ✅
+* `--debug` on the command line makes it wait for a debugger (`CommandLine::s_WaitForDebugger`). ✅
+* `gta-reversed.ini` (optional) configures the fast-loader (skip logos/intro, auto-load a save, …). ✅
+
+### Windowed mode & RDP ⚠️ (matters for remote-desktop testing — user requirement)
+* The project force-enables windowed mode (`NOTSA_WINDOWED_MODE` is a **mandatory** compile definition, see
+  `source/CMakeLists.txt`; comment: "it must be enabled, otherwise shit's gonna crash").
+* The window is created with `WS_OVERLAPPEDWINDOW` in `Win32_InitInstance` (`WinMain.cpp`), and
+  `notsa::WindowedMode::bWindowed = true` by default (`WindowedMode.cpp`).
+* ❗ **But** the mechanism that *actually forces D3D9 into windowed mode* is `WindowedMode::AdjustPresentParams()`,
+  called from `HookDirect3DDeviceReplacerSA` (hooked at `0x7F6781`). In the **standalone** build that hook is **not
+  installed** (`notsa::InjectWindowedModeHooks()` is `#ifndef NOTSA_STANDALONE`, and hooks are `NullHook` anyway), so
+  **windowed mode is NOT currently enforced** in standalone. ⚠️ *Needs solving before we can render — likely by calling
+  `AdjustPresentParams` directly once we own the D3D9 device creation (which is tied to the RenderWare replacement).*

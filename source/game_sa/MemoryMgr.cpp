@@ -231,9 +231,12 @@ void* CMemoryMgr::Malloc(uint32 size, uint32 nHint) {
     CMemoryHeap::SetDebugInfo(memory, nHint);
     _UNLOCK_MEMORYHEAP();
     return memory;
+#elif defined(NOTSA_STANDALONE)
+    // Standalone: the original game's allocator isn't available, so back allocations with the CRT.
+    // (The memory-heap implementation above could be used instead, but it isn't functional yet - see MEMORY.md.)
+    return ::malloc(size);
 #else
     return plugin::CallAndReturn<void*, 0x72F420, size_t>(size);
-    return ::malloc(size);
 #endif
 }
 
@@ -250,9 +253,10 @@ void CMemoryMgr::Free(void* memory) {
         g_Heaps[HEAP_PRIMARY].Free(memory);
     }
     UNLOCK_MEMORYHEAP();
+#elif defined(NOTSA_STANDALONE)
+    ::free(memory);
 #else
     return plugin::Call<0x72F430, void*>(memory);
-    return ::free(memory);
 #endif
 }
 
@@ -284,20 +288,21 @@ uint8* CMemoryMgr::Realloc(void* memory, uint32 size, uint32 nHint) {
     CMemoryHeap::SetDebugInfo(newMemory, nHint);
     UNLOCK_MEMORYHEAP();
     return newMemory;
+#elif defined(NOTSA_STANDALONE)
+    return static_cast<uint8*>(::realloc(memory, size));
 #else
     return plugin::CallAndReturn<uint8*, 0x72F440, void*, size_t>(memory, size);
-    return static_cast<uint8*>(::realloc(memory, size));
 #endif
 }
 
 // 0x72F460
 uint8* CMemoryMgr::Calloc(uint32 numObj, uint32 sizeObj, uint32 hint) {
-    return plugin::CallAndReturn<uint8*, 0x72F460, uint32, uint32>(numObj, sizeObj);
-
 #ifdef MEMORY_MGR_USE_MEMORY_HEAP
     return Malloc(hint * size, hint);
-#else
+#elif defined(NOTSA_STANDALONE)
     return static_cast<uint8*>(::calloc(numObj, sizeObj));
+#else
+    return plugin::CallAndReturn<uint8*, 0x72F460, uint32, uint32>(numObj, sizeObj);
 #endif
 }
 
@@ -311,8 +316,11 @@ uint8* CMemoryMgr::MallocAlign(uint32 size, uint32 align, uint32 nHint) {
 }
 
 void CMemoryMgr::FreeAlign(void* memory) {
-    return plugin::Call<0x72F4F0, void*>(memory);
+#ifdef NOTSA_STANDALONE
     Free(*((void**)memory - 1));
+#else
+    return plugin::Call<0x72F4F0, void*>(memory);
+#endif
 }
 
 void CMemoryMgr::SetRestrictMemoryMove(bool restrict) {
@@ -370,9 +378,13 @@ void* CMemoryMgr::Malloc(uint32 size) {
 }
 
 void* CMemoryMgr::MallocAlign(uint32 size, uint32 align) {
+#ifdef NOTSA_STANDALONE
+    void* memory = MallocAlign(size, align, 0);
+#else
     return plugin::CallAndReturn<void*, 0x72F4C0, uint32, uint32>(size, align);
 
     void* memory = MallocAlign(size, align, 0);
+#endif
 #if defined MEMORY_MGR_USE_HEAP_FLAGS
     GET_HEAP_DESC(memory)->m_Flags.NoDebugHint = true;
 #endif

@@ -93,3 +93,31 @@ session-memory documents requested in `PROMPT.md`.
 * **Correction:** added `MEMORY.md` §2 "Local dev environment" and refined `RESUME.md` with the exact diagnosis.
 
 **Verification:** no build (blocked on the missing workload/SDK). Conan reached the CMake step and failed there.
+
+---
+
+### Follow-up (same day, 4): first successful build + standalone boots to game-data loading 🎉
+
+* **Mod build works:** `bin/Debug/gta_reversed.asi` (~47 MB).
+* **Standalone build works:** `bin/Debug/gta_reversed.exe` (~45 MB).
+  (Both: `python setup.py --build -s compiler.version=194`; note that wrapper reports exit 1 even on success — trust
+  `cmake --build build --config Debug` instead, which returns 0.)
+
+* **Ran the standalone exe** and used `logs/log.log` (the crash handler dumps a full call stack) to iterate:
+  1. 🐛 **Fixed a real hook-framework bug:** `RHManager::InstallVirtual` and `RH_ScopedVirtualClass` guarded on
+     `NOTSA_STANDALONE_DUMP_HOOKS_ONLY` instead of `NOTSA_STANDALONE`, so the full standalone build still tried to read
+     the original game's vtables and threw. Now the standalone build also uses `NullHook` / empty VMTInfo.
+     (`RHManager.cpp`, `ReversibleHooks.h`.)
+  2. 🐛 **Fixed the memory-manager blocker:** under `NOTSA_STANDALONE`, `CMemoryMgr::Malloc`/`Free`/`Realloc`/`Calloc`/
+     `MallocAlign`/`FreeAlign` now use the CRT instead of `plugin::Call` into `gta_sa.exe` (the 2-arg `MallocAlign`
+     called `0x72F4C0` unconditionally). (`game_sa/MemoryMgr.cpp`.)
+  3. ✅ **It now boots** through `InjectHooksMain()` (425 ms) and into the game, up to
+     `CdStreamOpen: MODELS\GTA3.IMG` — i.e. **it now needs the game assets**. Next expected blocker is RenderWare
+     init (`RsRwInitialize`), which needs librw.
+
+* Docs: `MEMORY.md` gained §5a (boot progress), §8 (running/debugging + **windowed-mode/RDP** note — windowed mode is
+  *not* currently enforced in standalone, needs solving before rendering).
+
+**Verification:** built both configs (exit 0 via CMake); ran the standalone exe and read its crash log. Mod config was
+**not** re-built after the shared-file changes (the changes are purely additive `#ifdef NOTSA_STANDALONE` branches, so
+the mod path is byte-identical) — mark as not re-verified.
