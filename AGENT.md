@@ -17,6 +17,8 @@ Read it before touching code. It is intentionally short — the details live in 
 | `MEMORY.md` | Living knowledge: architecture, gotchas, verified facts, blockers, roadmap. | Whenever you learn something non-obvious. |
 | `HISTORY.md` | Append-only changelog of work done by agents/sessions. | At the end of every work session. |
 | `RESUME.md` | Snapshot for restoring context after compaction / a new session. | At the end of every work session. |
+| `PROGRESS.md` | Step-by-step progress towards the fork's main goal ("get the game to run"). | When the boot chain advances. |
+| `IDEAS.md` | Backlog / raw ideas (features, porting upstream PRs, task to-dos). Nothing here is committed work. | When new ideas appear or something moves into work. |
 | `README.md` | User-facing build/usage docs. | When build/usage changes. |
 | `PROMPT.md` | The user's own high-level prompt for the agent. | When the direction/priorities change. |
 | `docs/CodingGuidelines.md` | The upstream coding standard. **Authoritative for code style.** | As upstream. |
