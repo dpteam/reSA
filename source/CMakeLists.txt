@@ -137,6 +137,9 @@ target_link_options(${RE_PROJECT_LIB_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
 if (${RE_PROJECT}_STANDALONE)
     set(LIBRW_PLATFORM "D3D9" CACHE STRING "librw graphics platform" FORCE)
     add_subdirectory("${CMAKE_SOURCE_DIR}/extern/librw" "${CMAKE_BINARY_DIR}/extern/librw")
+
+    # The librw bridge must NOT get our PCH (`StdInc.h`), as it deliberately avoids SA headers.
+    set_source_files_properties(game_sa/RenderWare/librw/RwBridge.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
 
 #--------------------------------------------------------------------
@@ -198,7 +201,7 @@ if (${RE_PROJECT}_USE_SDL3)
 endif()
 
 if (${RE_PROJECT}_STANDALONE)
-    # RenderWare replacement (see source/libs/README.md)
+    # RenderWare replacement (see extern/README.md)
     target_link_libraries(${RE_PROJECT_LIB_NAME} PRIVATE
         librw::librw
     )

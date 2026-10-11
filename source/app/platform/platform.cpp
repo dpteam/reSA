@@ -242,8 +242,19 @@ static RwMemoryFunctions g_objMemFunctions = { // 0x8D6228
 
 // 0x745510
 RwMemoryFunctions* psGetMemoryFunctions() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the original memory interface lives in the game executable, so provide a real one.
+    // `CMemoryMgr` is CRT-backed in standalone (see game_sa/MemoryMgr.cpp).
+    static RwMemoryFunctions s_MemFuncs = {
+        [](size_t size, RwUInt32 hint) -> void* { return CMemoryMgr::Malloc((uint32)size, hint); },
+        [](void* mem) { CMemoryMgr::Free(mem); },
+        [](void* mem, size_t newSize, RwUInt32 hint) -> void* { return CMemoryMgr::Realloc(mem, (uint32)newSize, hint); },
+        [](size_t numObj, size_t sizeObj, RwUInt32 hint) -> void* { return CMemoryMgr::Calloc((uint32)numObj, (uint32)sizeObj, hint); },
+    };
+    return &s_MemFuncs;
+#else
     return plugin::CallAndReturn<RwMemoryFunctions*, 0x745510>();
-    // return &g_objMemFunctions;
+#endif
 }
 
 // 0x619C90

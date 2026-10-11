@@ -2,6 +2,10 @@
 
 #include "rwplcore.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RenderWare/librw/RwBridge.h" // librw-backed RenderWare (standalone build)
+#endif
+
 RwMemoryFunctions* RwOsGetMemoryInterface() {
     return ((RwMemoryFunctions*(__cdecl *)(void))0x802230)();
 }
@@ -306,6 +310,8 @@ void* _rwSListGetEnd(RwSList* sList) {
     return ((void*(__cdecl *)(RwSList*))0x809540)(sList);
 }
 
+#ifndef NOTSA_STANDALONE
+
 RwUInt32 RwEngineGetVersion() {
     return ((RwUInt32(__cdecl *)(void))0x7F2BA0)();
 }
@@ -389,6 +395,76 @@ RwBool RwEngineSetFocus(RwBool enable) {
 RwMetrics* RwEngineGetMetrics() {
     return ((RwMetrics*(__cdecl *)(void))0x7F2E10)();
 }
+
+#else // NOTSA_STANDALONE
+
+// Standalone: RenderWare is provided by librw (see RwBridge). The original game's RW lives inside
+// gta_sa.exe, which the standalone build doesn't have.
+
+RwUInt32 RwEngineGetVersion() {
+    return rwbridge::GetVersion();
+}
+
+RwBool RwEngineInit(const RwMemoryFunctions*, RwUInt32, RwUInt32) {
+    return rwbridge::EngineInit();
+}
+
+RwInt32 RwEngineRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor initCB, RwPluginObjectDestructor termCB) {
+    return rwbridge::RegisterPlugin(size, pluginID, (void*)initCB, (void*)termCB);
+}
+
+RwInt32 RwEngineGetPluginOffset(RwUInt32 pluginID) {
+    return rwbridge::GetPluginOffset(pluginID);
+}
+
+RwBool RwEngineOpen(RwEngineOpenParams* initParams) {
+    return rwbridge::EngineOpen(initParams ? initParams->displayID : nullptr);
+}
+
+RwBool RwEngineStart() { return rwbridge::EngineStart(); }
+RwBool RwEngineStop()  { rwbridge::EngineStop();  return true; }
+RwBool RwEngineClose() { rwbridge::EngineClose(); return true; }
+RwBool RwEngineTerm()  { rwbridge::EngineTerm();  return true; }
+
+RwInt32 RwEngineGetNumSubSystems() { return rwbridge::GetNumSubSystems(); }
+
+RwSubSystemInfo* RwEngineGetSubSystemInfo(RwSubSystemInfo* subSystemInfo, RwInt32 subSystemIndex) {
+    if (!subSystemInfo) {
+        return nullptr;
+    }
+    return rwbridge::GetSubSystemInfo(subSystemInfo->name, sizeof(subSystemInfo->name), subSystemIndex)
+        ? subSystemInfo
+        : nullptr;
+}
+
+RwInt32 RwEngineGetCurrentSubSystem() { return rwbridge::GetCurrentSubSystem(); }
+RwBool RwEngineSetSubSystem(RwInt32 subSystemIndex) { return rwbridge::SetSubSystem(subSystemIndex); }
+
+RwInt32 RwEngineGetNumVideoModes() { return rwbridge::GetNumVideoModes(); }
+
+RwVideoMode* RwEngineGetVideoModeInfo(RwVideoMode* vmi, RwInt32 modeIndex) {
+    if (!vmi) {
+        return nullptr;
+    }
+    unsigned flags{};
+    if (!rwbridge::GetVideoModeInfo(&vmi->width, &vmi->height, &vmi->depth, &flags, modeIndex)) {
+        return nullptr;
+    }
+    vmi->flags   = (RwVideoModeFlag)flags;
+    vmi->refRate = 0;
+    vmi->format  = 0;
+    return vmi;
+}
+
+RwInt32 RwEngineGetCurrentVideoMode() { return rwbridge::GetCurrentVideoMode(); }
+RwBool RwEngineSetVideoMode(RwInt32 modeIndex) { return rwbridge::SetVideoMode(modeIndex); }
+
+RwInt32 RwEngineGetTextureMemorySize() { return 0; }
+RwInt32 RwEngineGetMaxTextureSize() { return 0; }
+RwBool RwEngineSetFocus(RwBool) { return true; }
+RwMetrics* RwEngineGetMetrics() { return nullptr; }
+
+#endif // NOTSA_STANDALONE
 
 //RwFileFunctions* RwOsGetFileInterface() {
 //    return ((RwFileFunctions*(__cdecl *)(void))0x804130)();

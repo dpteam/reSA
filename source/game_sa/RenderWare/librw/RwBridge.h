@@ -1,0 +1,45 @@
+#pragma once
+
+/*
+ * Bridge between our (SA) RenderWare-call-sites and librw.
+ *
+ * Why a bridge instead of including librw directly at the call sites:
+ *  - Our `source/game_sa/RenderWare/rw/*.h` headers (SA RW 3.7) and librw's headers define overlapping
+ *    macros/types (eg. `RWALIGN`, `FALSE`/`TRUE`, RW enums), so including both in the same translation unit
+ *    is fragile.
+ *  - This header therefore exposes librw through plain C-style functions with POD (int/float/pointer) signatures.
+ *    `RwBridge.cpp` (the only TU that includes librw) implements them; our RW thunks call them.
+ *
+ * Only compiled/linked in the standalone build (`NOTSA_STANDALONE`) - see `RwBridge.cpp`.
+ */
+
+namespace rwbridge {
+/*! @brief `RwEngineInit` - initialize the engine (with librw's default memory functions). */
+bool EngineInit();
+
+/*! @brief `RwEngineOpen` - open the engine. @param hwnd The window handle (Win32), or nullptr. */
+bool EngineOpen(void* hwnd);
+
+bool EngineStart();
+void EngineStop();
+void EngineClose();
+void EngineTerm();
+
+/*! @brief `RwEngineRegisterPlugin`. `ctor`/`dtor` may be null. @return The plugin's object-data offset, or -1. */
+int  RegisterPlugin(int size, unsigned pluginID, void* ctor, void* dtor);
+/*! @brief `RwEngineGetPluginOffset`. @return The plugin's object-data offset, or -1 if not registered. */
+int  GetPluginOffset(unsigned pluginID);
+
+int  GetNumSubSystems();bool GetSubSystemInfo(char* nameOut, int nameSize, int index);
+int  GetCurrentSubSystem();
+bool SetSubSystem(int index);
+
+int  GetNumVideoModes();
+/*! @brief Fills the given out-params. @return false if `index` is out of range. */
+bool GetVideoModeInfo(int* width, int* height, int* depth, unsigned* flags, int index);
+int  GetCurrentVideoMode();
+bool SetVideoMode(int index);
+
+/*! @brief The RenderWare library version (as reported by the engine). */
+unsigned GetVersion();
+} // namespace rwbridge
