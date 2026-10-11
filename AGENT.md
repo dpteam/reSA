@@ -70,7 +70,7 @@ Two build modes (CMake option `GTASA_STANDALONE`):
 
 * **Mod (default, `OFF`)** → `gta_reversed.asi`. Injected into the original game; `DllMain` runs, real hooks
   redirect the game's functions to our reversed ones.
-* **Standalone (`ON`)** → `gta_reversed.exe`. Our own `WinMain` runs; the hooks become documentation-only
+* **Standalone (`ON`)** → `reSA.exe`. Our own `WinMain` runs; the hooks become documentation-only
   (`NullHook`) and the reversed code must be called directly. ⚠️ **Work in progress** — see `MEMORY.md`.
 
 Related: `GTASA_STANDALONE_DUMP_HOOKS_ONLY` (`ON`) builds an exe that only dumps hook metadata (used by CI).

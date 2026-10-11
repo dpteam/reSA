@@ -228,6 +228,26 @@ int RasterGetHeight(const void* raster) {
     return static_cast<const rw::Raster*>(raster)->height;
 }
 
+int RasterGetDepth(const void* raster) {
+    return static_cast<const rw::Raster*>(raster)->depth;
+}
+
+unsigned char* RasterLock(void* raster, int level, int lockMode) {
+    return static_cast<rw::Raster*>(raster)->lock(level, lockMode);
+}
+
+void RasterUnlock(void* raster) {
+    static_cast<rw::Raster*>(raster)->unlock(0);
+}
+
+float Im2DGetNearScreenZ() {
+    return rw::engine->device.zNear;
+}
+
+float Im2DGetFarScreenZ() {
+    return rw::engine->device.zFar;
+}
+
 void* MatrixCreate() {
     return rw::Matrix::create();
 }

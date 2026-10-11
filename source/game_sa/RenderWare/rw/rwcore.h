@@ -4850,6 +4850,8 @@ MACRO_STOP
 #define RwRasterGetWidth(_raster)           ((RwInt32)rwbridge::RasterGetWidth((_raster)))
 #undef RwRasterGetHeight
 #define RwRasterGetHeight(_raster)          ((RwInt32)rwbridge::RasterGetHeight((_raster)))
+#undef RwRasterGetDepth
+#define RwRasterGetDepth(_raster)           ((RwInt32)rwbridge::RasterGetDepth((_raster)))
 #endif /* NOTSA_STANDALONE */
 
 

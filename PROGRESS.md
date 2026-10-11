@@ -7,7 +7,7 @@
 
 | # | Шаг | Статус | Заметка |
 |---|---|---|---|
-| 0 | Компиляция exe | ✅ | `bin/Debug/gta_reversed.exe` |
+| 0 | Компиляция exe | ✅ | `bin/Debug/reSA.exe` |
 | 1 | `InjectHooksMain()` | ✅ | 330–480 мс |
 | 2 | `NOTSA_WinMain` старт | ✅ | «Starting GTA: San Andreas» |
 | 3 | `CdStreamOpen MODELS\GTA3.IMG` | ✅ | игровые данные положены |
@@ -45,5 +45,5 @@ librw изолирован в отдельном `.cpp`, чтобы не кон�
 - Проверено: конфликтов `rw.h`/`args.h` между SA-заголовками и librw нет.
 
 ## Как проверяем
-`bin/Debug/gta_reversed.exe` из папки с данными (`bin/Debug`), лог — `logs/log.log` (там стек при падении).
+`bin/Debug/reSA.exe` из папки с данными (`bin/Debug`), лог — `logs/log.log` (там стек при падении).
 Каждый прогон = насколько далеко прошли. Цель — дойти до окна/меню.

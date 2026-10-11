@@ -28,7 +28,7 @@ python setup.py -o standalone=True        # Configure the standalone executable
 python setup.py --build -o standalone=True
 ```
 
-This produces `gta_reversed.exe` (in `bin/<config>/`) instead of `gta_reversed.asi`, and makes `WinMain`
+This produces `reSA.exe` (in `bin/<config>/`) instead of `gta_reversed.asi`, and makes `WinMain`
 (`source/app/platform/win/WinMain.cpp`) the entry point instead of `DllMain`. In this build the hooks are
 documentation-only (`NullHook`) and the reversed code is called directly.
 

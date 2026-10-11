@@ -14,7 +14,7 @@
 * Working tree: see `HISTORY.md` (latest entry).
 * ✅ **Both configs build** (VS 2022 / MSVC 194, Windows SDK 10.0.26100):
   * Mod: `bin/Debug/gta_reversed.asi`
-  * Standalone: `bin/Debug/gta_reversed.exe`
+  * Standalone: `bin/Debug/reSA.exe` (target `gta_reversed`, renamed output)
   * Build cmd: `python setup.py --build -s compiler.version=194` (⚠️ wrapper reports exit 1 even on success — trust
     `cmake --build build --config Debug`, which returns 0).
 * The `build/` dir is currently configured for **standalone** (`GTASA_STANDALONE=ON`).
@@ -22,11 +22,14 @@
   links it (backend D3D9). See `extern/README.md` and `MEMORY.md` §9/§11. ⚠️ Don't put vendored libs inside `source/`
   (its CMake globs everything there).
 
-## Standalone status (2026-10-11) — it BOOTS, needs assets
-`gta_reversed.exe` runs through hook installation and into the game, stopping at `CdStreamOpen: MODELS\GTA3.IMG`
-→ **it now needs the GTA:SA game files** next to the exe. Next expected blocker after that: RenderWare init.
-See `MEMORY.md` §5a (crash-by-crash progress) and §8 (how to run/debug + **windowed-mode/RDP** caveat: windowed mode
-is NOT currently enforced in standalone).
+## Standalone status (2026-10-12) — RenderWare works (via librw); loading assets
+**`reSA.exe` runs through RW engine init, creates camera/world/lights, and is now loading real game assets**
+(font TXD + textures, HUD, player skin) — see `PROGRESS.md` for the step-by-step boot chain and `MEMORY.md` §5a/§9/§11.
+It currently stops at `CPostEffects::SetupBackBufferVertex` (an `RwIm2D*` immediate-mode accessor — being mapped).
+`refs/` holds reference sources (re3/reVC/librw) + the original 1.0 US exe/PDB/CrashList (see `IDEAS.md` §4).
+
+## Standalone (legacy note) — see PROGRESS.md
+See `MEMORY.md` §8 (how to run/debug + **windowed-mode/RDP** caveat: windowed mode is NOT yet enforced in standalone).
 
 ⚠️ **Not re-verified:** the mod build wasn't rebuilt after the shared-file changes (`RHManager.cpp`,
 `ReversibleHooks.h`, `MemoryMgr.cpp`). The changes are additive `#ifdef NOTSA_STANDALONE` branches, so the mod path is

@@ -91,6 +91,13 @@ void* RasterCreate(int width, int height, int depth, int flags);
 void  RasterDestroy(void* raster);
 int   RasterGetWidth(const void* raster);
 int   RasterGetHeight(const void* raster);
+int   RasterGetDepth(const void* raster);
+unsigned char* RasterLock(void* raster, int level, int lockMode);
+void  RasterUnlock(void* raster);
+
+/*! @brief 2D immediate-mode near/far screen Z (from the render device). */
+float Im2DGetNearScreenZ();
+float Im2DGetFarScreenZ();
 
 void* MatrixCreate();
 

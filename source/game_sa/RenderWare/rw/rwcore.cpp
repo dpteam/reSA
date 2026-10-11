@@ -319,11 +319,20 @@ RwRaster* RwRasterShowRaster(RwRaster* raster, void* dev, RwUInt32 flags) {
 
 //! NOTE: This function is responsible for calculating the `stride` in the `raster`
 RwUInt8* RwRasterLock(RwRaster* raster, RwUInt8 level, RwInt32 lockMode) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::RasterLock(raster, level, lockMode);
+#else
     return ((RwUInt8*(__cdecl *)(RwRaster*, RwUInt8, RwInt32))0x7FB2D0)(raster, level, lockMode);
+#endif
 }
 
 RwRaster* RwRasterUnlock(RwRaster* raster) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::RasterUnlock(raster);
+    return raster;
+#else
     return ((RwRaster*(__cdecl *)(RwRaster*))0x7FAEC0)(raster);
+#endif
 }
 
 RwUInt8* RwRasterLockPalette(RwRaster* raster, RwInt32 lockMode) {

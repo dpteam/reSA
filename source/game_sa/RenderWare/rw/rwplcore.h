@@ -29,6 +29,10 @@
 #ifndef RWPLCORE_H
 #define RWPLCORE_H
 
+#ifdef NOTSA_STANDALONE
+#include "RwBridge.h" // librw-backed RenderWare (standalone) - see the overrides near the end of this header
+#endif
+
 /*--- System Header Files ---*/
 #include <stdarg.h>
 #include <stddef.h>
@@ -5608,6 +5612,16 @@ extern RwBool RwIm2DRenderIndexedPrimitive(RwPrimitiveType primType, RwIm2DVerte
                                                              RwImVertexIndex *indices, RwInt32 numIndices);
 
 #endif /* (! ( defined(RWDEBUG) || defined(RWSUPPRESSINLINE) )) */
+
+
+#ifdef NOTSA_STANDALONE
+// Standalone: librw-backed RW. `RwIm2DGet(Near|Far)ScreenZ` normally read the SA device globals
+// (`RWSRCGLOBAL(dOpenDevice)`), which don't exist here - route through the bridge.
+#undef RwIm2DGetNearScreenZ
+#define RwIm2DGetNearScreenZ() rwbridge::Im2DGetNearScreenZ()
+#undef RwIm2DGetFarScreenZ
+#define RwIm2DGetFarScreenZ()  rwbridge::Im2DGetFarScreenZ()
+#endif /* NOTSA_STANDALONE */
 
 
 #ifdef    __cplusplus
