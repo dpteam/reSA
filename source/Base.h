@@ -167,8 +167,9 @@ namespace notsa::detail {
  *          The same `addr` always maps to the same storage (ie two `StaticRef`s of different types pointing to the
  *          same address alias each other, just like they do in the original game).
  *
- * @note    Implemented without the heap on purpose - global `operator new` is overloaded to use `CMemoryMgr`,
- *          which isn't initialized yet when the first `StaticRef` is used. See `StandaloneStorage.cpp`.
+ * @note    Implemented without the C++ heap (VirtualAlloc instead) on purpose: this runs during
+ *          static-initialization, and staying independent of every allocator (CRT *and* the game's `CMemoryMgr`)
+ *          removes any dependence on initialization order. See `StandaloneStorage.cpp`.
  */
 void* GetStandaloneStaticStorage(uintptr addr, size_t size, size_t alignment);
 } // namespace notsa::detail

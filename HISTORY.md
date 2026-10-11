@@ -73,3 +73,23 @@ session-memory documents requested in `PROMPT.md`.
     ON ⇒ `InitMemoryMgr()` is called first thing in `WinMain`.
 
 **Verification:** reference reading only; no code changes to our tree, no build.
+
+---
+
+### Follow-up (same day, 3): toolchain install + two corrections
+
+* Installed **Conan 2.33 / CMake 4.4 / Ninja 1.13** via pip (no admin). `conan profile detect` → msvc **194**.
+* Ran `python setup.py -s compiler.version=194`: it downloaded the recipes/toolchain and then **failed at the
+  CMake/VS step**. Diagnosis (see `MEMORY.md` §2 "Local dev environment"): the VS 2022 instance is **incomplete** —
+  it has the *.NET desktop* workload + `VC.Tools.x86.x64`, but **no "Desktop development with C++" workload and no
+  Windows SDK**. Hence (a) no `windows.h` (C1083), (b) CMake's VS generator says *"could not find any instance of
+  Visual Studio"* (it only accepts complete instances). **Fix requires admin:** add the *Desktop development with C++*
+  workload via the VS Installer (also brings the Windows SDK).
+* **Correction to an earlier note:** the global `operator new/delete` is **not** backed by `CMemoryMgr`. The
+  `MEMORY_MGR_USE_MEMORY_HEAP` macro (which would enable that) is **never defined**, so that block is dead code;
+  the only live global overrides call the game's `0x82119A…` and are `#ifndef NOTSA_STANDALONE`. ⇒ In standalone the
+  global `new` is the plain CRT one. The real early blocker is instead `CMemoryMgr::Malloc/Free/…` falling back to
+  `plugin::Call(0x72F420…)`. Code comments in `Base.h`/`StandaloneStorage.cpp` corrected accordingly.
+* **Correction:** added `MEMORY.md` §2 "Local dev environment" and refined `RESUME.md` with the exact diagnosis.
+
+**Verification:** no build (blocked on the missing workload/SDK). Conan reached the CMake step and failed there.

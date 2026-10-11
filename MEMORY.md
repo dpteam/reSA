@@ -41,19 +41,35 @@ only had `False`/`'dump_hooks_only'`), so standalone can be configured via `pyth
 CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_only`. ✅
 
 ### Local dev environment (this machine, verified 2026-10-11) ⚠️ machine-specific
-* **Visual Studio 2022 Community 17.14** (`C:\Program Files\Microsoft Visual Studio\2022\Community`) + BuildTools —
-  installed. MSVC toolset **14.44** (`_MSC_VER` 1944 ⇒ Conan `compiler.version=194`), x86 target present,
-  `vcvarsall.bat` works. ✅
-* ❗ **Windows SDK is NOT installed** — there is no `windows.h` anywhere. `cl /c` on `#include <windows.h>` fails with
-  `C1083`. This is the **hard blocker** for any build; fixing it needs admin (VS Installer → "Windows 11 SDK").
-  Install command (admin):
-  `setup.exe modify --installPath "...\2022\Community" --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet`.
-* **Conan / CMake / Ninja** were not installed; being installed via `pip` (no admin needed). CMake can also come from
-  Conan's `tool_requires` (profile pins `cmake/4.2.0`), so a separate CMake isn't strictly required. ⚠️
+* **Visual Studio 2022 Community 17.14** (`C:\Program Files\Microsoft Visual Studio\2022\Community`, instance
+  `14ba42e0`) + BuildTools (`...\2022\BuildTools`, instance `67f0becd`) are present. MSVC toolset **14.44**
+  (`_MSC_VER` 1944 ⇒ Conan `compiler.version=194`), x86 target exists, `vcvarsall.bat` works, `cl` compiles. ✅
+* ❗ **Root problem: the VS instance is *incomplete*.** From `state.json` (`selectedPackages`):
+  the ***.NET desktop development*** workload + the single component `VC.Tools.x86.x64` are installed, but
+  **NOT** the **"Desktop development with C++" (`Workload.NativeDesktop`)** workload and **NOT** any **Windows SDK**.
+  Consequences, all confirmed empirically:
+  1. **No `windows.h` anywhere** ⇒ `cl /c "#include <windows.h>"` fails with **C1083**. Hard blocker for any build.
+  2. **CMake's VS generator fails**: `-G "Visual Studio 17 2022"` → *"could not find any instance of Visual Studio"*.
+     CMake only accepts *complete* instances, and ours is incomplete. (vswhere still lists it, hence the confusion.)
+  3. `HKLM\SOFTWARE\Microsoft\VisualStudio\SxS\VS7` is empty.
+  **Fix (needs admin, user action):** VS Installer → *Modify* VS Community → check **"Desktop development with C++"**
+  → Install. That brings the Windows SDK **and** completes the instance (fixing CMake detection).
+  One-shot command:
+  ```powershell
+  & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
+    --installPath "C:\Program Files\Microsoft Visual Studio\2022\Community" `
+    --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --norestart
+  ```
+* **Conan 2.33 / CMake 4.4 / Ninja 1.13** installed via `pip` (no admin). `conan profile detect` → msvc 194 (correct).
+  CMake also comes from Conan's `tool_requires` (profile pins `cmake/4.2.0`). ✅
 * ❗ **Profile mismatch:** repo profile `conan/profiles/windows-msvc.txt` asks `compiler.version=195` (**VS 2026**),
-  this machine has VS 2022 (**194**). Prebuilt binary deps (SDL3/ogg/vorbis/libjpeg-turbo/tracy) are ABI-sensitive ⇒
-  build with `python setup.py -s compiler.version=194` (or install VS 2026). ⚠️
-* Not admin (so no VS Installer / SDK from the agent). Disk: C: ~54 GB free, E: ~61 GB free. ✅
+  this machine has VS 2022 (**194**) ⇒ configure with `python setup.py -s compiler.version=194` (or install VS 2026). ⚠️
+* ❗ **Deps build from source.** The profile is `arch=x86, build_type=Debug, compiler.cppstd=23, runtime=static`;
+  Conan Center has no matching prebuilt binaries (it only offered `compiler.version=193` alternatives, also absent),
+  so SDL3/ogg/vorbis/libjpeg-turbo/spdlog/tracy/imgui get **built from source** — slow (tens of minutes) but fine. ⚠️
+* Not admin (VS Installer/SDK can't be run by the agent). Disk: C: ~54 GB free, E: ~61 GB free. ✅
+* The Conan install was attempted and stopped exactly at the CMake/VS step (after downloading cmake/nasm/etc.). Re-run
+  once the workload is added.
 
 ## 3. Architecture essentials
 
@@ -113,13 +129,20 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
 
 1. **`plugin::Call` / `CallAndReturn` to absolute addresses.** Non-reversed code physically lives in `gta_sa.exe`.
    Standalone needs either (a) all of it reversed, or (b) a strategy to satisfy those calls. ~835 sites. ⚠️
-2. **Global `operator new` overloads.** `source/game_sa/MemoryMgr.h` defines `MEMORY_MGR_OVERLOAD_NEW_DELETE`
-   **unconditionally**, and `MemoryMgr.cpp` then defines `operator new(uint32)`/`operator delete` to use `CMemoryMgr`.
-   On x86 `uint32 == size_t`, so this is the active global `new` **even in standalone**. ⇒ **Any heap allocation
-   (including `std::` containers, and even `notsa::Singleton::CreateInstance()`, which does `new T{}`) before
-   `CMemoryMgr::Init()` is dangerous.** This is why `StandaloneStorage.cpp` allocates with `VirtualAlloc`, not `new`. ⚠️
-   (`MemoryMgr.cpp` *does* correctly guard the *other* `operator new(size_t)` — the one that calls `0x82119A` — with
-   `#ifndef NOTSA_STANDALONE`. ✅)
+2. **Global `operator new`/`delete` — actually NOT a problem in standalone.** ✅ *(corrected 2026-10-11)*
+   `MemoryMgr.h` only enables the `CMemoryMgr`-backed global `operator new/delete` under `MEMORY_MGR_USE_MEMORY_HEAP`,
+   and **that macro is never defined anywhere in the tree** ⇒ the `#ifdef MEMORY_MGR_OVERLOAD_NEW_DELETE` block in
+   `MemoryMgr.cpp` (`operator new(uint32)`/`operator delete`, *not* guarded by standalone) is **dead code**.
+   The *other* global overrides (`MemoryMgr.cpp:442+`, calling the game's `0x82119A`/`0x821195`/`0x8214BD`/`0x8213AE`)
+   are `#ifndef NOTSA_STANDALONE`. ⇒ In the **standalone build the global `new`/`delete` is the plain CRT one**;
+   no init-order hazard from `new`. (Those 4 are the *only* global `operator new/delete` definitions; every other
+   `operator new` in the tree is a class member.) ✅
+2b. **`CMemoryMgr`'s non-heap path calls the game — the real early blocker.** `CMemoryMgr::Malloc/Free/Realloc/Calloc/
+   FreeAlign` fall back to `plugin::Call*(0x72F420 / 0x72F430 / 0x72F440 / 0x72F460 / 0x72F4F0)` when
+   `MEMORY_MGR_USE_MEMORY_HEAP` is off (which is the case). In standalone those absolute calls crash. This is part of
+   the broader `plugin::Call` problem (point 1), but it's hit *very* early (game init) ⇒ fix it first, eg. back
+   `CMemoryMgr` with the CRT (`malloc`/`free`) like re3 does, or enable its memory-heap implementation. ⚠️
+   * Side note: `USE_GTASA_ALLOCATOR` is a CMake compile-definition that is **never referenced in the sources** — dead. ✅
 3. **Startup that isn't reversed** (RenderWare init, D3D9, file system, audio, save system) will fail until reversed. ⚠️
    * See §3 "RenderWare is address-called" — RW itself has to be *provided* (likely via `librw`), it can't be reversed
      because GTA:SA's RW was not written by this project.
@@ -139,7 +162,7 @@ Our project and re3/reVC are the **same lineage** — same boot flow (`RsEventHa
 | Our blocker | What re3/reVC do |
 |---|---|
 | RenderWare | Bind **librw** (submodule, pinned `5501c4fd`) + a ~2100-line **compat shim** (`src/fakerw/*`). See §3. |
-| Global `operator new`/`CMemoryMgr` | The custom allocator is **opt-in** (`USE_CUSTOM_ALLOCATOR`). When OFF, `MemoryMgrMalloc`/`Free`/… just call `malloc`/`free`. When ON, `WinMain` calls `InitMemoryMgr()` as the **first** thing (`gMainHeap.Init(128MB)`). ⇒ Either use the CRT allocator, or guarantee init order. ✅ |
+| Global `operator new`/`CMemoryMgr` | The custom allocator is **opt-in** (`USE_CUSTOM_ALLOCATOR`). When OFF, `MemoryMgrMalloc`/`Free`/… just call `malloc`/`free`. When ON, `WinMain` calls `InitMemoryMgr()` as the **first** thing (`gMainHeap.Init(128MB)`). Our global `new/delete` is fine in standalone (see §5.2), but our `CMemoryMgr` still needs a CRT-backed path instead of `plugin::Call` (§5.2b). ✅ |
 | Startup order | `refs/re3/src/skel/win/win.cpp` `WinMain` (~line 2012) mirrors our `NOTSA_WinMain` almost 1:1 — window class, `RsEventHandler(rsRWINITIALIZE)`, command line, etc. Good checklist. ✅ |
 | RW memory functions | librw is handed `RwMemoryFunctions memFuncs = { Malloc, Free, Realloc, Calloc }` via `RwEngineInit(memFuncs, …)`. ✅ |
 | Platform/window | `refs/re3/src/skel/{win,glfw}/`; we have `source/oswrapper/` + `app/platform/win/`. GLFW is an alternative to raw Win32 if we ever want it. ✅ |

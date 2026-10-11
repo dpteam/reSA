@@ -15,18 +15,21 @@
 * **Build status: UNVERIFIED.** Re-check the toolchain early in your session (see "Environment" below).
 
 ## Environment (⚠️ verified 2026-10-11 on this machine — may differ elsewhere)
-* **Visual Studio 2022 Community 17.14** + BuildTools installed; MSVC **14.44** (`_MSC_VER` 1944), x86 target OK. ✅
-* ❗ **Windows SDK is NOT installed** — no `windows.h` anywhere on the machine. `cl /c "#include <windows.h>"` fails
-  with `C1083`. **This is the hard blocker: nothing C++ can build until it's fixed**, and it needs **admin**
-  (VS Installer → Individual components → "Windows 11 SDK 10.0.22621.0"):
+* VS 2022 Community (instance `14ba42e0`) + BuildTools present; MSVC **14.44** (`_MSC_VER` 1944), x86 OK, `cl` works. ✅
+* ❗ **The VS instance is incomplete**: it has the *.NET desktop* workload + `VC.Tools.x86.x64`, but **NOT** the
+  **"Desktop development with C++"** workload and **NOT** the **Windows SDK**. Hence:
+  1. no `windows.h` → `cl` fails with **C1083** (hard blocker for *any* build);
+  2. CMake's VS generator fails with *"could not find any instance of Visual Studio"* (it only accepts complete
+     instances), which is exactly where `conan install` stopped.
+  **Fix (needs admin):** VS Installer → *Modify* → check **"Desktop development with C++"** → Install.
   ```powershell
   & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\setup.exe" modify `
     --installPath "C:\Program Files\Microsoft Visual Studio\2022\Community" `
-    --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --quiet --norestart
+    --add Microsoft.VisualStudio.Workload.NativeDesktop --includeRecommended --quiet --norestart
   ```
-* Conan/CMake/Ninja: being installed via `pip` (no admin). ⚠️
-* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ build with
-  `python setup.py -s compiler.version=194` (or install VS 2026). ⚠️
+* Conan 2.33 / CMake 4.4 / Ninja 1.13 installed via pip; `conan profile detect` reports msvc 194. ⚠️
+* ❗ Profile asks `compiler.version=195` (VS 2026), this machine is **194** ⇒ pass `-s compiler.version=194`. ⚠️
+* Note: dependencies will be **built from source** (no Conan binaries for x86/Debug/cppstd23) — slow but expected. ⚠️
 
 ## How to build (once the Windows SDK is present)
 ```powershell

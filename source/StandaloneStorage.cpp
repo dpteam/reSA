@@ -28,10 +28,11 @@ struct Entry {
 /*!
  * @brief Extremely simple open-addressing hash table mapping an original-game address to our storage.
  *
- * @details We deliberately avoid `std::unordered_map` (And any other allocating container) here, because the
- *          global `operator new` is overloaded to use the game's `CMemoryMgr` (`MemoryMgr.cpp`), which isn't
- *          initialized when the first `StaticRef` is used (That happens during static-initialization of
- *          globals, ie. before `main`). So everything is allocated straight from the OS via `VirtualAlloc`.
+ * @details We deliberately avoid `std::unordered_map` (And any other allocating container / the C++ heap) here.
+ *          `StaticRef` is used to initialize namespace-scope variables, ie. during static-initialization, so we
+ *          want the storage to be independent of every allocator (both the CRT heap *and* the game's `CMemoryMgr`,
+ *          which in the non-heap configuration forwards to `plugin::Call`, see `game_sa/MemoryMgr.cpp`).
+ *          Everything is therefore allocated straight from the OS via `VirtualAlloc`.
  */
 struct Registry {
     Entry*  Entries{};  //!< Hash table (Power-of-two sized). Empty slots have `Address == 0`.
