@@ -7,6 +7,37 @@ Legend: ✅ verified (built/tested) · ⚠️ unverified (no toolchain) · 🚧 
 
 ---
 
+## 2026-10-12 (session 2, night) — the game RUNS, renders the frontend (menu) with real background pictures ✅
+
+**Milestone:** `reSA.exe` boots, renders the **frontend** (menu) — real background pictures from the frontend TXD
+(VINEWOOD, desert, palms, …) are visible on screen — and the menu is **navigable** (keyboard/SDL input works; pressing
+**Enter** changes the screen). It does **not** crash. ⚠️ Two visible issues: (a) everything is drawn in the **top-left
+corner** of the window (viewport/present bug), (b) **no text** is drawn (unreversed `CFont::RenderFontBuffer` etc.).
+
+> Correction: earlier I thought a "desert/buildings/sky" frame meant the game had started a 3D world — the user pointed
+> out those are **menu background pictures** from the frontend TXD. Still the menu. Starting an actual (new) game is
+> **not** done yet.
+
+**Key changes (all verified by running):**
+- **Render states + Im2D bridged** (`RwBridge.cpp` `TranslateRenderState` + `RwRenderStateSet/Get`, `RwIm2D*` macros in
+  `rwplcore.h`). SA vs librw render-state enums differ in order → translated.
+- Boot fixes: `SurfaceInfos_c::LoadAdhesiveLimits` (parse `surface.dat`), `CDecisionMakerTypes`/`CDecision` (best-effort),
+  `RwD3D9GetCaps` (via librw `rw::d3d9::getD3D9Caps`), sprite screen-Z, `D3DResourceSystem` no-op,
+  `CAEFrontendAudioEntity::{AddAudioEvent,UpdateParameters}` (reversed bodies), `CAEWMADecoder` `StaticRef`,
+  `CAESoundManager::Service`/`CAERadioTrackManager::Service` skipped, `tSoundPlayParams::AudioEntity` default-init,
+  file `CFont`/audio stubs.
+- **`C_PcSave::GenerateGameFilename`** stack-corruption fix (sprintf_s size → `MAX_PATH`).
+- Helper `run_test.ps1` (auto-dismiss CRT dialogs, screenshot, log tail).
+
+**References added:** `refs/AdditionalSources/*` — `SOME_GTA_SA_Sources` (partial SA engine reverse; has
+`CSprite2d::AddToBuffer`), `PartialSAMobileCode` (`pipes/` = RxPipeline), `SAMP` (future multiplayer). See `refs/README.md`.
+
+**Findings (text):** `refs/re3`/`refs/reVC` `CFont` use the same *idea* as SA (temp vertex + index buffers via
+`CSprite2d::AddToBuffer`); their `PrintChar` UV math matches SA's reversed `PrintChar`. Still need SA's
+`AddToBuffer`/`RenderFontBuffer`/`ProcessCurrentString`.
+
+---
+
 ## 2026-10-12 (session 2) — RenderWare via librw; the game reaches MainLoop ✅
 
 **Milestone:** the standalone `reSA.exe` now initializes RenderWare (via **librw**) and enters the game loop

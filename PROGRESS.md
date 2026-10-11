@@ -18,11 +18,16 @@
 | 8 | `CGame::InitialiseRenderWare` | ✅ | полностью (камера/world/свет, `CFont`, `CHud`, `CPlayerSkin`, `CPostEffects`, TXD/текстуры) |
 | 9 | Загрузка ассетов (TXD/Texture) | ✅ | streams + TXD + TexDictionary + Texture + Raster lock — через librw |
 | 10 | Игровой цикл (`MainLoop`/`ProcessGameLogic`) | ✅ | `GAME_STATE_INITIAL` (splash), `CLoadingScreen`, `CGamma`, `GetMillisecondTime`, `InitialiseEssentialsAfterRW`, `InitialiseCoreDataAfterRW`; дошло до `FRONTEND_IDLE` |
-| 11 | Фронтенд: работает и **рисует** | ✅ | `GAME_STATE_FRONTEND_LOADING/LOADED/IDLE`; `FrontendIdle`→`CMenuManager` **реально выводит 2D** (виден VINEWOOD-фон); **игра не падает** |
-| 12 | Текст на экране | ❌ | `CFont::RenderFontBuffer`/`ProcessCurrentString` не реверснуты → текст не рисуется |
-| 13 | Меню-навигация (ввод) | ⏳ | меню должно реагировать на клавиши |
-| 14 | Загрузка мира (IMG/IPL/IDE) | ⏳ | |
-| 15 | Оконный режим (RDP-тест) | ⏳ | standalone-оконный режим ещё не форсится (см. `MEMORY.md` §8) |
+| 11 | Фронтенд: работает, рисует и **навигируется** | ✅ | `FRONTEND_LOADING/LOADED/IDLE`; `FrontendIdle`→`CMenuManager` **реально выводит 2D** (фоновые картинки меню — VINEWOOD/пустыня/палмы и т.п. из frontend TXD); ввод работает (Enter/меню реагирует) |
+| 12 | **Вьюпорт / масштаб кадра** | ❌ | всё нарисованное (фон меню) занимает только **левый верхний угол** окна (~280×260 из 1708×958) → проблема viewport/present |
+| 13 | Текст на экране | ❌ | `CFont::RenderFontBuffer`/`ProcessCurrentString`/`CSprite2d::AddToBuffer` не реверснуты → текст не рисуется (меню нечитаемо) |
+| 14 | Старт новой игры / загрузка мира | ⏳ | пока не начата (то, что виделось как «3D» — фоны меню) |
+| 15 | Оконный режим (RDP) | ❌ | вьюпорт не на всё окно; оконный режим не форсится (см. `MEMORY.md` §8) |
+
+> **Веха (2026-10-12, ночь #2):** standalone-игра **рисует фронтенд (меню) целиком как 2D-фоны** — на экране
+> реальные картинки из frontend TXD (VINEWOOD, пустыня, палмы…), меню **навигируется** (ввод/SDL работает).
+> Осталось: **вьюпорт** (картинка пока в левом верхнем углу, а не на всё окно), **текст**, звук, собственно старт игры.
+> Бинарник — **`reSA.exe`**.
 
 > **Веха (2026-10-12, ночь):** standalone-игра **ЗАПУСКАЕТСЯ и РИСУЕТ**. `reSA.exe` стабильно работает
 > (без краша), создаёт окно и **выводит 2D-графику фронтенда** (на экране виден логотип/фон **VINEWOOD**).
