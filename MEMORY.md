@@ -126,6 +126,16 @@ CI (`.github/workflows/update-re-progress.yml`) uses `standalone: dump_hooks_onl
   + `fake.cpp` (~2100 lines total). Eg. `typedef rw::Raster RwRaster;`, `RwCameraClear()` → `rw::Camera::clear()`.
   ⇒ For us that means: add librw, write such a shim, and the address-thunks in
   `source/game_sa/RenderWare/rw/*.cpp` get real implementations. **No mass rewrite of call sites needed.** ✅
+* **Naming (be precise):** **librw** (`aap/librw`) is the actual *open-source RenderWare reimplementation* (the engine);
+  **fakerw** is re3's *glue layer* over it (a C-API shim), **not** an implementation itself. Both are open source, but
+  only **librw** is permissively licensed (**MIT**) — re3 (the game code) is not usable (DMCA'd). Proof: `fake.cpp`
+  does `#include <rwcore.h>` → `#include <rw.h>` (librw) + `using namespace rw;`, and every `Rw*` function is a 1-liner
+  over `rw::` (`RwV3dLength` → `length()`, `RwMatrixDestroy` → `mpMat->destroy()`). ✅
+* **Version gap (important):** we are on **RW 3.7.0.2** (`source/game_sa/RenderWare/rw/rwversion.h`), while re3's fakerw
+  targets the older **III/VC-era** RW API. ⇒ It can't be dropped in as-is; an **SA-flavored** shim is needed, covering
+  SA's larger API surface (RpWorld/RpAtomic/RpGeometry/RpMatFX/RpSkin/RpHAnim/RtAnim/RpUVAnim/RpPTank/D3D9 exts…). ⚠️
+* **librw builds with our toolchain** — verified: `cmake -G "Visual Studio 17 2022" -A Win32 -DLIBRW_PLATFORM=D3D9`
+  → `librw.lib` (~3 MB). librw supports platforms NULL/GL3/**D3D9** (+PS2/Xbox). ✅ *(MIT license.)*
 * **librw version matters:** `aap/librw` has only `master`, which is already the `rw::` namespaced C++ API (it stopped
   being the C API in commit `14c773d`, 2019-08-04). re3/reVC pin librw at **`5501c4fd…` (2021-08-19)** — the same
   C++ API. So librw + a shim is the path; do **not** expect a drop-in `RwCameraClear`. ✅
@@ -273,3 +283,28 @@ complete standalone games built on the same engine family, plus `refs/librw` for
   installed** (`notsa::InjectWindowedModeHooks()` is `#ifndef NOTSA_STANDALONE`, and hooks are `NullHook` anyway), so
   **windowed mode is NOT currently enforced** in standalone. ⚠️ *Needs solving before we can render — likely by calling
   `AdjustPresentParams` directly once we own the D3D9 device creation (which is tied to the RenderWare replacement).*
+
+## 9. RenderWare replacement — the wall (plan) 🧱
+
+* **State:** the standalone exe boots to `RsRwInitialize` → `psGetMemoryFunctions` → `plugin::Call(0x745510)` and dies
+  (access violation), because the original `gta_sa.exe` isn't there. Everything RW-related after that is the same
+  wall. Verified by running with real game assets. ✅
+* **Scale of RW in our tree:** `source/game_sa/RenderWare/**` = 88 files / ~31k lines, with ~1400 absolute-address
+  references (967 unique) — it's all thunks. These are the *declarations* (SA RW 3.7 headers) + address-thunks. ✅
+* **Approach (mirrors re3, but for SA):**
+  1. **Provide librw** (MIT, builds under our toolchain — see §3/§5b). ⚠️ *Sourcing decision needed:*
+     * (a) **Git submodule** at e.g. `source/libs/librw` (like re3's `vendor/librw`) — reproducible, no network at build. **Preferred.**
+     * (b) **FetchContent** from GitHub — no vendored code, but needs network at configure time.
+     * (c) **Vendor a copy** into the repo (MIT allows it) — simplest, but bloats the repo.
+     * (d) Conan — no librw recipe in Conan Center. ✗
+     `refs/` is gitignored, so we **cannot** reference `refs/librw` from the build.
+  2. **Write an SA-flavored C-API shim** (our own "fakerw" for RW 3.7.0.2) and replace the address-thunks in
+     `source/game_sa/RenderWare/rw/*.cpp` with real implementations backed by librw.
+  3. **Risks:** SA's game code uses RW 3.7 struct *layouts* directly (`RwCamera`, `RwFrame`, `RpClump`, `RpAtomic`,
+     `RpGeometry`, …). librw's structs (`rw::Camera`, …) may differ ⇒ bridging could require layout adaptation
+     (`typedef rw::X RwX` like re3, or offset-compatible wrappers). This is the main technical unknown. ⚠️
+  4. **Then:** D3D9 device creation must go through us so windowed mode / RDP works (§8) — call
+     `WindowedMode::AdjustPresentParams` on present-parameter creation.
+
+* **Effort:** this is the biggest single chunk of the standalone port (multi-session). Start from the *boot-critical*
+  path (`RwEngineInit` → `RwEngineOpen` → stream/file system → world/texture loading), not alphabetically. ❓

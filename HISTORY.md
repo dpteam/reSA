@@ -121,3 +121,20 @@ session-memory documents requested in `PROMPT.md`.
 **Verification:** built both configs (exit 0 via CMake); ran the standalone exe and read its crash log. Mod config was
 **not** re-built after the shared-file changes (the changes are purely additive `#ifdef NOTSA_STANDALONE` branches, so
 the mod path is byte-identical) — mark as not re-verified.
+
+---
+
+### Follow-up (same day, 5): ran with real game assets → hit the RenderWare wall
+
+* User dropped the GTA:SA assets (**without** `gta_sa.exe`, by design) into `bin/Debug/` (`models/`, `data/`, `audio/`,
+  `anim/`, `movies/`, `text/`, `models/gta3.img`, `data/gta.dat`).
+* Ran `gta_reversed.exe` from there — it now gets past `CdStreamOpen: MODELS\GTA3.IMG`, then crashes with
+  **`0xC0000005` at `EIP=0x00745510`**: `RsRwInitialize` → `psGetMemoryFunctions` → `plugin::CallAndReturn<…,0x745510>`.
+  ⇒ **No RenderWare in standalone** (the original RW lives in `gta_sa.exe`). This is the expected wall.
+* **Feasibility check for librw:** cloned `aap/librw` builds cleanly with our exact toolchain
+  (`-A Win32 -DLIBRW_PLATFORM=D3D9`) → `librw.lib` (~3 MB). **MIT-licensed.**
+* **Clarified (user raised it):** *librw* is the open-source RW reimplementation; *fakerw* is re3's C-API shim over it,
+  targeting the older III/VC-era API. We're on RW **3.7.0.2**, so we need an SA-flavored shim (or equivalent). Details
+  + the plan + the vendoring decision: `MEMORY.md` §3 and the new §9.
+* **No code changes** in this step (Ran/diagnosed + built librw outside the tree). Next step is the RW integration,
+  which needs a decision on how to source librw (§9.1).
