@@ -31,6 +31,8 @@
 #include <InjectHooksMain.h>
 #include <extensions/CommandLine.h>
 #include <extensions/debug.hpp>
+
+#include "HudColours.h"
 #endif
 
 #include <toolsmenu/UIRenderer.h>
@@ -421,6 +423,26 @@ void MainLoop(INT nCmdShow) {
 }
 
 // 0x748710
+#ifdef NOTSA_STANDALONE
+/*!
+ * @brief Runs the constructors of the game's global C++ objects that live at fixed addresses.
+ *
+ * In the ASI build the original `gta_sa.exe` has already constructed these before our code ever runs
+ * (its CRT does it at startup, and the objects live in the exe's own .data). The standalone build
+ * merely zero-fills the statics region, so every global whose constructor installs defaults has to be
+ * constructed by us - otherwise it reads as all-zeros.
+ *
+ * Concrete victim: `CHudColours` (0xBAB22C). Its constructor fills the HUD colour table
+ * (`HUD_COLOUR_BLACK` = 0,0,0,255, ...). Left zeroed, `CFont::SetDropColor(HudColour.GetRGB(HUD_COLOUR_BLACK))`
+ * installed a fully transparent drop colour, and because `CFont::PrintString` only restores r/g/b after
+ * drawing an outline/shadow (leaving `.a` at the drop colour's), *every* menu string ended up with
+ * alpha 0 - i.e. invisible text.
+ */
+void InitGameGlobalStatics() {
+    HudColour.Constructor();
+}
+#endif
+
 INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdLine, INT nCmdShow) {
     SystemParametersInfo(SPI_SETFOREGROUNDLOCKTIMEOUT, 0u, nullptr, 2);
     if (IsAlreadyRunning()) {
@@ -535,6 +557,10 @@ INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdL
     SetErrorMode(SEM_FAILCRITICALERRORS);
 
     notsa::ui::UIRenderer::CreateInstance();
+
+#ifdef NOTSA_STANDALONE
+    InitGameGlobalStatics();
+#endif
 
     // 0x7489FB
     MainLoop(nCmdShow);

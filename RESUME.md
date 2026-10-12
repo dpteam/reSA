@@ -19,27 +19,36 @@
 > 7. Nothing essential should live only in the chat log.
 
 ## TL;DR — where we are 🎉
-**The standalone game `reSA.exe` RUNS, renders the frontend (menu) at ~45 FPS, and starts a new game (loads the world).**
+**The standalone game `reSA.exe` RUNS, renders the frontend (menu) WITH REAL GTA TEXT at ~45 FPS, and starts a new game.**
 
 * Boots → `MainLoop`/`ProcessGameLogic` → `FRONTEND_LOADING/LOADED/IDLE` → `CMenuManager` — real frontend TXD
-  background pictures (VINEWOOD…) are visible, the menu is **navigable** (keyboard/SDL; **Enter** starts a new game).
+  background pictures (VINEWOOD…) **and real GTA fonts** (“Main Menu”, “START GAME/OPTIONS/QUIT GAME”, the
+  cursor and `TEST / RW 3.6.0.0.3`) are visible; the menu is **navigable** (keyboard/SDL; **Enter** starts a new game).
   No crash. RenderWare is **librw — now OUR FORK** (`librw/`, see `librw/FORK.md`), via the C-style bridge
   (`source/game_sa/RenderWare/RwBridge.*`).
 * **New game works**: `CMenuManager` → `DoSettingsBeforeStartingAGame` → `CGame::Init1` → asset loading → world load
   (`CPlantMgr`/models), until it hits the unreversed `RpClump`/`RpAtomic` path (`RpClumpStreamRead` 0x74B420 — not bridged).
-* A per-second **FPS log** is in `logs/log.log` (standalone; no on-screen text yet).
+* A per-second **FPS log** is in `logs/log.log` (standalone).
+
+### Text/fonts — ✅ SOLVED (2026-10-12), two of OUR bugs (not librw, not the texture)
+1. **Enum *value* desync in the bridge.** `TranslateRenderState` mapped state **IDs** only. SA's
+   `RwAlphaTestFunction` is D3D-numbered (`NEVER=1…ALWAYS=8`) but librw's `rw::AlphaTestFunc` has 3 values
+   (`ALWAYS=0, GREATEREQUAL=1, LESS=2`) ⇒ `alphafuncMap[5]` read **out of bounds** ⇒ garbage compare func
+   (measured `D3DCMP_LESS`, ref 2) ⇒ librw's per-`hasAlpha`-texture alpha test **discarded opaque glyph texels**.
+   That's why *every* `hasAlpha=1` texture was invisible while opaque ones (VINEWOOD/DXT1, C888) drew fine.
+   → `Translate/UntranslateAlphaTestFunc` in `RwBridge.cpp` + an out-of-range clamp in
+   `librw/src/d3d/d3ddevice.cpp`. Verified vs disasm (`DefinedState2d` 0x734750: `push 5; push 1Dh`).
+2. **Uninitialized game globals in standalone.** `CHudColours` (0xBAB22C) is a fixed-address static whose ctor the
+   *original exe's* CRT runs in the ASI build; standalone zero-fills it ⇒ the HUD colour table was all zeros ⇒
+   `DropColor.a = 0`, and `CFont::PrintString` restores only `r,g,b` after outlines/shadows (alpha stays the drop
+   colour's) ⇒ **all text alpha 0**. → `InitGameGlobalStatics()` in `WinMain.cpp` calls `HudColour.Constructor()`
+   (0x58FDA0) before `MainLoop`. **⚠️ Systemic:** every fixed-address global with a C++ ctor needs this — see
+   `IDEAS.md` ("Статические глобалы…").
 
 ### Known gaps (details in `IDEAS.md` / `VERIFY.md`)
-* ❌ **Text doesn't render — root cause ISOLATED to librw.** CFont is fully ported (upstream PR #1414). Glyph
-  **geometry/buffer/flush/positions are PERFECT** (with `TEXTURERASTER=NULL` the glyph quads show as solid bars
-  exactly at the text positions). But **textured im2d draws don't appear** while untextured ones (and the VINEWOOD
-  menu sprite) do. Decisive test-set (4 tinted quads): untextured → visible; font(DXT3) / fresh C8888 / font→8888 →
-  invisible; a fresh **C888 (no-alpha)** rendered once but not consistently. **Next (librw is ours now):** we need to
-  compare the D3D calls/state of a WORKING textured sprite (VINEWOOD) vs a FAILING one at the librw level
-  (`setRasterStage`/`im2DRenderIndexedPrimitive`/`drawInst`/`flushCache`), ideally with the D3D9 debug runtime.
-  Tried (all failed): alpha off/always, Z off, non-indexed flush, convert font→C8888, bake alpha→opaque C888, GDI
-  TrueType atlas, fresh textures. ⚠️ Don't repeat those.
 * ⏳ **World load beyond `CPlantMgr`** — blocked by unreversed `RpClump`/`RpAtomic` (bridge needed).
+* ⏳ **Static globals** — only `CHudColours` is constructed so far (see above); others still zero-filled.
+* ⏳ **CFont full parity** — outline/shadow alpha, tokens, subtitles (`FONT1`), `FONT_PRICEDOWN` vs disasm.
 * ❌ **No sound** — audio `plugin::Call`s stubbed (`CAESoundManager::Service`, `StopRadio`, `ClearMissionAudio`, `UpdateRespectStat`).
 * ⚠️ **`RwIm3D*`** (effects/lines) still call into the original exe — not bridged.
 * ⚠️ RxPipeline cosmetics + ImGui debug UI disabled. Window is fixed 800×600 standalone (RDP later).

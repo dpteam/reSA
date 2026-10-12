@@ -285,11 +285,49 @@ static int TranslateRenderState(int sa) {
     }
 }
 
+/*! @brief Translate the VALUE of rwRENDERSTATEALPHATESTFUNCTION from SA's enum to librw's.
+
+    This is the one render-state enum whose *values* differ between the two (blend, stencil, cull,
+    filter, addressing and primitive type all agree, so they are passed through untouched):
+      * SA  (rwplcore.h `RwAlphaTestFunction`, D3D-style): NEVER=1 LESS=2 EQUAL=3 LESSEQUAL=4
+        GREATER=5 NOTEQUAL=6 GREATEREQUAL=7 ALWAYS=8
+      * librw (rwrender.h `rw::AlphaTestFunc`): ALWAYS=0 GREATEREQUAL=1 LESS=2
+    Passing 5..8 straight through indexed `alphafuncMap[]` out of bounds, which yielded a garbage
+    compare func (measured: D3DCMP_LESS) - so the alpha test librw enables for any texture with
+    alpha discarded the *opaque* texels and kept the transparent ones. That made every hasAlpha
+    texture invisible (font glyphs!), while opaque textures (DXT1 menus, C888) drew fine. */
+static unsigned TranslateAlphaTestFunc(uintptr_t sa) {
+    switch (sa) {
+    case 8:  return 0; // ALWAYS       -> ALPHAALWAYS
+    case 7:  return 1; // GREATEREQUAL -> ALPHAGREATEREQUAL
+    case 6:  return 0; // NOTEQUAL     -> ALPHAALWAYS        (librw has no EQUAL/NOTEQUAL)
+    case 5:  return 1; // GREATER      -> ALPHAGREATEREQUAL  (closest supported)
+    case 4:  return 2; // LESSEQUAL    -> ALPHALESS          (closest supported)
+    case 3:  return 1; // EQUAL        -> ALPHAGREATEREQUAL  (closest supported)
+    case 2:  return 2; // LESS         -> ALPHALESS
+    case 1:  return 2; // NEVER        -> ALPHALESS (passes only if ref > 0; librw has no NEVER)
+    default: return 0; // NA/invalid   -> ALPHAALWAYS
+    }
+}
+
+/*! @brief Inverse of TranslateAlphaTestFunc(), for RwRenderStateGet(). */
+static unsigned UntranslateAlphaTestFunc(uintptr_t lib) {
+    switch (lib) {
+    case 0:  return 8; // ALPHAALWAYS       -> ALWAYS
+    case 1:  return 7; // ALPHAGREATEREQUAL -> GREATEREQUAL
+    case 2:  return 2; // ALPHALESS         -> LESS
+    default: return 8;
+    }
+}
+
 bool RenderStateSet(int state, void* value) {
     const int s = TranslateRenderState(state);
     if (s < 0) {
         return true; // No librw equivalent (eg. shademode/perspective/fogtype) - ignore.
     }
+    if (s == 21) // ALPHATESTFUNC - the enum values need translating too, not just the state id.
+        value = reinterpret_cast<void*>(static_cast<uintptr_t>(
+            TranslateAlphaTestFunc(reinterpret_cast<uintptr_t>(value))));
     rw::SetRenderStatePtr(s, value);
     return true;
 }
@@ -299,7 +337,11 @@ bool RenderStateGet(int state, void* value) {
     if (s < 0) {
         return true;
     }
-    *static_cast<void**>(value) = rw::GetRenderStatePtr(s);
+    void* v = rw::GetRenderStatePtr(s);
+    if (s == 21)
+        v = reinterpret_cast<void*>(static_cast<uintptr_t>(
+            UntranslateAlphaTestFunc(reinterpret_cast<uintptr_t>(v))));
+    *static_cast<void**>(value) = v;
     return true;
 }
 

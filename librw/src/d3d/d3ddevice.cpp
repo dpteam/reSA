@@ -732,6 +732,10 @@ setRwRenderState(int32 state, void *pvalue)
 		break;
 
 	case ALPHATESTFUNC:
+		// librw fork: guard against an out-of-range function (there are only 3). Previously a bad
+		// value indexed alphafuncMap[] out of bounds and silently produced a garbage compare func.
+		if(value > 2u)
+			value = 0u;
 		if(rwStateCache.alphafunc != value){
 			rwStateCache.alphafunc = value;
 			setRenderState(D3DRS_ALPHAFUNC, alphafuncMap[rwStateCache.alphafunc]);

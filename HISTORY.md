@@ -249,3 +249,40 @@ User chose approach **(A)** (re3-style, `#ifdef NOTSA_STANDALONE`) and to **vend
 **Next:** start the RW shim (the boot-critical worklist in `MEMORY.md` §11).
 
 **Verification:** built the standalone config (Conan/cmake 4.2), confirmed D3D9 + link, ran the exe (same known crash).
+
+---
+
+## 2026-10-12 (later) - TEXT IS VISIBLE: two root causes, both ours
+*Read the diff/commits for the full story; the diagnosis lives in `IDEAS.md`/`MEMORY.md` §5f/`VERIFY.md` §D.*
+
+**Symptom:** the standalone menu rendered its (DXT1) background sprites but **no text at all**, despite a fully
+ported `CFont` (upstream PR #1414) whose glyph geometry had been proven correct. Many textures (all `hasAlpha=1`)
+were invisible; all opaque ones (VINEWOOD/DXT1, fresh C888) were visible.
+
+**What finally solved it** was re-reading evidence we had *already captured* instead of running more experiments:
+1. The D3D state log said `ALPHATESTEN=1 FUNC=0x2 REF=2` - `D3DCMP_LESS` with ref 2 discards opaque texels.
+   `TranslateRenderState` mapped render-state **IDs** but not **values**, and `ALPHATESTFUNCTION` is the one
+   enum whose values differ: SA/RW is D3D-numbered (`NEVER=1 ... ALWAYS=8`) while librw has just three
+   (`ALWAYS=0, GREATEREQUAL=1, LESS=2`). `DefinedState2d` passed `5` -> `alphafuncMap[5]` **read out of
+   bounds** -> garbage func. Disasm (0x734750: `push 5; push 1Dh` / `push 2; push 1Eh`) confirms the game
+   really asks for GREATER/ref 2, i.e. "discard fully transparent" - exactly what librw's alpha test is for.
+   * Fix: `Translate/UntranslateAlphaTestFunc` in `RwBridge.cpp`; a `value > 2 => 0` clamp in
+     `librw/src/d3d/d3ddevice.cpp` so a future mismatch can't silently index out of bounds again.
+2. A per-string colour log showed `col=#ACCBF1**00**` - right RGB, **alpha 0**. `CHudColours` (0xBAB22C) is a
+   fixed-address static that the *original exe's* CRT constructs; the standalone build only zero-fills the statics
+   region, so the HUD colour table was all zeros and `SetDropColor(HudColour.GetRGB(HUD_COLOUR_BLACK))` installed
+   `(0,0,0,0)`. `CFont::PrintString` restores only `r,g,b` after an outline/shadow pass (alpha stays the drop
+   colour's), so **every** string ended up fully transparent.
+   * Fix: `InitGameGlobalStatics()` in `WinMain.cpp` (`#ifdef NOTSA_STANDALONE`) calls
+     `HudColour.Constructor()` (0x58FDA0) before `MainLoop`. **Systemic** - the candidate list of other
+     zero-filled globals is in `IDEAS.md`.
+
+**Explicitly disproven** (so nobody repeats them): font raster format (C4444/DXT3/C8888/C888), `hasAlpha` flag
+alone, blend/Z state, timing within the frame, empty texture data, non-indexed vs indexed flush, converting or
+baking the font texture, fresh test textures, a GDI **TrueType** atlas fallback, `CSprite::FlushSpriteBuffer`.
+librw's textured im2d path was never broken.
+
+**Verification:** rebuilt standalone (`reSA.exe`, no C/LNK errors), ran `run_test.ps1` - ~38-45 FPS, no
+exception, and the screenshot shows the real GTA fonts: gothic "Main Menu", "START GAME"/"OPTIONS"/"QUIT GAME"
+with the selection highlight and cursor, plus "TEST / RW 3.6.0.0.3". All temporary diagnostics removed
+(`git diff --stat` = 3 files, +73/-1); mod build unaffected (every change is standalone-only or in librw).

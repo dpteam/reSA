@@ -23,7 +23,9 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 ## B. RenderWare (via librw bridge)
 | Feature | Addr | Status | Note |
 |---|---|---|---|
-| `RwRenderStateSet/Get` + `TranslateRenderState` | (lib) | ✅ | SA enum order == reVC `fakerw`; mapping matches reVC `RwRenderStateSet` switch |
+| `RwRenderStateSet/Get` + `TranslateRenderState` | (lib) | ✅ | SA enum order == reVC `fakerw`; **IDs** verified vs disasm (`0x1D`/`0x1E` etc.). ⚠️ Now also translates **values** for the one enum that differs (`ALPHATESTFUNCTION`, SA 1..8 vs librw 0..2) — see §D |
+| `DefinedState`/`DefinedState2d` (render-state defaults) | 0x734650/0x734750 | ✅ | disasm `push 5;push 1Dh` + `push 2;push 1Eh` == our `app.cpp:192/210` (GREATER, ref 2) |
+| `CHudColours::CHudColours` (global statics ctor) | 0x58FDA0 | ✅ | 15 `SetRGBAValue` calls incl. `BLACK=(0,0,0,255)`; standalone must call it (`InitGameGlobalStatics`) |
 | `RwIm2D{RenderPrimitive,Indexed,YLine,Triangle}` | (lib) | ⚠️ | routed via bridge; **indexed path output unverified** (see Font issue) |
 | `RwIm2DGetNear/FarScreenZ` | (lib) | ✅ | = device zNear/zFar |
 | `RwD3D9GetCaps` | 0x7FAD20 | ✅ | = librw cached `D3DCAPS9` |
@@ -48,12 +50,15 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | **EntryExit/`cDMA`/draw-list (menu sprite enqueue)** | ? | ❌ | **`CMenuManager` uses `cDMA`/EntryExit queue?** — unknown; may explain text path |
 | `CMenuManager::CheckForMenuClosing` | 0x57Bxxx | ❌ | verify |
 
-## D. Text / fonts (BLOCKER)
-| Feature | Status | Note |
-|---|---|---|
-| Font TXD load (`MODELS/FONTS.TXD`, `font1`/`font1m`, `font2`/`font2m`) | ⚠️ | textures load (512×512, **rwFormat=768 = C4444**, depth 16); data valid (glyph texels `ffff`, ~21% alpha) |
-| **Font texture does not appear on screen** | ❌ | even full-screen opaque quad with font2 shows nothing (bg VINEWOOD *does* show) ⇒ **librw doesn't sample the C4444/D3DFMT_A4R4G4B4 font texture** (or the mask). **Root cause to fix (librw).** |
-| Glyph geometry | ✅ | solid bars appear with `TEXTURERASTER=NULL` at correct positions ⇒ geometry/coords fine |
+## D. Text / fonts — ✅ RESOLVED (2026-10-12)
+| Feature | Addr | Status | Note |
+|---|---|---|---|
+| Font TXD load (`font2`/`font2m`, `font1`/`font1m`) | 0x5BA690 | ✅ | 512×512, `rwFormat=0x300`, native **DXT3**; alpha ~17%/22% non-zero (white glyphs) — data OK |
+| **Why text was invisible** | — | ✅ | **NOT a librw/texture bug.** Two of our own bugs: |
+| ① alpha-test **enum value** desync (SA `RwAlphaTestFunction` 1..8 vs librw `AlphaTestFunc` 0..2) | 0x734750 | ✅ | disasm: `push 5; push 1Dh` (GREATER) + `push 2; push 1Eh` (ref) ⇒ OOB `alphafuncMap[5]` ⇒ `D3DCMP_LESS` ⇒ opaque texels discarded. Fixed by `Translate/UntranslateAlphaTestFunc` + librw clamp |
+| ② `CHudColours` global never constructed in standalone | 0x58FDA0 | ✅ | zeroed table ⇒ `DropColor.a=0`; `PrintString` restores only `r,g,b` ⇒ **all text alpha=0** (log: `#ACCBF1**00**`). Fixed by `InitGameGlobalStatics()` |
+| Result | — | ✅ | Real GTA fonts render: gothic “Main Menu”, “START GAME/OPTIONS/QUIT GAME”, cursor, `TEST / RW 3.6.0.0.3` |
+| Remaining | — | ⏳ | parity sweep of `PrintString`/`ProcessCurrentString`/outline-shadow alpha vs disasm; and the **general static-global** issue (see `IDEAS.md`) |
 
 ## E. Audio
 | Feature | Addr | Status | Note |
@@ -73,7 +78,13 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | `CCarFXRenderer`/`CCustomBuildingRenderer::Initialise` | — | 🚫 | RxPipeline stubbed |
 
 ## Next actions (ordered)
-1. **Fix the C4444 font-texture sampling** in librw (or convert the font raster to C8888 in the bridge). Then implement
-   `RenderFontBuffer`/`ProcessCurrentString` faithfully per disasm. → unblocks the (unreadable) menu.
-2. Verify the **menu draw path** (`DrawFrontEnd`→`DrawBackground`→`DrawStandardMenus`, EntryExit/cDMA if used) vs disasm.
-3. Sweep the remaining ❌/⚠️ rows above, one feature at a time, disasm-first.
+1. ~~Fix the font texture~~ ✅ **done (2026-10-12)** — see §D. Text is visible with the real GTA fonts.
+2. **Generalize `InitGameGlobalStatics`** — the `CHudColours` bug is one instance of *every* fixed-address global
+   with a C++ ctor being zero-filled in standalone. Build the full list (`CText`, `CPlayerInfo`, `CCamera`,
+   `CFireManager`, `Fx*_c`, `CMenuManager`, …) and call their `Constructor()` before `MainLoop`; cross-check against
+   the original's static-init (`.CRT`/`_initterm`) where possible.
+3. Bring **CFont to full disasm parity**: `PrintString`/`ProcessCurrentString`, the outline/shadow alpha
+   (only `r,g,b` restored today — verify against 0x719B40 whether the original restores alpha too), tokens,
+   proportional spacing, subtitles (`Sprite[1]`/`FONT1`), `FONT_PRICEDOWN`.
+4. Verify the **menu draw path** (`DrawFrontEnd`→`DrawBackground`→`DrawStandardMenus`, EntryExit/cDMA if used) vs disasm.
+5. Sweep the remaining ❌/⚠️ rows above, one feature at a time, disasm-first.

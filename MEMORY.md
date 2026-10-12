@@ -290,6 +290,23 @@ in the **fullscreen/exclusive** branch; in windowed mode it stayed at the `640x4
 `psSelectDevice`, ~line 1614) → take the window **client rect**; also made the standalone window **fixed-size**
 (no `SDL_WINDOW_RESIZABLE`) so client size == what we set. Now `RsGlobal`/cameraRaster == window client (800×600).
 
+### 5f. Invisible text — SOLVED 2026-10-12 (two bugs, neither in librw's renderer)
+1. **Bridge translated render-state IDs but not values.** Only `ALPHATESTFUNCTION` differs in *values*:
+   SA `RwAlphaTestFunction` = `NEVER=1 … ALWAYS=8` (identical to `D3DCMPFUNC`), librw `rw::AlphaTestFunc` =
+   `ALWAYS=0, GREATEREQUAL=1, LESS=2`. `DefinedState*` passed 5 ⇒ `alphafuncMap[5]` **out of bounds** ⇒ measured
+   `D3DCMP_LESS`/ref 2 ⇒ librw enables the alpha test for any `hasAlpha=1` texture (`setRasterStage`) ⇒
+   **opaque glyph texels discarded, transparent ones drawn black**. Symptom signature to remember:
+   untextured quads ✅, `hasAlpha=0` textures (DXT1/C888) ✅, **every `hasAlpha=1` texture ❌**.
+   Fix: `Translate/UntranslateAlphaTestFunc` (`RwBridge.cpp`) + `value > 2 ⇒ 0` clamp in `librw/src/d3d/d3ddevice.cpp`.
+2. **Fixed-address globals with C++ ctors are zero-filled in standalone** (the ASI build gets them from the
+   original exe's CRT). `CHudColours` (0xBAB22C, ctor 0x58FDA0) ⇒ zero HUD table ⇒ `DropColor.a=0`; and
+   `CFont::PrintString` restores only `r,g,b` after an outline/shadow pass, leaving alpha = `DropColor.a`
+   ⇒ **all strings alpha 0**. Fix: `InitGameGlobalStatics()` (`WinMain.cpp`, standalone) before `MainLoop`.
+   ⚠️ Systemic — see `IDEAS.md` for the candidate list; expect more zero-default bugs from this.
+**Method note:** what finally cracked it was reading the *already captured* D3D state log
+(`FUNC=0x2 REF=2`) instead of running more render experiments, then logging the per-string colour
+(`col=#ACCBF1**00**` vs `details=#ACCBF1FF`). Prefer state/colour evidence over visual A/B tests.
+
 ## 6. Proposed standalone roadmap ❓
 
 * **Phase 0 — entry point & storage (done):** real `WinMain`, shared bootstrap, config loading, address-keyed storage
