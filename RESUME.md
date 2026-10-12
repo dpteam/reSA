@@ -19,23 +19,30 @@
 > 7. Nothing essential should live only in the chat log.
 
 ## TL;DR — where we are 🎉
-**The standalone game `reSA.exe` RUNS, renders the frontend (menu), and is stable at ~60 FPS.**
+**The standalone game `reSA.exe` RUNS, renders the frontend (menu) at ~45 FPS, and starts a new game (loads the world).**
 
 * Boots → `MainLoop`/`ProcessGameLogic` → `FRONTEND_LOADING/LOADED/IDLE` → `CMenuManager` — real frontend TXD
-  background pictures (VINEWOOD, …) are visible, the menu is **navigable** (keyboard/SDL input works; **Enter**
-  changes screens). No crash. RenderWare is **librw** via the C-style **bridge** (`source/game_sa/RenderWare/RwBridge.*`).
-* A per-second **FPS log** is in `logs/log.log` (standalone; no on-screen text yet). Observed ~60 FPS in the menu.
+  background pictures (VINEWOOD…) are visible, the menu is **navigable** (keyboard/SDL; **Enter** starts a new game).
+  No crash. RenderWare is **librw — now OUR FORK** (`librw/`, see `librw/FORK.md`), via the C-style bridge
+  (`source/game_sa/RenderWare/RwBridge.*`).
+* **New game works**: `CMenuManager` → `DoSettingsBeforeStartingAGame` → `CGame::Init1` → asset loading → world load
+  (`CPlantMgr`/models), until it hits the unreversed `RpClump`/`RpAtomic` path (`RpClumpStreamRead` 0x74B420 — not bridged).
+* A per-second **FPS log** is in `logs/log.log` (standalone; no on-screen text yet).
 
-### Known gaps (all in `IDEAS.md`)
-* ❌ **Text doesn't render** — `CFont::RenderFontBuffer`/`ProcessCurrentString`/`CSprite2d::AddToBuffer` are **not
-  reversed** (upstream neither); no-ops in standalone. The menu is therefore unreadable. **Biggest gameplay blocker.**
-  Reference: `refs/reVC`/`refs/re3` `src/renderer/Font.cpp` (same idea as SA) + `refs/AdditionalSources/SOME_GTA_SA_Sources`
-  (has `CSprite2d::AddToBuffer`).
-* ⏳ **Starting an actual game / world load** — not done yet (the menu works, but no new-game/load reached).
-* ❌ **No sound** — `CAESoundManager::Service` skipped in standalone (sounds had a garbage `m_AudioEntity`).
-* ⚠️ **`RwIm3D*`** (effects/lines) still call into the original exe — not bridged yet.
-* ⚠️ RxPipeline cosmetics (car env-map / custom building) + ImGui debug UI disabled.
-* ⚠️ **Windowed mode**: window is now fixed 800×600 (no `SDL_WINDOW_RESIZABLE`) standalone; RDP test later.
+### Known gaps (details in `IDEAS.md` / `VERIFY.md`)
+* ❌ **Text doesn't render — root cause ISOLATED to librw.** CFont is fully ported (upstream PR #1414). Glyph
+  **geometry/buffer/flush/positions are PERFECT** (with `TEXTURERASTER=NULL` the glyph quads show as solid bars
+  exactly at the text positions). But **textured im2d draws don't appear** while untextured ones (and the VINEWOOD
+  menu sprite) do. Decisive test-set (4 tinted quads): untextured → visible; font(DXT3) / fresh C8888 / font→8888 →
+  invisible; a fresh **C888 (no-alpha)** rendered once but not consistently. **Next (librw is ours now):** we need to
+  compare the D3D calls/state of a WORKING textured sprite (VINEWOOD) vs a FAILING one at the librw level
+  (`setRasterStage`/`im2DRenderIndexedPrimitive`/`drawInst`/`flushCache`), ideally with the D3D9 debug runtime.
+  Tried (all failed): alpha off/always, Z off, non-indexed flush, convert font→C8888, bake alpha→opaque C888, GDI
+  TrueType atlas, fresh textures. ⚠️ Don't repeat those.
+* ⏳ **World load beyond `CPlantMgr`** — blocked by unreversed `RpClump`/`RpAtomic` (bridge needed).
+* ❌ **No sound** — audio `plugin::Call`s stubbed (`CAESoundManager::Service`, `StopRadio`, `ClearMissionAudio`, `UpdateRespectStat`).
+* ⚠️ **`RwIm3D*`** (effects/lines) still call into the original exe — not bridged.
+* ⚠️ RxPipeline cosmetics + ImGui debug UI disabled. Window is fixed 800×600 standalone (RDP later).
 
 ## Build state
 * ✅ Both configs build (VS 2022, MSVC 194, SDK 10.0.26100), **standalone exe is `bin/Debug/reSA.exe`** (target
