@@ -10,7 +10,16 @@
 
 // 0x5DD100 (todo: move)
 static void AtomicCreatePrelitIfNeeded(RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    // TODO(reversal): per disasm this builds a *new* RpGeometry with rpGEOMETRYPRELIT (flags 0xd,
+    // later |= rpGEOMETRYPOSITIONS), copies the old vertices/normals/texcoords/triangles across,
+    // fills the prelit colors from each triangle's material, then RpAtomicSetGeometry(atomic, new, 1).
+    // Skipping it is safe here: the caller's GeometrySetPrelitConstantColor() checks the PRELIT flag
+    // and returns false, so the grass just loads without per-vertex prelight for now.
+    (void)atomic;
+#else
     plugin::Call<0x5DD100, RpAtomic*>(atomic);
+#endif
 }
 
 // 0x5DD1E0 (do not hook! it has retarded calling conv)

@@ -579,6 +579,218 @@ void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* f
     *flags  = r->flags;
 }
 
+//-------------------------------------------------------------------------
+// RpWorld layer: clumps / atomics / geometry / materials.
+// The `Rp*` pointers the game holds ARE librw objects, so these are thin wrappers that keep the
+// layout difference (MEMORY.md §10) inside this TU. Pointers passed to/from game callbacks are the
+// librw ones, so the game can hand them straight back to these functions.
+//-------------------------------------------------------------------------
+namespace {
+template <typename T> T* rp(const void* p) { return static_cast<T*>(const_cast<void*>(p)); }
+// SA's RpAtomicCallBack / RpMaterialCallBack, in the bridge's POD spelling.
+using RwCb = void* (*)(void*, void*);
+} // namespace
+
+void* ClumpStreamRead(void* stream) {
+    return rw::Clump::streamRead(static_cast<rw::Stream*>(stream));
+}
+
+void* ClumpCreate() {
+    return rw::Clump::create();
+}
+
+bool ClumpDestroy(void* clump) {
+    if (!clump) return false;
+    rp<rw::Clump>(clump)->destroy();
+    return true;
+}
+
+void* ClumpForAllAtomics(void* clump, void* cb, void* data) {
+    auto* c = rp<rw::Clump>(clump);
+    if (!c || !cb) return clump;
+    // The callback is allowed to remove the atomic it is given, so latch the next link first (as RW does).
+    for (rw::LLLink* link = c->atomics.link.next; link != c->atomics.end(); ) {
+        rw::LLLink* next = link->next;
+        static_cast<RwCb>(cb)(rw::Atomic::fromClump(link), data);
+        link = next;
+    }
+    return clump;
+}
+
+void* ClumpGetFirstAtomic(void* clump) {
+    auto* c = rp<rw::Clump>(clump);
+    if (!c || c->atomics.isEmpty()) return nullptr;
+    return rw::Atomic::fromClump(c->atomics.link.next);
+}
+
+int ClumpCountAtomics(const void* clump) {
+    return rp<rw::Clump>(clump)->countAtomics();
+}
+
+void* ClumpGetFrame(const void* clump) {
+    return rp<rw::Clump>(clump)->getFrame();
+}
+
+void ClumpSetFrame(void* clump, void* frame) {
+    rp<rw::Clump>(clump)->setFrame(static_cast<rw::Frame*>(frame));
+}
+
+void* AtomicCreate() {
+    return rw::Atomic::create();
+}
+
+void* AtomicClone(void* atomic) {
+    return rp<rw::Atomic>(atomic)->clone();
+}
+
+void AtomicDestroy(void* atomic) {
+    if (atomic) rp<rw::Atomic>(atomic)->destroy();
+}
+
+void* AtomicGetGeometry(const void* atomic) {
+    return rp<rw::Atomic>(atomic)->geometry;
+}
+
+void* AtomicSetFrame(void* atomic, void* frame) {
+    rp<rw::Atomic>(atomic)->setFrame(static_cast<rw::Frame*>(frame));
+    return atomic;
+}
+
+void* AtomicGetFrame(const void* atomic) {
+    return rp<rw::Atomic>(atomic)->getFrame();
+}
+
+void* AtomicSetGeometry(void* atomic, void* geometry, unsigned flags) {
+    rp<rw::Atomic>(atomic)->setGeometry(rp<rw::Geometry>(geometry), flags);
+    return atomic;
+}
+
+void* AtomicGetClump(const void* atomic) {
+    return rp<rw::Atomic>(atomic)->clump;
+}
+
+void* AtomicGetBoundingSphere(const void* atomic) {
+    return &rp<rw::Atomic>(atomic)->boundingSphere;
+}
+
+unsigned AtomicGetFlags(const void* atomic) {
+    return rp<rw::Atomic>(atomic)->getFlags();
+}
+
+void AtomicSetFlags(void* atomic, unsigned flags) {
+    rp<rw::Atomic>(atomic)->setFlags(flags);
+}
+
+unsigned& GeometryFlagsRef(void* geometry) {
+    // Returned by reference on purpose: SA writes through it (`RpGeometryGetFlags(g) &= ...`).
+    return rp<rw::Geometry>(geometry)->flags;
+}
+
+void* GeometryLock(void* geometry, int lockMode) {
+    rp<rw::Geometry>(geometry)->lock(lockMode);
+    return geometry;
+}
+
+void* GeometryUnlock(void* geometry) {
+    rp<rw::Geometry>(geometry)->unlock();
+    return geometry;
+}
+
+int GeometryGetNumVertices(const void* geometry) {
+    return rp<rw::Geometry>(geometry)->numVertices;
+}
+
+int GeometryGetNumTriangles(const void* geometry) {
+    return rp<rw::Geometry>(geometry)->numTriangles;
+}
+
+int GeometryGetNumMaterials(const void* geometry) {
+    return rp<rw::Geometry>(geometry)->matList.numMaterials;
+}
+
+void* GeometryGetPreLitColors(void* geometry) {
+    return rp<rw::Geometry>(geometry)->colors; // librw's name for SA's `preLitLum`
+}
+
+void* GeometryGetVertices(void* geometry) {
+    auto* g = rp<rw::Geometry>(geometry);
+    return g->numMorphTargets ? (void*)g->morphTargets[0].vertices : nullptr;
+}
+
+void* GeometryGetNormals(void* geometry) {
+    auto* g = rp<rw::Geometry>(geometry);
+    return g->numMorphTargets ? (void*)g->morphTargets[0].normals : nullptr;
+}
+
+void* GeometryGetTexCoords(void* geometry, int uvIndex) {
+    auto* g = rp<rw::Geometry>(geometry);
+    // SA's RpGeometryGetVertexTexCoords(g, n) is 1-based: it reads texCoords[n - 1].
+    if (uvIndex < 1 || uvIndex > 8) return nullptr;
+    return g->texCoords[uvIndex - 1];
+}
+
+void* GeometryGetTriangles(void* geometry) {
+    return rp<rw::Geometry>(geometry)->triangles;
+}
+
+void* GeometryGetMorphTarget(void* geometry, int index) {
+    auto* g = rp<rw::Geometry>(geometry);
+    if (index < 0 || index >= g->numMorphTargets) return nullptr;
+    return &g->morphTargets[index];
+}
+
+int GeometryGetNumMorphTargets(const void* geometry) {
+    return rp<rw::Geometry>(geometry)->numMorphTargets;
+}
+
+int GeometryGetNumTexCoordSets(const void* geometry) {
+    return rp<rw::Geometry>(geometry)->numTexCoordSets;
+}
+
+void* MorphTargetGetVertices(void* morphTarget) {
+    return rp<rw::MorphTarget>(morphTarget)->vertices;
+}
+
+void* MorphTargetGetNormals(void* morphTarget) {
+    return rp<rw::MorphTarget>(morphTarget)->normals;
+}
+
+void* GeometryGetMaterial(void* geometry, int num) {
+    auto* g = rp<rw::Geometry>(geometry);
+    if (num < 0 || num >= g->matList.numMaterials) return nullptr;
+    return g->matList.materials[num];
+}
+
+void* GeometryForAllMaterials(void* geometry, void* cb, void* data) {
+    auto* g = rp<rw::Geometry>(geometry);
+    if (!g || !cb) return geometry;
+    for (int i = 0; i < g->matList.numMaterials; i++) {
+        if (auto* m = g->matList.materials[i]) {
+            static_cast<RwCb>(cb)(m, data);
+        }
+    }
+    return geometry;
+}
+
+void* MaterialSetTexture(void* material, void* texture) {
+    rp<rw::Material>(material)->setTexture(static_cast<rw::Texture*>(texture));
+    return material;
+}
+
+void* MaterialGetTexture(const void* material) {
+    return rp<rw::Material>(material)->texture;
+}
+
+void* MaterialSetColor(void* material, const unsigned char* rgba) {
+    auto& c = rp<rw::Material>(material)->color;
+    c.red = rgba[0]; c.green = rgba[1]; c.blue = rgba[2]; c.alpha = rgba[3];
+    return material;
+}
+
+void* MaterialGetColor(const void* material) {
+    return &rp<rw::Material>(material)->color;
+}
+
 void* RasterGetNativeTexture(const void* raster) {
     if (!raster) return nullptr;
     const auto* r = static_cast<const rw::Raster*>(raster);

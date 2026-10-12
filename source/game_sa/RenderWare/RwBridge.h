@@ -171,6 +171,71 @@ bool SetVideoMode(int index);
 /*! @brief The RenderWare library version (as reported by the engine). */
 unsigned GetVersion();
 
+//-------------------------------------------------------------------------
+// RpWorld layer: clumps / atomics / geometry / materials.
+// `RpClump*`, `RpAtomic*`, `RpGeometry*`, `RpMaterial*` in the standalone build ARE librw's
+// `rw::Clump`/`Atomic`/`Geometry`/`Material` (opaque void* here). Their layouts differ from SA's RW
+// 3.7 (MEMORY.md §10), so every field access must come through these - see the `#undef` blocks in
+// `rw/rpworld.h`. Pointers handed to game callbacks are the librw ones, so the game can pass them
+// straight back in.
+//-------------------------------------------------------------------------
+
+/*! @brief `RpClumpStreamRead` - read a whole clump (frames, geometries, atomics, lights, cameras). */
+void* ClumpStreamRead(void* stream);
+void* ClumpCreate();
+bool  ClumpDestroy(void* clump);
+/*! @brief `RpClumpForAllAtomics`. `cb` is an `RpAtomicCallBack` (`void*(*)(void*,void*)`). */
+void* ClumpForAllAtomics(void* clump, void* cb, void* data);
+/*! @brief The first atomic of a clump, or nullptr (SA: `GetFirstAtomic`). */
+void* ClumpGetFirstAtomic(void* clump);
+int   ClumpCountAtomics(const void* clump);
+void* ClumpGetFrame(const void* clump);
+void  ClumpSetFrame(void* clump, void* frame);
+
+void* AtomicClone(void* atomic);
+void  AtomicDestroy(void* atomic);
+void* AtomicCreate();
+void* AtomicGetGeometry(const void* atomic);
+void* AtomicSetGeometry(void* atomic, void* geometry, unsigned flags);
+void* AtomicSetFrame(void* atomic, void* frame);
+void* AtomicGetFrame(const void* atomic);
+void* AtomicGetClump(const void* atomic);
+/*! @brief `RpAtomicGetBoundingSphere` - librw's `Sphere` has the same layout as SA's `RwSphere`. */
+void* AtomicGetBoundingSphere(const void* atomic);
+unsigned AtomicGetFlags(const void* atomic);
+void   AtomicSetFlags(void* atomic, unsigned flags);
+
+/*! @brief `RpGeometryGetFlags` as an **lvalue** - SA code does `RpGeometryGetFlags(g) &= ~mask`. */
+unsigned& GeometryFlagsRef(void* geometry);
+void* GeometryLock(void* geometry, int lockMode);
+void* GeometryUnlock(void* geometry);
+int   GeometryGetNumVertices(const void* geometry);
+int   GeometryGetNumTriangles(const void* geometry);
+int   GeometryGetNumMaterials(const void* geometry);
+/*! @brief `RpGeometryGetPreLightColors` - librw calls these `colors`. */
+void* GeometryGetPreLitColors(void* geometry);
+void* GeometryGetVertices(void* geometry);
+void* GeometryGetNormals(void* geometry);
+void* GeometryGetTexCoords(void* geometry, int uvIndex);
+void* GeometryGetTriangles(void* geometry);
+void* GeometryGetMorphTarget(void* geometry, int index);
+void* GeometryGetMaterial(void* geometry, int num);
+/*! @brief `RpGeometryGetNumMorphTargets` (SA reads the field directly). */
+int   GeometryGetNumMorphTargets(const void* geometry);
+/*! @brief `RpGeometryGetNumTexCoordSets` (SA reads the field directly). */
+int   GeometryGetNumTexCoordSets(const void* geometry);
+/*! @brief `RpMorphTargetGetVertices` / `RpMorphTargetGetVertexNormals`. */
+void* MorphTargetGetVertices(void* morphTarget);
+void* MorphTargetGetNormals(void* morphTarget);
+/*! @brief `RpGeometryForAllMaterials`. `cb` is an `RpMaterialCallBack` (`void*(*)(void*,void*)`). */
+void* GeometryForAllMaterials(void* geometry, void* cb, void* data);
+
+void* MaterialSetTexture(void* material, void* texture);
+void* MaterialGetTexture(const void* material);
+/*! @brief `RpMaterialSetColor`; `rgba` points to 4 bytes (r,g,b,a). */
+void* MaterialSetColor(void* material, const unsigned char* rgba);
+void* MaterialGetColor(const void* material);
+
 /*! @brief librw raster format/depth/flags of a raster, for debugging (0s if null). */
 void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags);
 

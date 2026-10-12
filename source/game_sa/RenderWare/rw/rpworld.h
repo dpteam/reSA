@@ -2690,3 +2690,67 @@ macro/inline functionality
     RpWorldSectorGetVerticesMacro(_sector)
 
 #endif /* ((!defined(RWDEBUG)) && (!defined(RWSUPPRESSINLINE))) */
+
+#ifdef NOTSA_STANDALONE
+// Standalone: RenderWare is provided by librw, whose Rp* struct layouts differ from SA's RW 3.7
+// (MEMORY.md §10). The accessors above read SA offsets, so route them through the bridge. The
+// `RpClump*`/`RpAtomic*`/`RpGeometry*`/`RpMaterial*` the game holds ARE librw objects (RwBridge.h).
+// librw deliberately mirrors RW 3.7's *values* (geometry flags, lock flags), so those pass straight through.
+#include "RwBridge.h"
+
+// --- RpMaterial ---
+#undef RpMaterialSetColor
+#define RpMaterialSetColor(_m, _c)      ((RpMaterial*)rwbridge::MaterialSetColor((_m), (const unsigned char*)(_c)))
+#undef RpMaterialGetColor
+#define RpMaterialGetColor(_m)          ((RwRGBA*)rwbridge::MaterialGetColor((_m)))
+#undef RpMaterialGetTexture
+#define RpMaterialGetTexture(_m)        ((RwTexture*)rwbridge::MaterialGetTexture((_m)))
+
+// --- RpGeometry / RpMorphTarget ---
+#undef RpGeometryGetFlags
+#define RpGeometryGetFlags(_g)          (rwbridge::GeometryFlagsRef((_g)))
+#undef RpGeometrySetFlags
+#define RpGeometrySetFlags(_g, _f)      ((rwbridge::GeometryFlagsRef((_g)) = (_f)), (RpGeometry*)(_g))
+#undef RpGeometryGetNumVertices
+#define RpGeometryGetNumVertices(_g)    ((RwInt32)rwbridge::GeometryGetNumVertices((_g)))
+#undef RpGeometryGetNumTriangles
+#define RpGeometryGetNumTriangles(_g)   ((RwInt32)rwbridge::GeometryGetNumTriangles((_g)))
+#undef RpGeometryGetNumMaterials
+#define RpGeometryGetNumMaterials(_g)   ((RwInt32)rwbridge::GeometryGetNumMaterials((_g)))
+#undef RpGeometryGetNumMorphTargets
+#define RpGeometryGetNumMorphTargets(_g) ((RwInt32)rwbridge::GeometryGetNumMorphTargets((_g)))
+#undef RpGeometryGetNumTexCoordSets
+#define RpGeometryGetNumTexCoordSets(_g) ((RwInt32)rwbridge::GeometryGetNumTexCoordSets((_g)))
+#undef RpGeometryGetMaterial
+#define RpGeometryGetMaterial(_g, _n)   ((RpMaterial*)rwbridge::GeometryGetMaterial((_g), (_n)))
+#undef RpGeometryGetPreLightColors
+#define RpGeometryGetPreLightColors(_g) ((RwRGBA*)rwbridge::GeometryGetPreLitColors((_g)))
+#undef RpGeometryGetTriangles
+#define RpGeometryGetTriangles(_g)      ((RpTriangle*)rwbridge::GeometryGetTriangles((_g)))
+#undef RpGeometryGetVertexTexCoords
+#define RpGeometryGetVertexTexCoords(_g, _uv) ((RwTexCoords*)rwbridge::GeometryGetTexCoords((_g), (_uv)))
+#undef RpGeometryGetMorphTarget
+#define RpGeometryGetMorphTarget(_g, _i) ((RpMorphTarget*)rwbridge::GeometryGetMorphTarget((_g), (_i)))
+#undef RpMorphTargetGetVertices
+#define RpMorphTargetGetVertices(_mt)   ((RwV3d*)rwbridge::MorphTargetGetVertices((_mt)))
+#undef RpMorphTargetGetVertexNormals
+#define RpMorphTargetGetVertexNormals(_mt) ((RwV3d*)rwbridge::MorphTargetGetNormals((_mt)))
+
+// --- RpAtomic / RpClump ---
+#undef RpAtomicGetGeometry
+#define RpAtomicGetGeometry(_a)         ((RpGeometry*)rwbridge::AtomicGetGeometry((_a)))
+#undef RpAtomicGetFrame
+#define RpAtomicGetFrame(_a)            ((RwFrame*)rwbridge::AtomicGetFrame((_a)))
+#undef RpAtomicGetClump
+#define RpAtomicGetClump(_a)            ((RpClump*)rwbridge::AtomicGetClump((_a)))
+#undef RpAtomicGetBoundingSphere
+#define RpAtomicGetBoundingSphere(_a)   ((RwSphere*)rwbridge::AtomicGetBoundingSphere((_a)))
+#undef RpAtomicGetFlags
+#define RpAtomicGetFlags(_a)            ((RwUInt32)rwbridge::AtomicGetFlags((_a)))
+#undef RpAtomicSetFlags
+#define RpAtomicSetFlags(_a, _f)        ((rwbridge::AtomicSetFlags((_a), (_f))), (RpAtomic*)(_a))
+#undef RpClumpGetFrame
+#define RpClumpGetFrame(_c)             ((RwFrame*)rwbridge::ClumpGetFrame((_c)))
+#undef RpClumpSetFrame
+#define RpClumpSetFrame(_c, _f)         ((rwbridge::ClumpSetFrame((_c), (_f))), (RpClump*)(_c))
+#endif /* NOTSA_STANDALONE */

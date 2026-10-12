@@ -152,7 +152,11 @@ RpMaterial* RpMaterialClone(RpMaterial* material) {
 }
 
 RpMaterial* RpMaterialSetTexture(RpMaterial* material, RwTexture* texture) {
+#ifdef NOTSA_STANDALONE
+    return (RpMaterial*)rwbridge::MaterialSetTexture(material, texture);
+#else
     return ((RpMaterial*(__cdecl *)(RpMaterial*, RwTexture*))0x74DBC0)(material, texture);
+#endif
 }
 
 RwInt32 RpMaterialRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
@@ -396,15 +400,27 @@ RpMaterial* RpGeometryTriangleGetMaterial(const RpGeometry* geometry, const RpTr
 }
 
 RpGeometry* RpGeometryForAllMaterials(RpGeometry* geometry, RpMaterialCallBack fpCallBack, void* data) {
+#ifdef NOTSA_STANDALONE
+    return (RpGeometry*)rwbridge::GeometryForAllMaterials(geometry, (void*)fpCallBack, data);
+#else
     return ((RpGeometry*(__cdecl *)(RpGeometry*, RpMaterialCallBack, void*))0x74C790)(geometry, fpCallBack, data);
+#endif
 }
 
 RpGeometry* RpGeometryLock(RpGeometry* geometry, RwInt32 lockMode) {
+#ifdef NOTSA_STANDALONE
+    return (RpGeometry*)rwbridge::GeometryLock(geometry, lockMode);
+#else
     return ((RpGeometry*(__cdecl *)(RpGeometry*, RwInt32))0x74C7D0)(geometry, lockMode);
+#endif
 }
 
 RpGeometry* RpGeometryUnlock(RpGeometry* geometry) {
+#ifdef NOTSA_STANDALONE
+    return (RpGeometry*)rwbridge::GeometryUnlock(geometry);
+#else
     return ((RpGeometry*(__cdecl *)(RpGeometry*))0x74C800)(geometry);
+#endif
 }
 
 const RpGeometry* RpGeometryForAllMeshes(const RpGeometry* geometry, RpMeshCallBack fpCallBack, void* data) {
@@ -623,7 +639,11 @@ void RpClumpGtaCancelStream() {
 }
 
 RpClump* RpClumpForAllAtomics(RpClump* clump, RpAtomicCallBack callback, void* data) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpForAllAtomics(clump, (void*)callback, data);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RpAtomicCallBack, void*))0x749B70)(clump, callback, data);
+#endif
 }
 
 RpClump* RpClumpForAllLights(RpClump* clump, RpLightCallBack callback, void* data) {
@@ -635,7 +655,11 @@ RpClump* RpClumpForAllCameras(RpClump* clump, RwCameraCallBack callback, void* d
 }
 
 RpAtomic* RpAtomicSetFrame(RpAtomic* atomic, RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    return (RpAtomic*)rwbridge::AtomicSetFrame(atomic, frame);
+#else
     return ((RpAtomic*(__cdecl *)(RpAtomic*, RwFrame*))0x74BF20)(atomic, frame);
+#endif
 }
 
 RpClump* RpClumpCreateSpace(const RwV3d* position, RwReal radius) {
@@ -671,11 +695,19 @@ RpClump* RpClumpAddCamera(RpClump* clump, RwCamera* camera) {
 }
 
 RwBool RpClumpDestroy(RpClump* clump) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::ClumpDestroy(clump);
+#else
     return ((RwBool(__cdecl *)(RpClump*))0x74A310)(clump);
+#endif
 }
 
 RpClump* RpClumpCreate(void) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpCreate();
+#else
     return ((RpClump*(__cdecl *)(void))0x74A290)();
+#endif
 }
 
 RpClump* RpClumpClone(RpClump* clump) {
@@ -683,19 +715,36 @@ RpClump* RpClumpClone(RpClump* clump) {
 }
 
 RwBool RpAtomicDestroy(RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::AtomicDestroy(atomic);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RpAtomic*))0x749DC0)(atomic);
+#endif
 }
 
 RpAtomic* RpAtomicClone(RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    return (RpAtomic*)rwbridge::AtomicClone(atomic);
+#else
     return ((RpAtomic*(__cdecl *)(RpAtomic*))0x749E60)(atomic);
+#endif
 }
 
 RpAtomic* RpAtomicCreate(void) {
+#ifdef NOTSA_STANDALONE
+    return (RpAtomic*)rwbridge::AtomicCreate();
+#else
     return ((RpAtomic*(__cdecl *)(void))0x749C50)();
+#endif
 }
 
 RpAtomic* RpAtomicSetGeometry(RpAtomic* atomic, RpGeometry* geometry, RwUInt32 flags) {
+#ifdef NOTSA_STANDALONE
+    return (RpAtomic*)rwbridge::AtomicSetGeometry(atomic, geometry, flags);
+#else
     return ((RpAtomic*(__cdecl *)(RpAtomic*, RpGeometry*, RwUInt32))0x749D40)(atomic, geometry, flags);
+#endif
 }
 
 RpClump* RpClumpSetCallBack(RpClump* clump, RpClumpCallBack callback) {
@@ -743,7 +792,11 @@ RwUInt32 RpClumpStreamGetSize(RpClump* clump) {
 }
 
 RpClump* RpClumpStreamRead(RwStream* stream) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpStreamRead(stream);
+#else
     return ((RpClump*(__cdecl *)(RwStream*))0x74B420)(stream);
+#endif
 }
 
 RpClump* RpClumpStreamWrite(RpClump* clump, RwStream* stream) {
