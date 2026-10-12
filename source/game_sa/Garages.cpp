@@ -143,7 +143,40 @@ void CGarages::GivePlayerDetonator() {
 // 0x4	camera follow players
 // TODO...
 void CGarages::AddOne(float x1, float y1, float z1, float frontX, float frontY, float x2, float y2, float z2, uint8 type, uint32 a10, char* name, uint32 argFlags) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the original (0x4471E0, ~12 KB up to 0x44A170) is not reversed yet, and it is reached
+    // during LAn.IPL loading, which stopped the new game cold. All the loader needs is that the garage
+    // exists as a record so the later passes over aGarages/NumGarages see a consistent table, so fill in
+    // the fields from the IPL parameters with the obvious defaults. The exact box/direction derivation
+    // the original performs is left as TODO - see IDEAS.md.
+    if (NumGarages < 0 || NumGarages >= MAX_NUM_GARAGES) {
+        return; // the original's table holds MAX_NUM_GARAGES entries; refuse to run off the end
+    }
+    CGarage& g = aGarages[NumGarages];
+    g.m_vPosn         = CVector{ x1, y1, z1 };
+    g.m_vDirectionA   = CVector2D{ x2 - x1, y2 - y1 };
+    g.m_vDirectionB   = CVector2D{ frontX, frontY };
+    g.m_fTopZ         = z2;
+    g.m_fWidth        = x2 - x1;
+    g.m_fHeight       = y2 - y1;
+    g.m_fLeftCoord    = x1;
+    g.m_fRightCoord   = x2;
+    g.m_fFrontCoord   = frontY;
+    g.m_fBackCoord    = frontX;
+    g.m_fDoorPosition = 0.0f;
+    g.m_nTimeToOpen   = 0;
+    g.m_pTargetCar    = nullptr;
+    g.m_nDoorState    = GARAGE_DOOR_CLOSED;
+    g.m_nType         = static_cast<eGarageType>(type);
+    g.m_nOriginalType = static_cast<eGarageType>(type);
+    g.m_nFlags        = static_cast<uint8>(argFlags & 0xFF);
+    (void)a10;
+    strncpy_s(g.m_anName, name, _TRUNCATE); // 8 bytes, as in the original
+    ++NumGarages;
+    return;
+#else
     return plugin::Call<0x4471E0, float, float, float, float, float, float, float, float, uint8, uint32, char*, uint32>(x1, y1, z1, frontX, frontY, x2, y2, z2, type, a10, name, argFlags);
+#endif
 }
 
 // 0x44A170
