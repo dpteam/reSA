@@ -45,7 +45,14 @@ bool FxPrimBP_c::Load(FILESTREAM file, int32 version, FxName32_t* textureNames) 
 
     char line[256], field[128];
 
-    ReadFieldImpl(file, field, "FX_PRIM_BASE_DATA:");
+    // Section header - a bare `FX_PRIM_BASE_DATA:` with **no value**. Verified against disasm of this
+    // function (0x5C2010): it ReadLine's and then sscanf's the line with the format `"%s"` (1 part) and
+    // does *not* check the name, i.e. exactly `ReadField<void>`. The drafted version used
+    // `ReadFieldImpl(file, field, "FX_PRIM_BASE_DATA:")`, whose `char[N]` trait format is `"%s %s"`
+    // (2 parts) - that always failed, desynchronised the whole rest of the parse (every subsequent field
+    // was read one line off) and the resulting garbage is what crashed FxManager_c::CreateFxSystem in
+    // RwMatrixUpdate. The blank line before this one is eaten by the caller (FxSystemBP_c::Load:108).
+    ReadField<void>(file);
     ReadFieldImpl(file, field, "NAME:");
     
     CVector mat[4];
