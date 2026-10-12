@@ -29,7 +29,32 @@ void CProjectileInfo::InjectHooks() {
 
 // 0x737B40
 void CProjectileInfo::Initialise() {
+#ifdef NOTSA_STANDALONE
+    // Transcribed from disasm 0x737B40 (58 bytes, no calls at all - pure static init):
+    //   rep stos 0x20 dwords at 0xC89110          -> all 32 ms_apProjectile entries = nullptr
+    //   then 32 iterations (stride 0x24 = sizeof(CProjectileInfo), 0xC891A8..0xC89628):
+    //       m_nWeaponType   = 16      (ecx is loaded once with 0x10 and never decremented, so EVERY
+    //                                  entry gets 16 == WEAPON_GRENADE - that is what the original
+    //                                  stores; it is inert because every reader checks m_bActive
+    //                                  first, eg. IsProjectileInRange above the m_nWeaponType use)
+    //       m_pCreator      = nullptr
+    //       m_nDestroyTime  = 0
+    //       m_bActive       = false
+    //       m_pFxSystem     = nullptr
+    //   NOTE the original does NOT clear m_pVictim (+8) or m_vecLastPosn (+0x14..+0x1B) - reproduced
+    //   exactly rather than "tidied up", so the memory state matches the mod build's.
+    ms_apProjectile.fill(nullptr);
+    for (auto& info : gaProjectileInfo) {
+        info.m_nWeaponType   = 16; // == WEAPON_GRENADE, as stored by the original
+        info.m_pCreator      = nullptr;
+        info.m_nDestroyTime  = 0;
+        info.m_bActive       = false;
+        info.m_pFxSystem     = nullptr;
+    }
+    return;
+#else
     plugin::Call<0x737B40>();
+#endif
 }
 
 // 0x737BC0
