@@ -212,6 +212,17 @@ int   ClumpCountAtomics(const void* clump);
 void* ClumpGetFrame(const void* clump);
 void  ClumpSetFrame(void* clump, void* frame);
 void* ClumpClone(void* clump);                       //!< `RpClumpClone`
+/*! @brief The clump membership mutators (disasm 0x74A490/0x74A4C0/0x74A4F0/0x74A520/0x74A550/0x74A580).
+ *  All six just re-link the object's existing list node into/out of the clump's list and return the
+ *  clump, so they map 1:1 onto librw's add/remove pairs. Safe to call during a ClumpForAllAtomics walk:
+ *  that walk latches the next link before invoking the callback (as the original does), and
+ *  `CFileLoader::SetRelatedModelInfoCB` really does remove atomics mid-iteration. */
+void* ClumpAddAtomic(void* clump, void* atomic);
+void* ClumpRemoveAtomic(void* clump, void* atomic);
+void* ClumpAddLight(void* clump, void* light);
+void* ClumpRemoveLight(void* clump, void* light);
+void* ClumpAddCamera(void* clump, void* camera);
+void* ClumpRemoveCamera(void* clump, void* camera);
 
 void* AtomicClone(void* atomic);
 void  AtomicDestroy(void* atomic);

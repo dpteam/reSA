@@ -717,6 +717,42 @@ void* ClumpClone(void* clump) {
     return rp<rw::Clump>(clump)->clone();
 }
 
+void* ClumpAddAtomic(void* clump, void* atomic) {
+    auto* c = rp<rw::Clump>(clump);
+    c->addAtomic(rp<rw::Atomic>(atomic));
+    return c;
+}
+
+void* ClumpRemoveAtomic(void* clump, void* atomic) {
+    auto* c = rp<rw::Clump>(clump);
+    c->removeAtomic(rp<rw::Atomic>(atomic));
+    return c;
+}
+
+void* ClumpAddLight(void* clump, void* light) {
+    auto* c = rp<rw::Clump>(clump);
+    c->addLight(rp<rw::Light>(light));
+    return c;
+}
+
+void* ClumpRemoveLight(void* clump, void* light) {
+    auto* c = rp<rw::Clump>(clump);
+    c->removeLight(rp<rw::Light>(light));
+    return c;
+}
+
+void* ClumpAddCamera(void* clump, void* camera) {
+    auto* c = rp<rw::Clump>(clump);
+    c->addCamera(rp<rw::Camera>(camera));
+    return c;
+}
+
+void* ClumpRemoveCamera(void* clump, void* camera) {
+    auto* c = rp<rw::Clump>(clump);
+    c->removeCamera(rp<rw::Camera>(camera));
+    return c;
+}
+
 void* AtomicCreate() {
     return rw::Atomic::create();
 }

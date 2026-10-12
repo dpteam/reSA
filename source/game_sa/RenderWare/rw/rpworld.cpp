@@ -723,27 +723,51 @@ RpClump* RpClumpRender(RpClump* clump) {
 }
 
 RpClump* RpClumpRemoveAtomic(RpClump* clump, RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpRemoveAtomic(clump, atomic);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RpAtomic*))0x74A4C0)(clump, atomic);
+#endif
 }
 
 RpClump* RpClumpAddAtomic(RpClump* clump, RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpAddAtomic(clump, atomic);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RpAtomic*))0x74A490)(clump, atomic);
+#endif
 }
 
 RpClump* RpClumpRemoveLight(RpClump* clump, RpLight* light) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpRemoveLight(clump, light);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RpLight*))0x74A520)(clump, light);
+#endif
 }
 
 RpClump* RpClumpAddLight(RpClump* clump, RpLight* light) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpAddLight(clump, light);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RpLight*))0x74A4F0)(clump, light);
+#endif
 }
 
 RpClump* RpClumpRemoveCamera(RpClump* clump, RwCamera* camera) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpRemoveCamera(clump, camera);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RwCamera*))0x74A580)(clump, camera);
+#endif
 }
 
 RpClump* RpClumpAddCamera(RpClump* clump, RwCamera* camera) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpAddCamera(clump, camera);
+#else
     return ((RpClump*(__cdecl *)(RpClump*, RwCamera*))0x74A550)(clump, camera);
+#endif
 }
 
 RwBool RpClumpDestroy(RpClump* clump) {
