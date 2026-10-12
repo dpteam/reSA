@@ -13,6 +13,13 @@
 
 #ifdef NOTSA_STANDALONE
 #include "RwBridge.h" // librw-backed RenderWare plugins (standalone)
+// The game's own RW plugins, attached separately in PluginAttach() below (standalone only).
+#include "Plugins/NodeNamePlugin/NodeName.h"
+#include "Plugins/CollisionPlugin/CollisionPlugin.h"
+#include "Plugins/TwoDEffectPlugin/2dEffect.h"
+#include "Plugins/PipelinePlugin/PipelinePlugin.h"
+#include "VisibilityPlugins.h"
+#include "TxdStore.h"
 #endif
 
 #include "platform/win/WinPlatform.h"
@@ -136,10 +143,37 @@ RsEventStatus AppEventHandler(RsEvent event, void* param) {
 bool PluginAttach() {
 #ifdef NOTSA_STANDALONE
     // Standalone: RenderWare is librw. The chain below attaches the same RW plugins via the original
-    // game's registration (which lives in gta_sa.exe), so instead register librw's plugins directly.
-    // TODO: the game-specific plugins (Visibility/TxdStore/CustomBuilding/...) may still need attaching.
+    // game's registration (which lives in gta_sa.exe), so instead register librw's plugins directly ...
     rwbridge::RegisterCorePlugins();
-    return true;
+
+    // ... and then attach the *game's own* plugins. These are not part of RenderWare, so librw has no
+    // counterpart for them: each one reserves per-object data (Visibility model IDs, TXD parents,
+    // collision, 2d effects, breakable data, node names, the custom pipeline tag) and caches the offset
+    // in a fixed-address global that the rest of the game reads directly. Without this those offsets
+    // stay 0 and every RWPLUGINOFFSET() access lands in the middle of the object -> garbage/crash.
+    //
+    // Deliberately NOT attached here:
+    //  * the RW-SDK plugins (RpWorld/RpSkin/RpHAnim/RpMatFX/RpUVAnim/RpAnisot/RtAnim) - librw implements
+    //    them itself and RegisterCorePlugins() above already installed them;
+    //  * RpAnimBlendPluginAttach - it also registers an RtAnim interpolator type (not bridged yet);
+    //  * CCustomBuildingRenderer/CCarFXRenderer - RxPipeline cosmetics, disabled in standalone.
+    // They must be attached once their dependencies are bridged (see VERIFY.md).
+    const auto Attach = [](auto name, auto attachFn) {
+        if (!attachFn()) {
+            NOTSA_LOG_WARN("Couldn't attach {} plugin (standalone)", name);
+            return false;
+        }
+        return true;
+    };
+    return (
+        Attach("Node Name",   NodeNamePluginAttach) &&
+        Attach("Visibility",  CVisibilityPlugins::PluginAttach) &&
+        Attach("C Txd Store", CTxdStore::PluginAttach) &&
+        Attach("Breakable",   BreakablePluginAttach) &&
+        Attach("Collision",   CCollisionPlugin::PluginAttach) &&
+        Attach("2d Effect",   C2dEffect::PluginAttach) &&
+        Attach("Pipeline",    PipelinePluginAttach)
+    );
 #else
     const auto Attach = [](auto name, auto attachFn) {
         if (!attachFn()) {

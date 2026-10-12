@@ -59,6 +59,38 @@ void RegisterCorePlugins() {
     rw::registerUserDataPlugin();
 }
 
+#define NOTSA_DEF_PLG_FUNCS(P, T)                                                                  \
+    int P##RegisterPlugin(int size, unsigned id, void* ctor, void* dtor, void* copy) {              \
+        return T::registerPlugin(size, id, reinterpret_cast<rw::Constructor>(ctor),                 \
+                                 reinterpret_cast<rw::Destructor>(dtor),                            \
+                                 reinterpret_cast<rw::CopyConstructor>(copy));                      \
+    }                                                                                              \
+    int P##RegisterPluginStream(unsigned id, void* read, void* write, void* getSize) {              \
+        return T::registerPluginStream(id, reinterpret_cast<rw::StreamRead>(read),                  \
+                                       reinterpret_cast<rw::StreamWrite>(write),                    \
+                                       reinterpret_cast<rw::StreamGetSize>(getSize));               \
+    }                                                                                              \
+    int P##GetPluginOffset(unsigned id) { return T::getPluginOffset(id); }                          \
+    int P##SetStreamAlwaysCallback(unsigned id, void* cb) {                                         \
+        return T::setStreamAlwaysCallback(id, reinterpret_cast<rw::AlwaysCallback>(cb));            \
+    }                                                                                              \
+    int P##SetStreamRightsCallback(unsigned id, void* cb) {                                         \
+        return T::setStreamRightsCallback(id, reinterpret_cast<rw::RightsCallback>(cb));            \
+    }
+
+NOTSA_DEF_PLG_FUNCS(Frame, rw::Frame)
+NOTSA_DEF_PLG_FUNCS(Raster, rw::Raster)
+NOTSA_DEF_PLG_FUNCS(Texture, rw::Texture)
+NOTSA_DEF_PLG_FUNCS(TexDictionary, rw::TexDictionary)
+NOTSA_DEF_PLG_FUNCS(Material, rw::Material)
+NOTSA_DEF_PLG_FUNCS(Geometry, rw::Geometry)
+NOTSA_DEF_PLG_FUNCS(Atomic, rw::Atomic)
+NOTSA_DEF_PLG_FUNCS(Clump, rw::Clump)
+NOTSA_DEF_PLG_FUNCS(Light, rw::Light)
+NOTSA_DEF_PLG_FUNCS(Camera, rw::Camera)
+NOTSA_DEF_PLG_FUNCS(World, rw::World)
+#undef NOTSA_DEF_PLG_FUNCS
+
 unsigned GetMaxMultiSamplingLevels() {
     return rw::Engine::getMaxMultiSamplingLevels();
 }

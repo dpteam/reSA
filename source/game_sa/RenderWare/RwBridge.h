@@ -236,6 +236,41 @@ void* MaterialGetTexture(const void* material);
 void* MaterialSetColor(void* material, const unsigned char* rgba);
 void* MaterialGetColor(const void* material);
 
+//-------------------------------------------------------------------------
+// RW object-plugin registration - the game's *own* plugins (Visibility, TxdStore, Collision, 2dEffect,
+// Breakable, NodeName, Pipeline, RpAnimBlend, ...), as opposed to the RW-SDK plugins that
+// `RegisterCorePlugins()` already installs.
+//
+// librw's `PluginList` is RW-compatible: `registerPlugin()` returns the byte offset of the plugin's data
+// inside the object allocation, and `RWPLUGINOFFSET(type, obj, off)` means the same thing on both sides.
+// So the values the game caches in its `ms_*PluginOffset`/`g*PluginOffset` globals (which live at fixed
+// addresses!) work unchanged - they just have to be *registered* before any object is created.
+//
+// Callbacks are `void*` here because the bridge cannot see SA's `RwPlugin*` typedefs; their real types
+// (rwplcore.h) match librw's `Constructor`/`Destructor`/`CopyConstructor`/`StreamRead`/`StreamWrite`/
+// `StreamGetSize`/`RightsCallback`/`AlwaysCallback` modulo a `const` on one parameter, so they are passed
+// straight through. `RpWorldSector` has no librw counterpart, so it is deliberately absent.
+//-------------------------------------------------------------------------
+#define NOTSA_PLG_FUNCS(P)                                                             \
+    int P##RegisterPlugin(int size, unsigned id, void* ctor, void* dtor, void* copy);   \
+    int P##RegisterPluginStream(unsigned id, void* read, void* write, void* getSize);   \
+    int P##GetPluginOffset(unsigned id);                                               \
+    int P##SetStreamAlwaysCallback(unsigned id, void* cb);                              \
+    int P##SetStreamRightsCallback(unsigned id, void* cb)
+
+NOTSA_PLG_FUNCS(Frame);
+NOTSA_PLG_FUNCS(Raster);
+NOTSA_PLG_FUNCS(Texture);
+NOTSA_PLG_FUNCS(TexDictionary);
+NOTSA_PLG_FUNCS(Material);
+NOTSA_PLG_FUNCS(Geometry);
+NOTSA_PLG_FUNCS(Atomic);
+NOTSA_PLG_FUNCS(Clump);
+NOTSA_PLG_FUNCS(Light);
+NOTSA_PLG_FUNCS(Camera);
+NOTSA_PLG_FUNCS(World);
+#undef NOTSA_PLG_FUNCS
+
 /*! @brief librw raster format/depth/flags of a raster, for debugging (0s if null). */
 void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags);
 

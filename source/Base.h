@@ -173,6 +173,25 @@ namespace notsa::detail {
  */
 void* GetStandaloneStaticStorage(uintptr addr, size_t size, size_t alignment);
 } // namespace notsa::detail
+
+namespace notsa {
+/*!
+ * @brief Runs the constructor of a fixed-address global that `StaticRef` only zero-filled.
+ *
+ * In the ASI build the original `gta_sa.exe`'s CRT constructs these before our code ever runs. The
+ * standalone build has no original exe mapped, so `StaticRef` hands out plain *zero-initialized* storage
+ * and no constructor ever runs. For PODs that is harmless, but anything non-trivial - above all anything
+ * **polymorphic**, whose vtable pointer is installed by the constructor - reads as garbage, and the first
+ * virtual call jumps to ~0x18 and faults.
+ *
+ * Placement-constructing the global here restores what the mod build gets for free.
+ * @see MEMORY.md §5f, IDEAS.md ("Статические глобалы...")
+ */
+template<typename T>
+T& ConstructStatic(T& global) {
+    return *::new (std::addressof(global)) T();
+}
+} // namespace notsa
 #endif
 
 /*!

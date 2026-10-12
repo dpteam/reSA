@@ -160,23 +160,43 @@ RpMaterial* RpMaterialSetTexture(RpMaterial* material, RwTexture* texture) {
 }
 
 RwInt32 RpMaterialRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::MaterialRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x74DBF0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpMaterialRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::MaterialRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x74DC20)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpMaterialSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::MaterialSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x74DC50)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpMaterialSetStreamRightsCallBack(RwUInt32 pluginID, RwPluginDataChunkRightsCallBack rightsCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::MaterialSetStreamRightsCallback(pluginID, reinterpret_cast<void*>(rightsCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkRightsCallBack))0x74DC70)(pluginID, rightsCB);
+#endif
 }
 
 RwInt32 RpMaterialGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::MaterialGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x74DC90)(pluginID);
+#endif
 }
 
 RwBool RpMaterialValidatePlugins(const RpMaterial* material) {
@@ -436,19 +456,35 @@ RwBool RpGeometryDestroy(RpGeometry* geometry) {
 }
 
 RwInt32 RpGeometryRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GeometryRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x74CD70)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpGeometryRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GeometryRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x74CDA0)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpGeometrySetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GeometrySetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x74CDD0)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpGeometryGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GeometryGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x74CDF0)(pluginID);
+#endif
 }
 
 RwBool RpGeometryValidatePlugins(const RpGeometry* geometry) {
@@ -563,19 +599,35 @@ RpLightChunkInfo* _rpLightChunkInfoRead(RwStream* stream, RpLightChunkInfo* ligh
 }
 
 RwInt32 RpLightRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::LightRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x751D60)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpLightRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::LightRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x751D90)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpLightSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::LightSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x751DC0)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpLightGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::LightGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x751DE0)(pluginID);
+#endif
 }
 
 RwBool RpLightValidatePlugins(const RpLight* light) {
@@ -808,39 +860,75 @@ RpClumpChunkInfo* _rpClumpChunkInfoRead(RwStream* stream, RpClumpChunkInfo* clum
 }
 
 RwInt32 RpAtomicRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::AtomicRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x74BDA0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpClumpRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::ClumpRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x74BDD0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpAtomicRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::AtomicRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x74BE00)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpAtomicSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::AtomicSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x74BE30)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpAtomicSetStreamRightsCallBack(RwUInt32 pluginID, RwPluginDataChunkRightsCallBack rightsCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::AtomicSetStreamRightsCallback(pluginID, reinterpret_cast<void*>(rightsCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkRightsCallBack))0x74BE50)(pluginID, rightsCB);
+#endif
 }
 
 RwInt32 RpClumpRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::ClumpRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x74BE70)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpClumpSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::ClumpSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x74BEA0)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpAtomicGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::AtomicGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x74BEC0)(pluginID);
+#endif
 }
 
 RwInt32 RpClumpGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::ClumpGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x74BEE0)(pluginID);
+#endif
 }
 
 RwBool RpAtomicValidatePlugins(const RpAtomic* atomic) {
@@ -948,23 +1036,43 @@ RpWorld* RpWorldSectorGetWorld(const RpWorldSector* sector) {
 }
 
 RwInt32 RpWorldRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::WorldRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x74FCD0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RpWorldRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::WorldRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x74FD00)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RpWorldSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::WorldSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x74FD30)(pluginID, alwaysCB);
+#endif
 }
 
 RwInt32 RpWorldSetStreamRightsCallBack(RwUInt32 pluginID, RwPluginDataChunkRightsCallBack rightsCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::WorldSetStreamRightsCallback(pluginID, reinterpret_cast<void*>(rightsCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkRightsCallBack))0x74FD50)(pluginID, rightsCB);
+#endif
 }
 
 RwInt32 RpWorldGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::WorldGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x74FD70)(pluginID);
+#endif
 }
 
 RwBool RpWorldValidatePlugins(RpWorld* world) {

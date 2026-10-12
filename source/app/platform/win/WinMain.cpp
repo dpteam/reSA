@@ -33,6 +33,7 @@
 #include <extensions/debug.hpp>
 
 #include "HudColours.h"
+#include "ModelInfo.h"
 #endif
 
 #include <toolsmenu/UIRenderer.h>
@@ -440,6 +441,24 @@ void MainLoop(INT nCmdShow) {
  */
 void InitGameGlobalStatics() {
     HudColour.Constructor();
+
+    // The model-info stores: each is a `CStore<T, N>` (a count + a fixed array of N objects) whose elements
+    // are polymorphic (`CBaseModelInfo` and friends). `CModelInfo::Initialise` -> `AddAtomicModel` ->
+    // `mi.Init()` is a *virtual* call, so with a zero-filled store it jumps through a null vtable and faults
+    // (disasm 0x4C6620: `call DWORD PTR [eax+0x18]`). Default-constructing the store constructs every
+    // element, which is exactly what the original exe's static-init does.
+    notsa::ConstructStatic(CModelInfo::ms_atomicModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_damageAtomicModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_lodAtomicModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_timeModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_lodTimeModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_weaponModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_clumpModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_vehicleModelInfoStore);
+    notsa::ConstructStatic(CModelInfo::ms_pedModelInfoStore);
+    // NOTE: ms_2dFXInfoStore is deliberately NOT constructed: C2dEffect is not polymorphic (it carries an
+    // `e2dEffectType m_Type` tag and no vtable), so zero-filled storage matches the original's static data.
+    // (It also cannot be default-constructed - its anonymous union has a non-trivial member.)
 }
 #endif
 

@@ -344,11 +344,19 @@ RwRaster* RwRasterUnlockPalette(RwRaster* raster) {
 }
 
 RwInt32 RwRasterRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::RasterRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x7FB0B0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RwRasterGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::RasterGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x7FAE40)(pluginID);
+#endif
 }
 
 RxRenderStateVector* RxRenderStateVectorSetDefaultRenderStateVector(RxRenderStateVector* rsvp) {
@@ -634,19 +642,35 @@ RwBool RwTexDictionaryForAllTexDictionaries(RwTexDictionaryCallBack fpCallBack, 
 }
 
 RwInt32 RwTextureRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TextureRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x7F3BB0)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RwTexDictionaryRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TexDictionaryRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x7F3C10)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RwTextureGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TextureGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x7F3BE0)(pluginID);
+#endif
 }
 
 RwInt32 RwTexDictionaryGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TexDictionaryGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x7F3C40)(pluginID);
+#endif
 }
 
 RwBool RwTextureValidatePlugins(const RwTexture* texture) {
@@ -1118,11 +1142,19 @@ RwInt32 RwFrameCount(RwFrame* frame) {
 }
 
 RwInt32 RwFrameRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::FrameRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x7F1260)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RwFrameGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::FrameGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x7F1290)(pluginID);
+#endif
 }
 
 RwBool RwFrameValidatePlugins(const RwFrame* frame) {
@@ -1150,11 +1182,19 @@ void _rwFrameSyncHierarchyLTM(RwFrame* frame) {
 }
 
 RwInt32 RwTextureRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TextureRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x804550)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RwTextureSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TextureSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x804580)(pluginID, alwaysCB);
+#endif
 }
 
 RwUInt32 RwTextureStreamGetSize(const RwTexture* texture) {
@@ -1170,11 +1210,19 @@ const RwTexture* RwTextureStreamWrite(const RwTexture* texture, RwStream* stream
 }
 
 RwInt32 RwTexDictionaryRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TexDictionaryRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x8048E0)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RwTexDictionarySetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::TexDictionarySetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x804910)(pluginID, alwaysCB);
+#endif
 }
 
 RwUInt32 RwTexDictionaryStreamGetSize(const RwTexDictionary* texDict) {
@@ -1198,11 +1246,19 @@ void RwFrameListSetAutoUpdate(RwBool flag) {
 }
 
 RwInt32 RwFrameRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::FrameRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x807580)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RwFrameSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::FrameSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x8075B0)(pluginID, alwaysCB);
+#endif
 }
 
 rwFrameList* _rwFrameListInitialize(rwFrameList* frameList, RwFrame* frame) {
@@ -1358,11 +1414,19 @@ RwCamera* RwCameraSetFarClipPlane(RwCamera* camera, RwReal farClip) {
 }
 
 RwInt32 RwCameraRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::CameraRegisterPlugin(size, pluginID, reinterpret_cast<void*>(constructCB), reinterpret_cast<void*>(destructCB), reinterpret_cast<void*>(copyCB));
+#else
     return ((RwInt32(__cdecl *)(RwInt32, RwUInt32, RwPluginObjectConstructor, RwPluginObjectDestructor, RwPluginObjectCopy))0x7EE450)(size, pluginID, constructCB, destructCB, copyCB);
+#endif
 }
 
 RwInt32 RwCameraGetPluginOffset(RwUInt32 pluginID) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::CameraGetPluginOffset(pluginID);
+#else
     return ((RwInt32(__cdecl *)(RwUInt32))0x7EE480)(pluginID);
+#endif
 }
 
 RwBool RwCameraValidatePlugins(const RwCamera* camera) {
@@ -1374,11 +1438,19 @@ RwFrustumTestResult RwCameraFrustumTestSphere(const RwCamera* camera, const RwSp
 }
 
 RwInt32 RwCameraRegisterPluginStream(RwUInt32 pluginID, RwPluginDataChunkReadCallBack readCB, RwPluginDataChunkWriteCallBack writeCB, RwPluginDataChunkGetSizeCallBack getSizeCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::CameraRegisterPluginStream(pluginID, reinterpret_cast<void*>(readCB), reinterpret_cast<void*>(writeCB), reinterpret_cast<void*>(getSizeCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkReadCallBack, RwPluginDataChunkWriteCallBack, RwPluginDataChunkGetSizeCallBack))0x808C90)(pluginID, readCB, writeCB, getSizeCB);
+#endif
 }
 
 RwInt32 RwCameraSetStreamAlwaysCallBack(RwUInt32 pluginID, RwPluginDataChunkAlwaysCallBack alwaysCB) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::CameraSetStreamAlwaysCallback(pluginID, reinterpret_cast<void*>(alwaysCB));
+#else
     return ((RwInt32(__cdecl *)(RwUInt32, RwPluginDataChunkAlwaysCallBack))0x808CC0)(pluginID, alwaysCB);
+#endif
 }
 
 RwUInt32 RwCameraStreamGetSize(const RwCamera* camera) {
