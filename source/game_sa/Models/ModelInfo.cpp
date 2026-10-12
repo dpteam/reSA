@@ -335,7 +335,12 @@ CBaseModelInfo* CModelInfo::GetModelInfo(const char* name, int32 minIndex, int32
 // 0x4C5A60
 CStore<C2dEffect, CModelInfo::NUM_2DFX_INFOS>* CModelInfo::Get2dEffectStore()
 {
+#ifdef NOTSA_STANDALONE
+    // Disasm 0x4C5A60 is `mov eax, 0xB4C2D8 ; ret` - literally the address of ms_2dFXInfoStore.
+    return &ms_2dFXInfoStore;
+#else
     return ((CStore<C2dEffect, NUM_2DFX_INFOS>* (__cdecl *)())0x4C5A60)();
+#endif
 }
 
 // 0x4C5A70

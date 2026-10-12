@@ -962,9 +962,18 @@ int32 CFileLoader::LoadObject(const char* line) {
 
 // 0x5B7670
 void CFileLoader::Load2dEffect(const char* line) {
+#ifndef NOTSA_STANDALONE
     return plugin::Call<0x5B7670, const char*>(line);
+#endif
+    // Standalone: the drafted body below was shadowed by the plugin::Call above (upstream's usual
+    // drafting trick). Cross-checked against disasm 0x5B7670: sscanf(line, "%d %f %f %f %d") (format
+    // confirmed at 0x869A30), CTxdStore::PushCurrentTxd, SetCurrentTxd(FindTxdSlot("particle"))
+    // (string confirmed at 0x85C648), then the effect is taken from the 2dFx store (count*0x40 stride,
+    // i.e. sizeof(C2dEffect), count incremented in place - same unbounded growth as the original),
+    // CBaseModelInfo::Add2dEffect, and m_Pos/m_Type written at +0/+4/+8/+0xC. So the common path matches.
+    // The per-type switch is still empty (upstream "todo:") - the type-specific fields stay unset, which
+    // is fine for loading but will need finishing before 2d effects actually render.
 
-    // todo:
     auto modelId{ MODEL_INVALID };
     CVector pos{};
     int32 type;
@@ -976,7 +985,13 @@ void CFileLoader::Load2dEffect(const char* line) {
     auto& effect = CModelInfo::Get2dEffectStore()->AddItem();
     CModelInfo::GetModelInfo(modelId)->Add2dEffect(&effect);
     effect.m_Pos = pos;
-    effect.m_Type = *reinterpret_cast<e2dEffectType*>(type);
+    // FIX: the drafted line was `*reinterpret_cast<e2dEffectType*>(type)` - i.e. it dereferenced the
+    // *value* as a pointer (type==5 -> access violation at address 5). Disasm 0x5B76FA shows
+    //     mov al, BYTE PTR [esp+0xC]     ; the low byte of the scanned `type`
+    //     mov BYTE PTR [esi+0xC], al     ; effect.m_Type
+    // so the original just stores the value; no indirection. This line never executed before because
+    // the whole body was shadowed by `plugin::Call`, so the typo survived upstream.
+    effect.m_Type = static_cast<e2dEffectType>(type);
 
     switch (type) {
     case EFFECT_LIGHT:
