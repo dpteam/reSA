@@ -2,6 +2,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <algorithm> // std::min/std::size, used by the report hook's stack capture
 #include <windows.h>
 #include <DbgHelp.h>
 #include <format>
@@ -100,6 +101,53 @@ namespace {
     constexpr int REP_MAX_PER_KIND = 400; //!< keep the file bounded during an assert storm
 
     /*!
+     * @brief Append the current call stack to the report file.
+     *
+     * @details Needed because a CRT report usually ends in `abort()`, which bypasses our
+     *          `SetUnhandledExceptionFilter` entirely - so without this, an assert leaves no stack at
+     *          all, only the message.
+     *
+     *          Symbolisation is used (the symbols are already loaded in-process), guarded by a
+     *          re-entrancy flag so a failure inside DbgHelp - or in the logger it may reach for -
+     *          cannot recurse into this hook. If anything looks unsafe we fall back to raw addresses,
+     *          which are always printable.
+     */
+    void AppendStackLocked(int maxFrames) {
+        static bool s_inProgress{};
+        if (s_inProgress || !g_repFile) {
+            return;
+        }
+        s_inProgress = true;
+
+        void* frames[32]{};
+        const int n = static_cast<int>(CaptureStackBackTrace(1, static_cast<DWORD>(std::min<size_t>(
+                                                  maxFrames, std::size(frames))), frames, nullptr));
+        if (n == 0) {
+            fprintf(g_repFile, "   (no stack available)\n");
+        }
+        for (int i = 0; i < n; i++) {
+            // GetFunctionInfoAtAddress uses std::string/::format, so keep it out of this path:
+            // resolve with the plain C DbgHelp calls instead.
+            char symBuf[sizeof(SYMBOL_INFO) + 256]{};
+            auto* sym      = reinterpret_cast<SYMBOL_INFO*>(symBuf);
+            sym->SizeOfStruct = sizeof(SYMBOL_INFO);
+            sym->MaxNameLen   = 255;
+            DWORD64 disp = 0;
+            if (SymFromAddr(GetCurrentProcess(), static_cast<DWORD64>(reinterpret_cast<uintptr_t>(frames[i])),
+                            &disp, sym)) {
+                fprintf(g_repFile, "   %08lx+0x%04lx: %s\n",
+                        static_cast<unsigned long>(reinterpret_cast<uintptr_t>(frames[i])),
+                        static_cast<unsigned long>(disp), sym->Name);
+            } else {
+                fprintf(g_repFile, "   %08lx: <unknown>\n",
+                        static_cast<unsigned long>(reinterpret_cast<uintptr_t>(frames[i])));
+            }
+        }
+        fflush(g_repFile);
+        s_inProgress = false;
+    }
+
+    /*!
      * @brief CRT debug-report hook: log to a file and swallow the modal dialog.
      * @return 1 = "handled". NOTE: this does NOT stop the CRT from aborting after an assert - see
      *         `InstallRuntimeReportLogging` and the non-fatal `VERIFY` in app_debug.h.
@@ -115,6 +163,10 @@ namespace {
                 fprintf(g_repFile, "[%s #%d] %s\n", tags[kind], n, message);
             } else {
                 fprintf(g_repFile, "[.... further reports of this kind suppressed; counting continues ....]\n");
+            }
+            // A stack is only worth the cost for the first few failures of each kind.
+            if (n <= 6) {
+                AppendStackLocked(16);
             }
             fflush(g_repFile);
         }

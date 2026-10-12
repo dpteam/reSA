@@ -2,6 +2,30 @@
 #include "Shopping.h"
 #include "PedClothesDesc.h"
 
+#ifdef NOTSA_STANDALONE
+void CShopping::SeedBakedSectionNames() {
+    // Recovered from the original binary's .data at 0x8A61D8 (see the declaration in Shopping.h for why
+    // this is needed and how the values were verified against ePriceSection).
+    static const char* const NAMES[NUM_SECTION_NAMES] = {
+        "None",         // PRICE_SECTION_NONE
+        "CarMods",      // PRICE_SECTION_CAR_MODS
+        "CarPaintJobs", // PRICE_SECTION_CAR_PAINTJOBS
+        "Furniture",    // PRICE_SECTION_FURNITURE
+        "Clothes",      // PRICE_SECTION_CLOTHES
+        "Haircuts",     // PRICE_SECTION_HAIRCUTS
+        "Tattoos",      // PRICE_SECTION_TATTOOS
+        "Gifts",        // PRICE_SECTION_GIFTS
+        "Food",         // PRICE_SECTION_FOOD
+        "Weapons",      // PRICE_SECTION_WEAPONS
+        "Property",     // PRICE_SECTION_PROPERTY
+    };
+    static_assert(std::size(NAMES) == NUM_SECTION_NAMES, "section-name table size mismatch");
+    for (auto i = 0u; i < NUM_SECTION_NAMES; i++) {
+        ms_sectionNames[i] = NAMES[i];
+    }
+}
+#endif
+
 void CShopping::InjectHooks() {
     RH_ScopedClass(CShopping);
     RH_ScopedCategoryGlobal();

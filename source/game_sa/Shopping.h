@@ -85,6 +85,19 @@ class CShopping {
 public:
     static void InjectHooks();
 
+#ifdef NOTSA_STANDALONE
+    /*!
+     * @brief Point `ms_sectionNames` (0x8A61D8) at the section-name strings.
+     * @details Like the other "tabular statics", this is an array of *string pointers* baked into the
+     *          original's .data, so `StaticRef` leaves it all-null here - and `_stricmp(name, nullptr)`
+     *          then aborts (measured: UCRT `stricmp.cpp(48) Assertion failed: rhs != nullptr`, from
+     *          CShopping::Init -> LoadStats -> GetPriceSectionFromName).
+     *          Values read out of the original binary at 0x8A61D8 and cross-checked against
+     *          `ePriceSection` (11 entries, index 10 == PRICE_SECTION_PROPERTY == "Property").
+     */
+    static void SeedBakedSectionNames();
+#endif
+
     static void Init();
     static void ShutdownForRestart();
     static void Buy(uint32 key, int32 extraInfo);

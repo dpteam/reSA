@@ -34,6 +34,7 @@
 
 #include "HudColours.h"
 #include "ModelInfo.h"
+#include "Shopping.h"
 #endif
 
 #include <toolsmenu/UIRenderer.h>
@@ -464,6 +465,11 @@ void InitGameGlobalStatics() {
     // reversed them as `ms_aAnimAssocDefinitionsX`, verified to match the binary exactly (all 118 group
     // and block names, same order, zero mismatches) - it just was never wired up.
     CAnimManager::SeedBakedAssocDefinitions();
+
+    // Same class of bug: CShopping's section-name table (0x8A61D8) is an array of string POINTERS baked
+    // into .data. Left null, CShopping::Init -> LoadStats -> GetPriceSectionFromName called
+    // _stricmp(name, nullptr) and the UCRT aborted (stricmp.cpp(48): rhs != nullptr).
+    CShopping::SeedBakedSectionNames();
 }
 #endif
 
