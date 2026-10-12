@@ -143,7 +143,26 @@ void CTrain::SetupModelNodes() {
 void CTrain::InitTrains() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: the whole function is skipped, because its second half dereferences the track nodes
+    // unconditionally:
+    //     ReadAndInterpretTrackFile(...)                       // 0x6F55D0 - NO BODY (not reversed)
+    //     pTrackNodes[trackId]->m_nDistanceFromStart           // faults if the tracks were never read
+    // so stubbing only the reader would crash here instead. Reversing 0x6F55D0 is the real task:
+    // format understood from disasm - open the file ("rb", 0x859C6C), fscanf "%d" (0x859508) for the node
+    // count, allocate count*sizeof(CTrainNode) (0xA, matching VALIDATE_SIZE), then per line
+    // fscanf(0x872478) -> x,y,z,flag, storing each coordinate as int16 = round(f * 0x859000-scale) at
+    // +0/+2/+4, the accumulated distance at +6 and the station flag at +8; finally a second pass
+    // (0x6F57E1..) computes station distances via 0x858B50/0x858B3C. Tracks are plain text
+    // (data\paths\tracks{,2,3,4}.dat: first line = count, then "x y z flag"), so this is very doable -
+    // just not free. See IDEAS.md / VERIFY.md.
+    // Skipping is safe for loading: every other reader of pTrackNodes/NumTrackNodes (Train.cpp:426+) is
+    // inside per-train code that only runs for an existing train, and FindClosestTrackNode is called
+    // *only* from here. Consequence: no trains in the world until this is done.
+    return;
+#else
     return plugin::Call<0x6F7440>();
+#endif
 
     bDisableRandomTrains = false;
     GenTrain_Status = 0;
