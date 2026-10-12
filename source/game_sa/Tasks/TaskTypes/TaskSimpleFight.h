@@ -22,22 +22,26 @@ enum eFightAttackType : int8 {
 
 class NOTSA_EXPORT_VTABLE CMeleeInfo {
 public:
-    AssocGroupId m_nAnimGroup;
-    float  m_fRanges;
-    std::array<float, 5> m_fHit;
-    std::array<float, 5> m_fChain;
-    std::array<float, 5> m_fRadius;
-    float  m_fGroundLoop;
-    int32  ABlockHit;
-    int32  ABlockChain;
-    uint8  m_nHitLevel;
-    int32  m_nDamage;
-    int32  field_58;
-    std::array<int32, 5> m_Hit;
-    std::array<int32, 5> m_AltHit;
-    uint16 m_wFlags;
+    AssocGroupId           m_nAnimGroup;      // 0x00
+    float                  m_fRanges;         // 0x04
+    std::array<float, 5>   m_fHit;            // 0x08
+    std::array<float, 5>   m_fChain;          // 0x1C
+    std::array<float, 5>   m_fRadius;         // 0x30
+    float                  m_fGroundLoop;     // 0x44
+    float                  m_fBlockHit;       // 0x48
+    float                  m_fBlockChain;     // 0x4C
+    std::array<uint8, 5>   m_aHitLevel;       // 0x50
+    std::array<uint8, 5>   m_aUnk55;          // 0x55
+    uint8                  pad_5A[2];         // 0x5A
+    std::array<int32, 5>   m_Hit;             // 0x5C
+    std::array<int32, 5>   m_AltHit;          // 0x70
+    uint16                 m_wFlags;          // 0x84
 };
 VALIDATE_SIZE(CMeleeInfo, 0x88);
+// Layout verified against disasm of CTaskSimpleFight::LoadMeleeData (0x5BEDC0), which writes every one of
+// these offsets. The previous `int32 ABlockHit/ABlockChain` (0x48/0x4C) were really floats - the same
+// routine stores 100.0f into them - and `uint8 m_nHitLevel; int32 m_nDamage; int32 field_58;` was really
+// two 5-byte arrays at 0x50 and 0x55. Nothing in the codebase read those old fields.
 
 class NOTSA_EXPORT_VTABLE CTaskSimpleFight : public CTaskSimple {
 public:
@@ -57,7 +61,10 @@ public:
     uint8                  m_nNextCommand;
     uint8                  m_nLastCommand;
 
-    static inline auto& m_aComboData = StaticRef<std::array<CMeleeInfo, 12>>(0xC170D0);
+    // 13 entries, not 12: verified against disasm of LoadMeleeData (0x5BEDC0), whose outer loop runs
+    // (0xC177BC - 0xC170D4)/0x88 = 13 times over 0xC170D0-sized elements, and because
+    // TaskSimpleUseGun.cpp reads m_aComboData[12].
+    static inline auto& m_aComboData = StaticRef<std::array<CMeleeInfo, 13>>(0xC170D0);
 
 public:
     static constexpr auto Type = eTaskType::TASK_SIMPLE_FIGHT;

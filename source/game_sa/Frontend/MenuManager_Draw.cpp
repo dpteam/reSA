@@ -649,7 +649,29 @@ void CMenuManager::DrawStandardMenus(bool drawTitle) {
         case eMenuAction::MENU_ACTION_RESOLUTION: {
             GxtChar tmpBuffer[1'024];
             auto Videomodes = GetVideoModeList();
-            AsciiToGxtChar(std::format("{}", Videomodes[m_nDisplayVideoMode]).c_str(), tmpBuffer);
+            // `Videomodes[i]` is null for every mode the platform filter in `GetVideoModeList` rejected -
+            // which includes index 0, the mode RW/librw reserve for the *windowed* desktop mode
+            // (`flags == 0`, so the `rwVIDEOMODEEXCLUSIVE` test drops it). A windowed build therefore
+            // starts out with `m_nDisplayVideoMode == 0` pointing at a null entry.
+            // The original passed that straight to `AsciiToGxtChar` (disasm 0x57A05A: `call 0x745af0`,
+            // `mov eax,[eax+edx*4]`, `call 0x718600`); upstream wrapped it in `std::format("{}")`, which
+            // *throws* `std::format_error` on a null `char*` - measured: unhandled, crash on entering
+            // Advanced -> Video Settings. The menu's own navigation already tolerates nulls
+            // (`while (!videoModes[m_nDisplayVideoMode])`, MenuManager_Process.cpp:508/510), so guard the
+            // display path the same way and show the resolution actually in use.
+            const bool inRange = m_nDisplayVideoMode >= 0 &&
+                                 m_nDisplayVideoMode < static_cast<int32>(RwEngineGetNumVideoModes());
+            const char* vm = inRange ? Videomodes[m_nDisplayVideoMode] : nullptr;
+            if (!vm) {
+                // Windowed: the "resolution" is the window's client size (what `psSelectDevice` set).
+                // Depth is always 32-bit here; `RsGlobalType` carries no depth field.
+                char cur[64];
+                sprintf_s(cur, "%lu X %lu X %lu", static_cast<unsigned long>(RsGlobal.maximumWidth),
+                          static_cast<unsigned long>(RsGlobal.maximumHeight), 32ul);
+                AsciiToGxtChar(cur, tmpBuffer);
+            } else {
+                AsciiToGxtChar(vm, tmpBuffer);
+            }
             rightColumnText = tmpBuffer;
             break;
         }

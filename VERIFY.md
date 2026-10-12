@@ -32,6 +32,15 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | `RwD3D9ChangeVideoMode` | 0x7F8640 | ⚠️ | bridged to `rw::Engine::setVideoMode` |
 | `RwD3D9ChangeMultiSamplingLevels` | 0x7F8A90 | ⚠️ | bridged to `SetMultiSamplingLevels` |
 | `RwTextureGetRaster` | macro | ✅ | = `tex->raster` (offset 0), matches 0x727B30 |
+| `Rw*/Rp*RegisterPlugin[Stream]`, `GetPluginOffset`, `SetStream{Always,Rights}CallBack` | 0x7F3BB0… | ✅ | bridged to librw's `PluginList` (RW-compatible: `registerPlugin` returns the in-object byte offset, `RWPLUGINOFFSET` means the same on both sides). 45 thunks; `RpWorldSector` deliberately absent (no librw counterpart) |
+| `PluginAttach` (game's own RW plugins) | 0x53D870 | ⚠️ | standalone now attaches NodeName/Visibility/TxdStore/Breakable/Collision/2dEffect/Pipeline; **not yet**: RpAnimBlend (needs an RtAnim interpolator), CustomBuilding/CarFX (RxPipeline) |
+| `RpClumpStreamRead` + `Rp{Clump,Atomic,Geometry,Material}` accessors | 0x74B420 | ⚠️ | bridged to librw's `Clump/Atomic/Geometry/Material::streamRead`; verified only as far as *parsing* grass DFFs (no render yet) |
+
+## B2. Input (standalone-only)
+| Feature | Addr | Status | Note |
+|---|---|---|---|
+| `ForegroundApp` maintenance | 0x8D621C | ✅ | was only ever written by the Win32 `WndProc` (`WM_ACTIVATEAPP`/`WM_SETFOCUS`/`WM_KILLFOCUS`), which is `#ifndef NOTSA_USE_SDL3`. Zero-filled ⇒ `false` ⇒ `CPad::UpdateMouse()` bailed at `if (!IsForegroundApp()) return;` ⇒ **mouse buttons never reached `NewMouseControllerState`** (keyboard survived because the key exchange happens in `UpdatePads`, outside that guard). Now driven from `SDL_EVENT_WINDOW_FOCUS_{GAINED,LOST}` mirroring the original's semantics (flag + `rsACTIVATE` + `Pad::Clear`), seeded `true` at window creation |
+| `CPad::ProcessMouseEvent` / `ProcessKeyboardEvent` | — | ✅ | already correct under SDL; only the foreground gate above was broken |
 
 ## C. Frontend / menu (current focus)
 | Feature | Addr | Status | Note |
@@ -49,6 +58,7 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | `CMenuManager::DrawFrontEnd/DrawBackground/DrawStandardMenus` | — | ❌ | verify against disasm |
 | **EntryExit/`cDMA`/draw-list (menu sprite enqueue)** | ? | ❌ | **`CMenuManager` uses `cDMA`/EntryExit queue?** — unknown; may explain text path |
 | `CMenuManager::CheckForMenuClosing` | 0x57Bxxx | ❌ | verify |
+| `CMenuManager::DrawStandardMenus` / `MENU_ACTION_RESOLUTION` (resolution line) | 0x5794A0 / 0x57A05A | ✅ | disasm: `call GetVideoModeList` → `mov eax,[eax+edx*4]` → `call AsciiToGxtChar`(0x718600) — **no null check**. Upstream replaced that with `std::format("{}", …)`, which *throws* `std::format_error` on a null `char*` ⇒ crashed entering Advanced → Video Settings. Null entries are normal (index 0 is the *windowed* desktop mode, `flags==0`, filtered out by `GetVideoModeList`), and the menu's own navigation already tolerates them (`while(!videoModes[i])`, Process.cpp:508/510). Now guarded + falls back to the real window size |
 
 ## D. Text / fonts — ✅ RESOLVED (2026-10-12)
 | Feature | Addr | Status | Note |
