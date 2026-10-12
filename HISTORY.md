@@ -286,3 +286,70 @@ librw's textured im2d path was never broken.
 exception, and the screenshot shows the real GTA fonts: gothic "Main Menu", "START GAME"/"OPTIONS"/"QUIT GAME"
 with the selection highlight and cursor, plus "TEST / RW 3.6.0.0.3". All temporary diagnostics removed
 (`git diff --stat` = 3 files, +73/-1); mod build unaffected (every change is standalone-only or in librw).
+
+---
+
+## 2026-10-12 (evening #4) - mouse works, and the new game loads the whole map (123 files)
+
+**Menu is now fully usable.** The user reported the cursor moved but clicking did nothing. Cause:
+`ForegroundApp` (0x8D621C) was only ever written by the Win32 `WndProc` (`WM_ACTIVATEAPP`/`WM_SETFOCUS`/
+`WM_KILLFOCUS`), which is `#ifndef NOTSA_USE_SDL3` and so not compiled here. It stayed zero-initialized
+`false`, and `CPad::UpdateMouse()` begins `if (!IsForegroundApp()) return;` - so
+`TempMouseControllerState` (filled correctly from SDL events) never exchanged into
+`NewMouseControllerState`, which is what the menu polls. Keyboard survived only because the key exchange
+lives in `UpdatePads()`, outside that guard. Fixed by driving the flag from
+`SDL_EVENT_WINDOW_FOCUS_{GAINED,LOST}` with the original's semantics (flag + `rsACTIVATE` + `Pad::Clear`)
+and seeding it `true` at window creation. **User confirmed: mouse moves AND clicks work.**
+
+This unmasked a latent crash: `CAEStreamThread::MainLoop` only services the streaming channel when
+foreground, so it had never run. It reached `CAEStreamingChannel::Service()` - still a
+`plugin::CallMethod<0x4F2550>` - and faulted on the audio thread. Stubbed like the other audio no-ops.
+
+**Then: three debugging traps were fixed (see `MEMORY.md` 5g), and they paid off immediately.**
+`assert()` ends in `abort()` (the dialog's "Ignore" was the only escape), so suppressing the dialog had
+turned every failing `VERIFY` into a *silent* death - which is the "game vanishes after ~5s" I chased,
+and it was never a game bug. `NOTSA_UNREACHABLE` also has its own modal `MessageBox`, which is the box
+the user had been clicking through. Now: `VERIFY` is non-fatal in standalone (logs + continues),
+`NOTSA_UNREACHABLE` exits with code 4 and no dialog, and all CRT reports go to a share-readable
+`logs\runtime_reports.txt`. The first run with this found three real bugs at once.
+
+**New-game progress, measured by `Loading the Game -> Loading` markers in the log: 1 -> 44 -> 75 -> 77 -> 123.**
+
+* Fonts (§D): the bridge translated render-state **IDs but not VALUES** - SA's `RwAlphaTestFunction` is
+  D3D-numbered (1..8) vs librw's 3 values, so `alphafuncMap[5]` read out of bounds -> measured
+  `D3DCMP_LESS`/ref 2 -> librw's per-`hasAlpha` alpha test discarded the opaque glyph texels. Plus
+  `CHudColours` never constructed -> `DropColor.a=0` -> all text alpha 0. No TrueType fallback needed;
+  librw's textured im2d was never broken. Verified vs disasm (`DefinedState2d` 0x734750).
+* Rp* layer bridged (clump/atomic/geometry/material + the game's own RW plugins attached), so grass DFFs
+  now parse through librw.
+* `CTaskSimpleFight::LoadMeleeData` reversed (defaults) - which corrected two header bugs: `CMeleeInfo`'s
+  0x48..0x5B region (floats + two `uint8[5]`, not `int32`/`uint8`/`int32`), and `m_aComboData` is **13**
+  entries, not 12 (`TaskSimpleUseGun.cpp` already read `[12]`, i.e. out of bounds).
+* `FxPrimBP_c::Load`: the drafted body read the `FX_PRIM_BASE_DATA:` *section header* with the 2-token
+  `%s %s` format instead of `%s`, desynchronising the whole `effects.fxp` parse (25 VERIFYs, then a fault
+  in `RwMatrixUpdate`). Fixed per disasm (formats at 0x85C714/0x869860/0x86B2C4).
+* `VehicleNames` (210 baked names) zero-filled -> `FindExactWord` matched slot 0 for *every* name
+  (`strlen("")==0`) and `GetHandlingId` died on "Can't find LANDSTAL". Now interned while parsing, order
+  verified against the original exe.
+* `CFileLoader::Load2dEffect` body enabled + an upstream typo fixed:
+  `*reinterpret_cast<e2dEffectType*>(type)` dereferenced the *value* (AV at address 5); disasm 0x5B76FA
+  just stores the low byte. Also `Get2dEffectStore` is literally `mov eax,0xB4C2D8; ret`.
+* `CModelInfo::GetModelInfo` clamped: the original deliberately reads past its 20000-entry table with
+  COL/IFP ids (25001), harmless in `.data` but fatal with our exactly-sized static storage (`MEMORY.md` 5h).
+* `RwMatrixUpdate` (2 instructions, matches librw's `Matrix::update()`) and the whole `RwMatrix`/`RwV3d`
+  family bridged; `_rwStreamInitialize` bridged to one cached `rw::StreamMemory` re-opened per call
+  (`StreamClose` must not delete it - the game closes the same stream twice).
+* `CCarFXRenderer::InitialiseDirtTexture` stubbed (inert: dirt materials are only ever filled by the
+  unavailable RxPipeline renderer); `CGarages::AddOne` and `CPickups::GenerateNewOne` implemented enough
+  to keep the tables consistent during IPL loading.
+* Menu resolution line: upstream replaced the original's `AsciiToGxtChar(ptr)` with
+  `std::format("{}", ptr)`, which **throws** on a null `char*` - and null entries are normal (index 0 is
+  the windowed desktop mode). Crashed on Advanced -> Video Settings. Guarded.
+
+**Scale check:** 488 functions still `plugin::Call` into the original exe, but the overwhelming majority
+are runtime (HUD draw, PathFind routing, gangs, tasks), not loading. Also found **61 places** where
+upstream wrote a body but left it shadowed by an early `plugin::Call` - free reversals waiting, the
+largest being `CAEScriptAudioEntity::ProcessMissionAudioEvent` (617 lines).
+
+**Next:** keep walking the load path (`VERIFY.md` section G) - `CPickups` remainder, `Interior_c`/
+`InteriorGroup_c`, `InitTrains`, then `RpAtomic` *rendering*; and disasm-verify the bodies enabled unverified.

@@ -93,14 +93,48 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | `C_PcSave::GenerateGameFilename` | 0x6190A0 | ⚠️ | capped `sprintf_s` to MAX_PATH (was ~263 → stack overflow) |
 | `CCarFXRenderer`/`CCustomBuildingRenderer::Initialise` | — | 🚫 | RxPipeline stubbed |
 
+## G. New-game / world load (current focus, 2026-10-12)
+Progress is measured by how far `CGame::Init1/Init2` → `CFileLoader::LoadLevel` gets; the load marker
+count in `logs/log.log` is the yardstick (1 → 44 → 75 → 77 → **123** IDE/ZON/IPL files so far).
+
+| Feature | Addr | Status | Note |
+|---|---|---|---|
+| `CGame::Init1` (whole) | 0x5B9030-ish | ⚠️ | reaches `LoadLevel`; `LoadMeleeData` + `g_fx.Init` done, rest of `Init2/Init3` not reached yet |
+| `CTaskSimpleFight::LoadMeleeData` | 0x5BEDC0 | ⚠️ | defaults for `m_aComboData` transcribed & verified. **Not ported**: the 7-entry float table at 0xC177D0 and the `data\melee.dat` parse that overrides them |
+| `CMeleeInfo` layout / `m_aComboData` size | — | ✅ | corrected from disasm: 0x48/0x4C are floats, 0x50/0x55 two `uint8[5]`; the array is **13** entries (was 12 — `TaskSimpleUseGun.cpp` already read `[12]`, i.e. out of bounds) |
+| `FxPrimBP_c::Load` | 0x5C2010 | ✅ | drafted body enabled; **header line must be read as bare `%s`** (`ReadField<void>`), not `%s %s` — verified against disasm (formats at 0x85C714/0x869860/0x86B2C4) and against `models/effects.fxp`. The rest of the body matches the disasm |
+| `FxInfoManager_c::Load` / `FindClosestPtOnLine` | 0x5C0B70 / 0x4A4880 | ⚠️ | drafted bodies enabled; **not yet disasm-verified** |
+| `CModelInfo::Initialise` + the 9 model stores | 0x4C6810 | ✅ | `mi.Init()` is *virtual* (0x4C6620 `call [eax+0x18]`) so the zero-filled stores faulted; now constructed via `notsa::ConstructStatic` |
+| `cHandlingDataMgr::GetHandlingId` / `VehicleNames` | 0x6F4FD0 / 0x8D3978 | ✅ | 210 baked names are zero-filled in standalone ⇒ `FindExactWord` matched slot 0 for everything (`strlen("")==0`) and `GetHandlingId` found nothing. Now interned while parsing; order verified against the original exe |
+| `CFileLoader::Load2dEffect` | 0x5B7670 | ✅ | drafted body enabled + **upstream typo fixed**: `*reinterpret_cast<e2dEffectType*>(type)` dereferenced the *value* (type=5 ⇒ AV at 5); disasm 0x5B76FA is `mov al,[esp+0xC]; mov [esi+0xC],al`. Per-type switch still upstream's empty `todo:` |
+| `CModelInfo::Get2dEffectStore` | 0x4C5A60 | ✅ | disasm is `mov eax,0xB4C2D8; ret` ⇒ literally `&ms_2dFXInfoStore` |
+| `CModelInfo::GetModelInfo` | 0x4C6560-ish | ✅ | the original reads **past** its 20000-entry table on purpose (`RequestModelStream` fetches before narrowing to DFF, and `COLToModelId(1)==25001`); harmless there, fatal with our exactly-sized static storage ⇒ clamped to nullptr in standalone |
+| `RwMatrixUpdate` | 0x7F18A0 | ✅ | disasm is 2 instructions (`and dword [eax+0xC],0xFFFDFFFC`); librw's `Matrix::update()` is identical and the layout matches ⇒ no bridge needed |
+| `RwMatrix*` / `RwV3dTransform*` family | 0x7F18B0… | ✅ | bridged (Create/Destroy/Multiply/Invert/Transpose/Transform/Rotate/Translate/Scale/SetIdentity/Optimize + V3d points/vectors); operand order & `CombineOp` checked against librw |
+| `_rwStreamInitialize` | 0x7EC810 | ✅ | bridges to **one cached `rw::StreamMemory`, re-opened per call** (the original re-initialises the single `gRwStream` buffer in place). `StreamClose` must NOT delete it — the game closes it twice (Streaming.cpp:476 and :499) |
+| `CCarFXRenderer::InitialiseDirtTexture` | 0x5D5BC0 | 🚫 | stubbed: loads 16 dirt textures consumed only behind `if (m_apDirtMaterials[i])`, which only the (unavailable) RxPipeline renderer ever fills |
+| `CGarages::AddOne` | 0x4471E0 | 🚫 | stubbed (~12 KB unreversed): fills the `aGarages[NumGarages]` record from the IPL params with obvious defaults + bounds guard. `TidyUpGarage*`/`InitDoorsAtStart` are runtime-only, so not on this path |
+| `CPickups::GenerateNewOne` | 0x456F20 | ⚠️ | implemented the slot claim + field fill (free == `PICKUP_NONE`, ref via `GetNewUniquePickupIndex`); the original's CObject / blip / message / type-specific setup is TODO |
+| `CAnimManager::GetAnimationGroupIdByName` | 0x4D3A30-ish | ⚠️ | falls back to `ANIM_GROUP_DEFAULT` + one WARN. The 118 baked `ms_aAnimAssocDefinitions` are **not** reconstructed (big job — see IDEAS.md) |
+| IPL/IDE section handlers | 0x5B4530… | ✅ | all 19 `LoadScene` cases + `LoadGarage`/`LoadPickup`/`LoadCullZone`/`LoadCarPathNode`/`LoadEntryExit` are reversed (no `plugin::Call`) — the gaps are in what they *call* |
+
+**Scale note:** 488 functions in the tree still `plugin::Call` into the original exe. Most are runtime
+(HUD draw, PathFind routing, gangs, tasks), not loading. Prioritise by what the load path actually reaches.
+
 ## Next actions (ordered)
-1. ~~Fix the font texture~~ ✅ **done (2026-10-12)** — see §D. Text is visible with the real GTA fonts.
-2. **Generalize `InitGameGlobalStatics`** — the `CHudColours` bug is one instance of *every* fixed-address global
-   with a C++ ctor being zero-filled in standalone. Build the full list (`CText`, `CPlayerInfo`, `CCamera`,
-   `CFireManager`, `Fx*_c`, `CMenuManager`, …) and call their `Constructor()` before `MainLoop`; cross-check against
-   the original's static-init (`.CRT`/`_initterm`) where possible.
-3. Bring **CFont to full disasm parity**: `PrintString`/`ProcessCurrentString`, the outline/shadow alpha
-   (only `r,g,b` restored today — verify against 0x719B40 whether the original restores alpha too), tokens,
-   proportional spacing, subtitles (`Sprite[1]`/`FONT1`), `FONT_PRICEDOWN`.
-4. Verify the **menu draw path** (`DrawFrontEnd`→`DrawBackground`→`DrawStandardMenus`, EntryExit/cDMA if used) vs disasm.
-5. Sweep the remaining ❌/⚠️ rows above, one feature at a time, disasm-first.
+1. ~~Fix the font texture~~ ✅ **done** — see §D. Text is visible with the real GTA fonts.
+2. ~~Get the new game past `CGame::Init1`~~ ✅ largely — see §G. The load walks 123+ files and reaches IPL
+   scene loading (`LAn.IPL` → `countryW.IPL`); the remaining blockers are in what the section handlers call.
+3. **Keep walking the load path** (§G): of the 488 remaining `plugin::Call` functions, only the ones the
+   loader reaches matter now — `CPickups` (CObject/blip/message setup), `Interior_c`/`InteriorGroup_c`
+   (`AddPickups`/`AddInterior`/`SetupPeds`…), `InitTrains`, then `CGarage::TidyUpGarage*`/`InitDoorsAtStart`
+   (runtime, immediately after load). Enable/verify one at a time.
+4. **Disasm-verify the drafted bodies enabled unverified** (§G ⚠️ rows): `FxInfoManager_c::Load`,
+   `FindClosestPtOnLine`, `CPickups::GenerateNewOne`, the anim-group fallback, the garage stub.
+5. **Generalize `InitGameGlobalStatics`** — one instance of *every* fixed-address global with a C++ ctor
+   being zero-filled. Scan: 2352 `StaticRef` sites / 641 types, **39 polymorphic-or-ctor** + the 10 `CStore<>`
+   model stores; done so far: `CHudColours` + 9 stores. Plus the **"tabular statics"** class (`VehicleNames`
+   ✅, `ms_aAnimAssocDefinitions` ❌) — audit other `StaticRef<T[N]>` / `StaticRef<char[N][M]>`.
+6. Bring **CFont to full disasm parity** (outline/shadow alpha, tokens, subtitles `FONT1`, `FONT_PRICEDOWN`).
+7. Verify the **menu draw path** and sweep the remaining ❌/⚠️ rows, one feature at a time, disasm-first.
+

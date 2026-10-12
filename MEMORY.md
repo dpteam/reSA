@@ -307,6 +307,42 @@ in the **fullscreen/exclusive** branch; in windowed mode it stayed at the `640x4
 (`FUNC=0x2 REF=2`) instead of running more render experiments, then logging the per-string colour
 (`col=#ACCBF1**00**` vs `details=#ACCBF1FF`). Prefer state/colour evidence over visual A/B tests.
 
+### 5g. The three ways this build used to eat its own evidence (all fixed 2026-10-12)
+1. **`assert()` ends in `abort()`.** UCRT's `assert(expr)` is
+   `(!!(expr)) || (_wassert(#expr, __FILE__, __LINE__), 0)`, and `_wassert` aborts after reporting - the
+   modal dialog's **"Ignore"** was the only thing that ever returned from it. So merely suppressing the
+   dialog turns every failing `VERIFY` into a **hard, silent** process death (no exception record, no
+   backtrace, log just cuts off). Fix: standalone `VERIFY(expr)` routes to
+   `notsa::detail::VerifyMacroImpl(result, expr, file, line)` (`app_debug.{h,cpp}`) which logs the failure
+   (deduped per call-site, 128 sites / 25 per site / 4000 total) and **continues** - i.e. it clicks
+   "Ignore" automatically.
+2. **`NOTSA_UNREACHABLE` has its OWN modal `MessageBox(MB_ABORTRETRYIGNORE)`** (`Base.h::unreachable`) -
+   not a CRT report, so no report hook can suppress it. This was the actual box the user kept clicking.
+   Standalone now `exit(4)`s instead, after the same spdlog error + `dump_backtrace()` + sink flush. It
+   stays `[[noreturn]]`: callers rely on it (many end their last branch with it and have no `return`).
+3. **The report file was exclusively locked**, so it could not be tailed mid-run. Now
+   `_fsopen(..., "a", _SH_DENYNO)`.
+   Also: `_set_abort_behavior(_WRITE_ABORT_MSG, ...)` (keep the message, drop Watson's second dialog), and
+   the hook must be plain C stdio under a `CRITICAL_SECTION` - it runs inside the CRT's own report path,
+   so re-entering spdlog/the allocator risks recursion or deadlock.
+**Payoff:** the very first run with this in place found three real bugs at once (exact expression +
+file:line + counts), where before all we had was a dialog and an empty log.
+
+### 5h. Two structural traps found while loading the world (2026-10-12)
+* **`StaticRef` storage is exactly `sizeof(T)`**, unlike the original's `.data` where globals sit side by
+  side. So any *deliberate* out-of-bounds read that was harmless in the exe now faults. Confirmed case:
+  `CModelInfo::GetModelInfo` is called with COL/IFP ids (`RESOURCE_ID_COL == 25000`, so
+  `COLToModelId(1) == 25001`) **before** the caller narrows with `IsModelDFF`, i.e. the original read past
+  its 20000-entry table and never used the value. Fixed by clamping to nullptr in standalone
+  (`ModelInfo.h`). **Assume more of these** - any `T[i]` where `i` can be a resource id.
+* **"Tabular statics"**: besides objects with vtables, the original bakes plain *data tables* into `.data`
+  that the game never initialises at runtime. Zero-filled, they silently corrupt lookups. Found:
+  `CHudColours` (colours), the 10 `CModelInfo::ms_*ModelInfoStore` (vtables - virtual call jumped to ~0x18),
+  `VehicleNames` (210 names; `FindExactWord` matches by `strlen(entry)`, so `""` matched **everything** and
+  all 259 handlings landed in slot 0), `ms_aAnimAssocDefinitions` (118 anim groups - still unreconstructed,
+  currently behind a fallback). Recovery recipe that worked: **rebuild the table while parsing the config
+  that defines it** (intern on first sight), then verify the resulting order against the original exe.
+
 ## 6. Proposed standalone roadmap ❓
 
 * **Phase 0 — entry point & storage (done):** real `WinMain`, shared bootstrap, config loading, address-keyed storage
