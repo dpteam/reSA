@@ -42,7 +42,32 @@ void CPedGroups::RemoveAllFollowersFromGroup(int32 groupId) {
 
 // 0x5FB8C0
 void CPedGroups::Init() {
+#ifdef NOTSA_STANDALONE
+    // Reversed from disasm 0x5FB8C0: for each of the 8 groups (stride 0x2D4 == VALIDATE_SIZE(CPedGroup),
+    // walking 0xC09928..0xC0AFC8):
+    //     if (ms_activeGroups[i]) {
+    //         ms_activeGroups[i] = 0;
+    //         for (8 membership slots) if (slot != 0) <CPedGroup::0x5F80D0>(slot);   // per-member flush
+    //         <CPedGroup::0x5F7350>() at +0x28;
+    //         byte at +0x2C8 = 0;
+    //     } else {
+    //         ScriptReferenceIndex[i] = 1;
+    //     }
+    // The active branch cannot be expressed here: its two helpers (0x5F80D0, 0x5F7350) are not reversed
+    // and are not even declared in this tree. That is fine *for this call site*, because
+    // ms_activeGroups is provably all-zero when CTheScripts::Init runs - the only writer is
+    // CPedGroups::AddGroup (script/runtime driven), which has not run yet. So only the else-branch is
+    // reachable, and it is what is implemented. Guarded so a future caller that reaches Init() with live
+    // groups fails loudly instead of silently skipping the flush.
+    // NOTE (pre-existing, unrelated to standalone): the original walks groups starting at 0xC09928 while
+    // `ms_groups` is declared at 0xC09920 - an 8-byte difference. Worth checking against the PDB if group
+    // data ever looks shifted.
+    VERIFY(std::all_of(ms_activeGroups.begin(), ms_activeGroups.end(), [](char a) { return a == 0; }));
+    ScriptReferenceIndex.fill(1);
+    return;
+#else
     plugin::Call<0x5FB8C0>();
+#endif
 }
 
 // 0x5F7E30
