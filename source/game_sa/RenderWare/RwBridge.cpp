@@ -440,6 +440,12 @@ void* TexDictionaryFindNamedTexture(void* txd, const char* name) {
     return static_cast<rw::TexDictionary*>(txd)->find(name);
 }
 
+void TexDictionaryDestroy(void* txd) {
+    if (txd) {
+        static_cast<rw::TexDictionary*>(txd)->destroy();
+    }
+}
+
 void TextureDestroy(void* texture) {
     if (texture) {
         static_cast<rw::Texture*>(texture)->destroy();
@@ -529,6 +535,12 @@ void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* f
     *format = r->format;
     *depth  = r->depth;
     *flags  = r->flags;
+}
+
+void* RasterGetNativeTexture(const void* raster) {
+    if (!raster) return nullptr;
+    const auto* r = static_cast<const rw::Raster*>(raster);
+    return GETD3DRASTEREXT(const_cast<rw::Raster*>(r))->texture;
 }
 } // namespace rwbridge
 

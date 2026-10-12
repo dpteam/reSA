@@ -425,13 +425,23 @@ void CSprite2d::AddToBuffer(const CRect& posn, const CRGBA& color, float u1, flo
 #ifndef NOTSA_STANDALONE
     ((void(__cdecl*)(const CRect&, const CRGBA&, float, float, float, float, float, float, float, float))0x728200)(posn, color, u1, v1, u2, v2, u3, v3, u4, v4);
 #else
-    // Standalone: render the quad immediately (like `CSprite2d::DrawRect`, whose path works here).
-    // The shared-buffer path (`aRadiosityVertexBuffer` + `RenderVertexBuffer`) doesn't produce output
-    // in the standalone D3D9 backend, so draw straight away. TODO: investigate the buffer path (IDEAS.md).
-    static RwIm2DVertex s_quad[4];
-    SetVertices(s_quad, posn, color, color, color, color, u1, v1, u2, v2, u3, v3, u4, v4);
-    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(TRUE));
-    RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, s_quad, 4);
+    // Standalone: reversed (matches gta_sa.exe 0x728200). Appends 4 vertices + 6 indices to the shared
+    // 2D buffers; `RenderVertexBuffer` (or upstream CFont::RenderFontBuffer) flushes them.
+    SetVertices(&aRadiosityVertexBuffer[nextBufferVertex], posn, color, color, color, color, u1, v1, u2, v2, u3, v3, u4, v4);
+
+    aTempBufferIndices[nextBufferIndex + 0] = (RwImVertexIndex)(nextBufferVertex + 0);
+    aTempBufferIndices[nextBufferIndex + 1] = (RwImVertexIndex)(nextBufferVertex + 1);
+    aTempBufferIndices[nextBufferIndex + 2] = (RwImVertexIndex)(nextBufferVertex + 2);
+    aTempBufferIndices[nextBufferIndex + 3] = (RwImVertexIndex)(nextBufferVertex + 3);
+    aTempBufferIndices[nextBufferIndex + 4] = (RwImVertexIndex)(nextBufferVertex + 0);
+    aTempBufferIndices[nextBufferIndex + 5] = (RwImVertexIndex)(nextBufferVertex + 2);
+
+    nextBufferVertex += 4;
+    nextBufferIndex  += 6;
+
+    if (IsVertexBufferFull()) {
+        RenderVertexBuffer();
+    }
 #endif
 }
 

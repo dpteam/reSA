@@ -147,6 +147,7 @@ void* TexDictionaryGetCurrent();
 void* TexDictionarySetCurrent(void* txd);
 void  TexDictionaryAddTexture(void* txd, void* texture);
 void* TexDictionaryFindNamedTexture(void* txd, const char* name);
+void  TexDictionaryDestroy(void* txd);
 void  TextureDestroy(void* texture);
 int   TexDictionaryCount(void* txd);
 void* TextureRead(const char* name, const char* maskName);
@@ -172,4 +173,7 @@ unsigned GetVersion();
 
 /*! @brief librw raster format/depth/flags of a raster, for debugging (0s if null). */
 void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags);
+
+/*! @brief The underlying D3D texture/surface handle of a raster (nullptr if none was created). */
+void* RasterGetNativeTexture(const void* raster);
 } // namespace rwbridge

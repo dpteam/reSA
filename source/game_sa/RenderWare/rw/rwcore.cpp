@@ -536,7 +536,12 @@ RwTexDictionary* RwTexDictionaryCreate() {
 }
 
 RwBool RwTexDictionaryDestroy(RwTexDictionary* dict) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::TexDictionaryDestroy(dict);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwTexDictionary*))0x7F36A0)(dict);
+#endif
 }
 
 RwTexture* RwTextureCreate(RwRaster* raster) {

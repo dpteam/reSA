@@ -1238,12 +1238,20 @@ void CHud::DrawScriptText(bool isBeforeFade) {
 
 // 0x58C250
 void CHud::DrawSubtitles() {
+#ifdef NOTSA_STANDALONE
+    // Not reversed; not boot-critical -> no-op. See VERIFY.md.
+#else
     plugin::Call<0x58C250>();
+#endif
 }
 
 // 0x58C6A0
 void CHud::DrawSuccessFailedMessage() {
+#ifdef NOTSA_STANDALONE
+    // Not reversed; not boot-critical -> no-op.
+#else
     plugin::Call<0x58C6A0>();
+#endif
 }
 
 // 0x58AEA0
