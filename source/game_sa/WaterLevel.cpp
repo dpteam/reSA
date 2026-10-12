@@ -955,7 +955,17 @@ void CWaterLevel::AddWaterLevelTriangle(int32 X1, int32 Y1, CRenPar P1, int32 X2
 }
 
 void CWaterLevel::FillQuadsAndTrianglesList() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: 0x6E7B30 is not reversed (a ~1 KB pass over the water grids/zone polys built by
+    // LoadDataFile, with float range tests against 0x859A94/0x858B58). Its output - NumWaterQuads /
+    // NumWaterTriangles / NumWaterVertices and the quad+triangle index lists - is read *only* by
+    // PreRenderWater/RenderWater (0x6EB710/0x6EF650, themselves not bridged yet), so leaving the lists
+    // empty is inert for loading: the world simply has no visible water until this is done.
+    // TODO(reversal): see IDEAS.md / VERIFY.md.
+    return;
+#else
     plugin::Call<0x6E7B30>();
+#endif
 }
 
 // 0x6E9C80
