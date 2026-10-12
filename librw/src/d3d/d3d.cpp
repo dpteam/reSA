@@ -210,9 +210,11 @@ void*
 createTexture(int32 width, int32 height, int32 numlevels, uint32 usage, uint32 format)
 {
 #ifdef RW_D3D9
-	IDirect3DTexture9 *tex;
-	d3ddevice->CreateTexture(width, height, numlevels, usage,
+	IDirect3DTexture9 *tex = nil;
+	HRESULT hr = d3ddevice->CreateTexture(width, height, numlevels, usage,
 	                      (D3DFORMAT)format, D3DPOOL_MANAGED, &tex, nil);
+	if(hr != D3D_OK)
+		tex = nil;
 	if(tex)
 		d3d9Globals.numTextures++;
 	return tex;
