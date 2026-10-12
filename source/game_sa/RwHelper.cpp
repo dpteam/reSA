@@ -168,11 +168,23 @@ RpAtomic* SkinAtomicGetHAnimHierarchCB(RpAtomic* atomic, void* data) {
 RpAtomic* AtomicRemoveAnimFromSkinCB(RpAtomic* atomic, void* data) {
     if (RpSkinGeometryGetSkin(RpAtomicGetGeometry(atomic))) {
         if (RpHAnimHierarchy* hier = RpSkinAtomicGetHAnimHierarchy(atomic)) {
+#ifdef NOTSA_STANDALONE
+            // Standalone: THIRD site blocked on the same root cause (after CClumpModelInfo::CreateInstance
+            // and RpAnimBlendClumpInitSkinned) - `hier->currentAnim` does not exist here: SA keeps the
+            // interpolator pointer at 0x20 while librw's HAnimHierarchy ends at 0x20 with `interpolator`
+            // at 0x1C, and the two RtAnimInterpolator structs differ in layout *and* in where the
+            // keyframes live (SA: a pFrames pointer; librw: inline after the struct).
+            // There is therefore no animation allocated on this hierarchy to destroy, so the whole body
+            // is a no-op. NOTE: this is the point where per-site guards stop being the right tool - the
+            // anim/interpolator storage model has to be bridged once, properly. See IDEAS.md.
+            (void)hier;
+#else
             RtAnimAnimation*& currAnim = hier->currentAnim->pCurrentAnim;
             if (currAnim) {
                 RtAnimAnimationDestroy(currAnim);
             }
             currAnim = nullptr;
+#endif
         }
     }
     return atomic;

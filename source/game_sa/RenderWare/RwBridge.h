@@ -298,6 +298,13 @@ void* HAnimHierarchyGetMatrices(void* hierarchy);
 int   HAnimIDGetIndex(void* hierarchy, int id);            //!< `RpHAnimIDGetIndex`
 void  HAnimHierarchyUpdateMatrices(void* hierarchy);       //!< `RpHAnimHierarchyUpdateMatrices`
 
+/*! @brief `RwFrameForAllChildren` / `RwFrameForAllObjects` (disasm 0x7F0DC0 / 0x7F1200).
+ *  Both walk the frame's children (resp. attached objects) and call `cb`; iteration **stops as soon as
+ *  the callback returns NULL** (that is RW's convention, and librw's `forAllChildren` matches it).
+ *  Both always return the input frame. `cb` is an `RwFrameCallBack`/`RwObjectCallBack`. */
+void* FrameForAllChildren(void* frame, void* cb, void* data);
+void* FrameForAllObjects(void* frame, void* cb, void* data);
+
 //-------------------------------------------------------------------------
 // RW object-plugin registration - the game's *own* plugins (Visibility, TxdStore, Collision, 2dEffect,
 // Breakable, NodeName, Pipeline, RpAnimBlend, ...), as opposed to the RW-SDK plugins that

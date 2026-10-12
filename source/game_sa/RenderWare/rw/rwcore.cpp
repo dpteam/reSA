@@ -1043,7 +1043,11 @@ RwImage* RwImageFindRasterFormat(RwImage* ipImage, RwInt32 nRasterType, RwInt32*
 }
 
 RwFrame* RwFrameForAllObjects(RwFrame* frame, RwObjectCallBack callBack, void* data) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameForAllObjects(frame, (void*)callBack, data);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, RwObjectCallBack, void*))0x7F1200)(frame, callBack, data);
+#endif
 }
 
 RwFrame* RwFrameTranslate(RwFrame* frame, const RwV3d* v, RwOpCombineType combine) {
@@ -1099,7 +1103,11 @@ RwBool RwFrameDestroyHierarchy(RwFrame* frame) {
 }
 
 RwFrame* RwFrameForAllChildren(RwFrame* frame, RwFrameCallBack callBack, void* data) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameForAllChildren(frame, (void*)callBack, data);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, RwFrameCallBack, void*))0x7F0DC0)(frame, callBack, data);
+#endif
 }
 
 RwFrame* RwFrameRemoveChild(RwFrame* child) {

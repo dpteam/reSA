@@ -959,6 +959,31 @@ void HAnimHierarchyUpdateMatrices(void* hierarchy) {
     }
 }
 
+void* FrameForAllChildren(void* frame, void* cb, void* data) {
+    auto* f = rp<rw::Frame>(frame);
+    if (!cb) return f;
+    f->forAllChildren(reinterpret_cast<rw::Frame::Callback>(cb), data);
+    return f;
+}
+
+void* FrameForAllObjects(void* frame, void* cb, void* data) {
+    auto* f = rp<rw::Frame>(frame);
+    if (!cb) return f;
+    // Disasm 0x7F1200: walk frame->objectList, converting each LLLink to its ObjectWithFrame (the link
+    // sits at +8 in the object), and latch `next` *before* invoking the callback - so a callback that
+    // detaches its object (the common case: it stops by returning NULL) cannot corrupt the walk.
+    using ObjCb = void* (*)(void*, void*);
+    for (rw::LLLink* lnk = f->objectList.link.next; lnk != f->objectList.end(); ) {
+        rw::LLLink* next = lnk->next;
+        auto* obj = rw::ObjectWithFrame::fromFrame(lnk);
+        if (static_cast<ObjCb>(cb)(obj, data) == nullptr) {
+            break;
+        }
+        lnk = next;
+    }
+    return f;
+}
+
 //-------------------------------------------------------------------------
 // Matrix / Vector math - see the declarations in RwBridge.h for why this is safe as plain casts.
 // (`MatrixCreate()` already exists above, next to the other object helpers.)
