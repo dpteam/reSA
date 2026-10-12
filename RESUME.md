@@ -74,12 +74,13 @@
    - `reSA.exe` output name + window icon (`app.rc` + `app.ico`).
 
 ## Next steps (in order)
-1. **Text rendering** (biggest blocker) — implement `CSprite2d::AddToBuffer` + `CFont::{RenderFontBuffer,ProcessCurrentString,PrintChar}`.
-   Ports/refs: **`refs/reVC` / `refs/re3` `src/renderer/Font.cpp`** (same buffer idea as SA) + `refs/AdditionalSources/
-   SOME_GTA_SA_Sources/Engine/CSprite2d.cpp` (has `AddToBuffer`). Keep everything under `#ifdef NOTSA_STANDALONE`.
-2. **Start a new game / world load** — after the menu works (text), reach `CGame::InitialiseWhenRestarting`/world streaming.
-   Look at `refs/reVC/src/core/Frontend.cpp`/`MenuScreens.cpp` for the new/load-game flow.
-3. **Windowed mode for RDP** — window is fixed 800×600 now; make it robust/fullscreen-toggle.
+> 📋 **See `VERIFY.md`** for the full feature×disassembly verification plan (addresses + status). **Reverse `gta_sa.exe` FIRST**
+> (top-priority reference) for every feature.
+1. **Text / font (blocker)**: the font texture is `rwFormat=768` (**C4444**, 16-bit, `D3DFMT_A4R4G4B4`) and **doesn't
+   sample in librw** (the 32-bit bg does). Fix librw's 16-bit texture handling (or convert the font raster to C8888),
+   then implement `CFont::{RenderFontBuffer,ProcessCurrentString}` faithfully (disasm 0x719840 / 0x71A220).
+2. **Verify the menu draw path** (`CMenuManager::DrawFrontEnd/DrawBackground/DrawStandardMenus`) vs disasm.
+3. Sweep remaining `VERIFY.md` rows (audio, `CDecisionMakerTypes`, `CMemoryMgr`, …) — disasm-first.
 4. **Audio** (fix `m_AudioEntity` usage; re-enable `CAESoundManager::Service`).
 5. **`RwIm3D*` bridging** (effects/lines) — next big RW task.
 
