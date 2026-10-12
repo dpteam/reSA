@@ -127,16 +127,16 @@ target_link_options(${RE_PROJECT_LIB_NAME} PRIVATE "/SUBSYSTEM:WINDOWS")
 #--------------------------------------------------------------------
 # RenderWare replacement (standalone only)
 #--------------------------------------------------------------------
-# librw is vendored under extern/librw (MIT); see extern/README.md.
-# The original RenderWare lives inside gta_sa.exe, which the standalone build doesn't have,
-# so the standalone build links librw instead.
+# librw is a *fork* we own (originally vendored from aap/librw, MIT) - see librw/README.md and
+# librw/FORK.md. The original RenderWare lives inside gta_sa.exe, which the standalone build doesn't have,
+# so the standalone build links librw instead. We edit librw freely to fix issues (textures, viewport, ...).
 #
 # NOTE: librw is outside `source/` on purpose - `source/CMakeLists.txt` globs every source
 #       file under `source/`, and would otherwise pull librw's sources (and its `.hlsl`
 #       shaders, which MSBuild then tries to compile with FXC) into our own target.
 if (${RE_PROJECT}_STANDALONE)
     set(LIBRW_PLATFORM "D3D9" CACHE STRING "librw graphics platform" FORCE)
-    add_subdirectory("${CMAKE_SOURCE_DIR}/extern/librw" "${CMAKE_BINARY_DIR}/extern/librw")
+    add_subdirectory("${CMAKE_SOURCE_DIR}/librw" "${CMAKE_BINARY_DIR}/librw")
 
     # The librw bridge must NOT get our PCH (`StdInc.h`), as it deliberately avoids SA headers.
     set_source_files_properties(game_sa/RenderWare/RwBridge.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)

@@ -165,7 +165,7 @@ Crashes fixed (each verified by running), in order:
 1. **Hook installation** — `RHManager::InstallVirtual`/`RH_ScopedVirtualClass` guarded on `..._DUMP_HOOKS_ONLY` instead
    of `NOTSA_STANDALONE` ⇒ full standalone read the original vtables. **Fixed.**
 2. **Memory manager** — `CMemoryMgr::{Malloc,Free,Realloc,Calloc,MallocAlign,FreeAlign}` → CRT under `NOTSA_STANDALONE`.
-3. **RenderWare** — provided via **librw** (`extern/librw`) + a C-style **bridge** (`source/game_sa/RenderWare/
+3. **RenderWare** - provided via **librw** (**`librw/` — our fork**, see `librw/FORK.md`) + a C-style **bridge** (`source/game_sa/RenderWare/
    RwBridge.{h,cpp}`). Engine, camera/frame/raster/matrix, world, lights, streams, TexDictionary, Texture, im2d
    screen-z, raster lock — all mapped. See §9/§10/§11.
 4. **Debug/tools UI (ImGui)** — crashes right after `InitialiseRenderWare` (in `UIRenderer`). **Disabled in standalone**
