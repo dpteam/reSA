@@ -2,6 +2,10 @@
 
 #include "rpskin.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RwBridge.h" // librw-backed RenderWare (standalone build)
+#endif
+
 void RpSkinSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
     ((void(__cdecl *)(RwInt32, RwInt32))0x7C67F0)(blockSize, numBlocksToPrealloc);
 }
@@ -11,19 +15,37 @@ RwBool RpSkinPluginAttach() {
 }
 
 RpAtomic* RpSkinAtomicSetHAnimHierarchy(RpAtomic* atomic, RpHAnimHierarchy* hierarchy) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::AtomicSetHAnimHierarchy(atomic, hierarchy);
+    return atomic;
+#else
     return ((RpAtomic*(__cdecl *)(RpAtomic*, RpHAnimHierarchy*))0x7C7520)(atomic, hierarchy);
+#endif
 }
 
 RpHAnimHierarchy* RpSkinAtomicGetHAnimHierarchy(const RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    return (RpHAnimHierarchy*)rwbridge::AtomicGetHAnimHierarchy(atomic);
+#else
     return ((RpHAnimHierarchy*(__cdecl *)(const RpAtomic*))0x7C7540)(atomic);
+#endif
 }
 
 RpGeometry* RpSkinGeometrySetSkin(RpGeometry* geometry, RpSkin* skin) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::SkinGeometrySetSkin(geometry, skin);
+    return geometry;
+#else
     return ((RpGeometry*(__cdecl *)(RpGeometry*, RpSkin*))0x7C7560)(geometry, skin);
+#endif
 }
 
 RpSkin* RpSkinGeometryGetSkin(RpGeometry* geometry) {
+#ifdef NOTSA_STANDALONE
+    return (RpSkin*)rwbridge::SkinGeometryGetSkin(geometry);
+#else
     return ((RpSkin*(__cdecl *)(RpGeometry*))0x7C7550)(geometry);
+#endif
 }
 
 RpSkin* RpSkinCreate(RwUInt32 numVertices, RwUInt32 numBones, RwMatrixWeights* vertexWeights, RwUInt32* vertexIndices, RwMatrix* inverseMatrices) {
@@ -35,19 +57,35 @@ RpSkin* RpSkinDestroy(RpSkin* skin) {
 }
 
 RwUInt32 RpSkinGetNumBones(RpSkin* skin) {
+#ifdef NOTSA_STANDALONE
+    return (RwUInt32)rwbridge::SkinGetNumBones(skin);
+#else
     return ((RwUInt32(__cdecl *)(RpSkin*))0x7C77E0)(skin);
+#endif
 }
 
 /*const*/ RwMatrixWeights* RpSkinGetVertexBoneWeights(RpSkin* skin) {
+#ifdef NOTSA_STANDALONE
+    return (RwMatrixWeights*)rwbridge::SkinGetVertexBoneWeights(skin);
+#else
     return ((RwMatrixWeights*(__cdecl *)(RpSkin*))0x7C77F0)(skin);
+#endif
 }
 
 const RwUInt32* RpSkinGetVertexBoneIndices(RpSkin* skin) {
+#ifdef NOTSA_STANDALONE
+    return (const RwUInt32*)rwbridge::SkinGetVertexBoneIndices(skin);
+#else
     return ((const RwUInt32*(__cdecl *)(RpSkin*))0x7C7800)(skin);
+#endif
 }
 
 const RwMatrix* RpSkinGetSkinToBoneMatrices(RpSkin* skin) {
+#ifdef NOTSA_STANDALONE
+    return (const RwMatrix*)rwbridge::SkinGetSkinToBoneMatrices(skin);
+#else
     return ((const RwMatrix*(__cdecl *)(RpSkin*))0x7C7810)(skin);
+#endif
 }
 
 RwBool RpSkinIsSplit(RpSkin* skin) {
