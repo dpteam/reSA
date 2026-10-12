@@ -49,6 +49,13 @@ void CAnimManager::InjectHooks() {
     RH_ScopedInstall(LoadAnimFile, 0x4D47F0);
 }
 
+#ifdef NOTSA_STANDALONE
+void CAnimManager::SeedBakedAssocDefinitions() {
+    const auto n = std::min<size_t>(NUM_ANIM_ASSOC_BAKED, std::size(ms_aAnimAssocDefinitions));
+    std::memcpy(&ms_aAnimAssocDefinitions[0], &ms_aAnimAssocDefinitionsX[0], sizeof(AnimAssocDefinition) * n);
+}
+#endif
+
 // 0x5BF6B0
 void CAnimManager::Initialise() {
     ZoneScoped;
@@ -189,25 +196,10 @@ AssocGroupId CAnimManager::GetAnimationGroupIdByName(notsa::ci_string_view name)
             return (AssocGroupId)(i);
         }
     }
-#ifdef NOTSA_STANDALONE
-    // Standalone: the first 118 entries of `ms_aAnimAssocDefinitions` (0x8AA5A8) are data baked into the
-    // original exe's .data (`Initialise` sets ms_numAnimAssocDefinitions = 118 - verified in disasm
-    // 0x5BF6B0: `mov ds:0xb4ea28,0x76` - and only *appends* the extra groups from DATA\ANIMGRP.DAT, which
-    // has just 21 of them and no `player`). StaticRef zero-fills them here, so every lookup fails.
-    // Rebuilding that table properly is a large, separate job (118 groups, up to 191 anims each, 34
-    // distinct AnimDescriptor sets, plus the AnimNames string tables) - tracked in IDEAS.md.
-    // Until then, fall back to the default group instead of killing the load: animations will be wrong,
-    // but the game gets to actually boot.
-    static bool s_warned{};
-    if (!s_warned) {
-        s_warned = true;
-        NOTSA_LOG_WARN("Standalone: anim group '{}' not in the (unreconstructed) definition table; "
-                       "falling back to ANIM_GROUP_DEFAULT. Further misses are silent.", name);
-    }
-    return AssocGroupId::ANIM_GROUP_DEFAULT;
-#else
+    // Standalone: the 118 baked definitions are seeded by CAnimManager::SeedBakedAssocDefinitions()
+    // (called from InitGameGlobalStatics), so real lookups succeed here; this path only catches a
+    // genuinely unknown name.
     NOTSA_UNREACHABLE("Couldn't find group with name {}", name);
-#endif
 }
 
 // 0x4D3A40

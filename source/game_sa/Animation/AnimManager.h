@@ -16,7 +16,17 @@
 struct IFPSectionHeader;
 
 constexpr auto MAX_ANIM_BLOCK_NAME = 16;
-constexpr auto NUM_ANIM_ASSOC_GROUPS = 118;
+// The definition table holds **all** assoc groups, not just the ones the original bakes into .data:
+// CAnimManager::Initialise starts ms_numAnimAssocDefinitions at 118 (the baked count - disasm 0x5BF6B0
+// `mov ds:0xb4ea28,0x76`) and then ReadAnimAssociationDefinitions() *appends* the 21 groups from
+// DATA\ANIMGRP.DAT, reaching 139 == ANIM_TOTAL_GROUPS. Verified against the original binary: slots
+// 118..138 (0x8ABBC8..0x8ABFB8) are zero in the image and unclaimed by any neighbouring global (the next
+// one is at 0x8AC158), i.e. they are spare storage for the appended groups.
+// So the size is 139; 118 was the baked count (the old comment conflated the two). With 118,
+// GetAssocGroupDefs() built a span of 139 over 118 elements and tripped the debug bounds check
+// (<span>(462) "span subscript out of range") right after LoadAnimFiles.
+constexpr auto NUM_ANIM_ASSOC_GROUPS = ANIM_TOTAL_GROUPS; // 139
+constexpr auto NUM_ANIM_ASSOC_BAKED    = 118;            // entries pre-filled in the original's .data
 constexpr auto NUM_ANIM_BLOCKS = 180;
 
 class CAnimManager {
@@ -37,6 +47,18 @@ private:
 
 public:
     static void InjectHooks();
+
+#ifdef NOTSA_STANDALONE
+    /*!
+     * @brief Copy the 118 assoc-group definitions the original bakes into its .data (0x8AA5A8) into the
+     *        static table, so the standalone build has them.
+     * @details Upstream already reversed these as `ms_aAnimAssocDefinitionsX` but never wired it up.
+     *          Verified against refs/gtasa10us/gta_sa.exe: all 118 group names and block names match,
+     *          in the same order, zero mismatches (and NumAnims[0]==191 for "default").
+     *          Slots 118..138 stay zero, which is the original's state before DATA\ANIMGRP.DAT is read.
+     */
+    static void SeedBakedAssocDefinitions();
+#endif
 
     static void Initialise();
     static void Shutdown();

@@ -459,6 +459,11 @@ void InitGameGlobalStatics() {
     // NOTE: ms_2dFXInfoStore is deliberately NOT constructed: C2dEffect is not polymorphic (it carries an
     // `e2dEffectType m_Type` tag and no vtable), so zero-filled storage matches the original's static data.
     // (It also cannot be default-constructed - its anonymous union has a non-trivial member.)
+
+    // The 118 assoc-group definitions the original bakes into its .data (0x8AA5A8). Upstream already
+    // reversed them as `ms_aAnimAssocDefinitionsX`, verified to match the binary exactly (all 118 group
+    // and block names, same order, zero mismatches) - it just was never wired up.
+    CAnimManager::SeedBakedAssocDefinitions();
 }
 #endif
 
