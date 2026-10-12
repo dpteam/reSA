@@ -281,6 +281,18 @@ User-provided. **Read-only, never commit** (in gitignored `refs/`), treat like t
 > Python `pefile` (no capstone/llvm-pdbutil though). ⚠️ Addresses are **1.0-US**; our build targets a **Compact** exe, so
 > match by **function identity/disassembly**, not by trusting addresses blindly. Example win: `CSprite2d::AddToBuffer`
 > (0x728200) / `RenderVertexBuffer` (0x7273D0) disassembly **matched our port exactly**.
+> ⚠️ **Jump thunks: some functions are only a `jmp` into a far section — FOLLOW IT.** Measured 2026-10-13:
+> the 1.0-US image has 11 sections; `.text` is `0x401000..0x857000` (exec, read-only), but the later ones
+> (indices 7..10, `0xCB1000` up to `0x1577000`) are **exec+write** and hold real code too. A number of
+> functions in `.text` are therefore just a 5-byte `e9 <rel32>` landing in section 10, e.g.
+> `0x4652D0: jmp 0x1569D40`, `0x4637E0: jmp 0x1565D40`, `0x4654B0: jmp 0x156E810`. Disassembling *at* the
+> documented address yields one `jmp` followed by **desynced garbage** (reads like a jump table / random
+> opcodes) — which is very easy to misread as "wrong address, must be a different exe version" and abandon.
+> **Procedure:** if the first instruction at the address is a lone `jmp` whose target is outside `.text`,
+> re-run objdump at the **target**. The target genuinely contains the function body (verified: valid code
+> there, not padding). Detect cheaply with `pefile`: decode the rel32 and check the target's section index.
+> Also: addresses like `0x4637C0` disassemble fine *because* small leaf functions were not thunked — so one
+> clean result does NOT prove its neighbours are clean. Don't extrapolate.
 
 ### 5e. Viewport / windowed-mode (standalone) — fixed 2026-10-12
 Symptom: everything rendered **tiny in the top-left corner**. Cause: `psSelectDevice` (`WinPs.cpp`) only set `RsGlobal`

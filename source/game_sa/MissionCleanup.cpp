@@ -106,7 +106,23 @@ void CMissionCleanup::RemoveEntityFromList(int32 handle, MissionCleanUpEntityTyp
 void CMissionCleanup::CheckIfCollisionHasLoadedForMissionObjects() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: not ported. Reached from CTheScripts::Process (the first per-frame logic), i.e. this is
+    // the *runtime* boundary rather than loading.
+    //
+    // Verified inert for the current stage, not merely assumed: the real body (reached through a jump
+    // thunk - see MEMORY.md "jump thunks") walks the 75-entry m_Objects array while `type != 0` and, for
+    // each live entry whose model info lacks flag 0x40000 (collision-loaded), clears the flag and removes
+    // the entity. CMissionCleanup::Init() sets m_Count = 0 and fills every entry with the default
+    // (EMPTY == 0) type, and the only writer is AddEntityToList (script/gameplay driven). So with an
+    // all-EMPTY list the loop body never executes once - the function is a no-op right now.
+    //
+    // TODO(reversal): implement it when mission objects actually get cleaned up. Its dependencies are
+    // 0x4633E0 and 0x542800 (both still exe thunks) plus the model-info lookup through 0xB7449C.
+    return;
+#else
     ((void(__thiscall*)(CMissionCleanup*))0x4652D0)(this);
+#endif
 }
 
 // NOTSA
