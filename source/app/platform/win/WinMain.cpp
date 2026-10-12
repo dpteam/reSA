@@ -635,6 +635,7 @@ void BootstrapStandalone() {
 
     notsa::debug::LoadSymbols(); // Used by logging
     notsa::Logging::CreateInstance();
+    notsa::debug::InstallRuntimeReportLogging(); // assert() -> logs\runtime_reports.txt, no modal dialog
 }
 } // anonymous namespace
 

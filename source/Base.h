@@ -93,6 +93,15 @@ template<typename... Ts>
         l->flush();
     });
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: never put up a modal dialog. This build is run unattended a lot (and the user is often
+    // busy driving the menu by hand), so a blocking Abort/Retry/Ignore box here just stalls debugging -
+    // the same reason VERIFY is non-fatal. The message plus a backtrace are already in logs/log.log, so
+    // exit at once with a distinctive code instead of waiting for a click.
+    // NOTE: still [[noreturn]] on purpose - callers rely on it (many end their last branch with
+    // NOTSA_UNREACHABLE and have no `return`), so letting this return would be undefined behaviour.
+    exit(4);
+#else
     const auto result = MessageBox(
         NULL,
         mbMsg.c_str(),
@@ -113,6 +122,7 @@ template<typename... Ts>
         // - If this function is ever called we're supposed to abort
         exit(3);
     }
+#endif
 }
 };
 // TODO/NOTE: We might need to manually suppress warnings here?

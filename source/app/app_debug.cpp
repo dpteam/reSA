@@ -199,3 +199,64 @@ auto notsa::Logging::Create(std::string name, std::optional<spdlog::level::level
     }
     return logger;
 }
+
+#ifdef NOTSA_STANDALONE
+// Non-fatal VERIFY for the standalone build - see the declaration/comment in app_debug.h.
+// A failing VERIFY is recorded (per call-site, with counts) and execution continues, which is what
+// manually clicking "Ignore" in the CRT dialog used to do.
+void notsa::detail::VerifyMacroImpl(bool result, const char* expr, const char* file, int line) {
+    if (result) {
+        return;
+    }
+
+    struct Site { const char* file; int line; int hits; };
+    static Site s_sites[128]{};
+    static int  s_numSites{};
+    static int  s_totalHits{};
+
+    constexpr int MAX_SITES      = 128; // distinct call-sites we track
+    constexpr int MAX_PER_SITE   = 25;  // reported lines per distinct call-site
+    constexpr int MAX_TOTAL      = 4000; // overall cap (an assert storm must not fill the disk)
+
+    // Dedupe by (file, line). `__FILE__`/`__LINE__` are constant per expansion, so the pointer
+    // comparison identifies the same call-site reliably.
+    Site* site = nullptr;
+    for (int i = 0; i < s_numSites; i++) {
+        if (s_sites[i].file == file && s_sites[i].line == line) {
+            site = &s_sites[i];
+            break;
+        }
+    }
+    if (!site && s_numSites < MAX_SITES) {
+        site      = &s_sites[s_numSites++];
+        site->file = file;
+        site->line = line;
+        site->hits = 0;
+    }
+
+    const int n = site ? ++site->hits : 0;
+    const int t = ++s_totalHits;
+
+    char buf[512];
+    if (t > MAX_TOTAL) {
+        if (t == MAX_TOTAL + 1) {
+            sprintf_s(buf, "[VERIFY] ... further VERIFY failures suppressed (cap %d reached) ...", MAX_TOTAL);
+            notsa::debug::ReportRuntimeMessage(buf);
+            NOTSA_LOG_ERR("{}", buf);
+        }
+        return;
+    }
+
+    if (site && n <= MAX_PER_SITE) {
+        sprintf_s(buf, "[VERIFY #%d @site %d] `%s` failed  (%s:%d)%s", n,
+                  static_cast<int>(site - s_sites), expr ? expr : "?", file ? file : "?", line,
+                  n == MAX_PER_SITE ? "  [further failures at this site suppressed]" : "");
+        notsa::debug::ReportRuntimeMessage(buf);
+        NOTSA_LOG_ERR("{}", buf);
+    } else if (site && n == MAX_PER_SITE + 1) {
+        sprintf_s(buf, "[VERIFY] site %d (`%s` @ %s:%d) exceeded %d failures - counting continues, reporting stopped",
+                  static_cast<int>(site - s_sites), expr ? expr : "?", file ? file : "?", line, MAX_PER_SITE);
+        notsa::debug::ReportRuntimeMessage(buf);
+    }
+}
+#endif

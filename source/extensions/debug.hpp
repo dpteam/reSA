@@ -58,5 +58,32 @@ void LoadSymbols();
  */
 void UnloadSymbols();
 
+/*!
+ * @brief Route the CRT's debug reports (assert(), _ASSERTE, ...) to `logs\runtime_reports.txt`
+ *        instead of the modal "Assertion Failed" Abort/Retry/Ignore dialog.
+ *
+ * @details The standalone build runs with the debug CRT, so every failed `assert()` pops a modal
+ *          dialog that blocks the game and - worse - whose text only goes to the console window,
+ *          which is lost when the process is started detached. That made the assert storm on the
+ *          new-game path undiagnosable (the user had to click "Ignore" by hand, and the log held
+ *          nothing but a clean cut-off).
+ *
+ *          With this hook each report is written to a file (tagged ASSERT/ERROR/WARN, with a running
+ *          count per kind) and the dialog is suppressed, so debugging is never blocked and the
+ *          failures are on disk afterwards.
+ *
+ * @note    Must NOT use spdlog/fmt or any C++ allocation here: this runs inside the CRT's own report
+ *          path, so re-entering it (or the allocator) risks recursion/deadlock. Plain C stdio only.
+ * @note    No-op outside `_DEBUG` (release builds compile `assert` away).
+ */
+void InstallRuntimeReportLogging();
+
+/*!
+ * @brief Append one line to the runtime-report file opened by `InstallRuntimeReportLogging`.
+ * @note  Thread-safe, allocation-free-ish (plain C stdio) and bounded, so it is safe to call from
+ *        failure paths (including our own non-fatal `VERIFY`).
+ */
+void ReportRuntimeMessage(const char* msg);
+
 };
 };

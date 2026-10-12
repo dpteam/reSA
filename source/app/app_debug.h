@@ -13,9 +13,27 @@ namespace detail {
 static void VerifyMacroImpl(bool result) {
     assert(result); // In release mode this won't do anything
 }
+
+#ifdef NOTSA_STANDALONE
+/*!
+ * @brief Standalone flavour of `VERIFY`: reports a failure and **keeps running**.
+ *
+ * Why this exists: UCRT's `assert` ends in `abort()` (the modal Abort/Retry/Ignore dialog is the only
+ * escape hatch - "Ignore" returns from `_wassert` and execution continues). The standalone build
+ * suppresses that dialog so debugging is not blocked, which would otherwise turn every failing `VERIFY`
+ * into a hard, silent process death. This overload reproduces the "Ignore" choice automatically: the
+ * failure is written to `logs\runtime_reports.txt` (and the normal log) with a per-site counter, and the
+ * game carries on - so an assert storm during loading no longer hides the *first* real problem.
+ */
+void VerifyMacroImpl(bool result, const char* expr, const char* file, int line);
+#endif
 };
 };
+#ifdef NOTSA_STANDALONE
+#define VERIFY(expr) ::notsa::detail::VerifyMacroImpl((expr), #expr, __FILE__, __LINE__)
+#else
 #define VERIFY ::notsa::detail::VerifyMacroImpl
+#endif
 #define VERIFY_TODO_FIX(_expr) (_expr) // Macro used to mark shit that uses `VERIFY and sometimes fails
 
 namespace notsa {
