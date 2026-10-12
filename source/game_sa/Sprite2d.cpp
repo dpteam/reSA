@@ -422,7 +422,17 @@ void CSprite2d::OffsetTexCoordForBilinearFiltering(float width, float height)
 // add vertices to buffer
 void CSprite2d::AddToBuffer(const CRect& posn, const CRGBA& color, float u1, float v1, float u2, float v2, float u3, float v3, float u4, float v4)
 {
+#ifndef NOTSA_STANDALONE
     ((void(__cdecl*)(const CRect&, const CRGBA&, float, float, float, float, float, float, float, float))0x728200)(posn, color, u1, v1, u2, v2, u3, v3, u4, v4);
+#else
+    // Standalone: render the quad immediately (like `CSprite2d::DrawRect`, whose path works here).
+    // The shared-buffer path (`aRadiosityVertexBuffer` + `RenderVertexBuffer`) doesn't produce output
+    // in the standalone D3D9 backend, so draw straight away. TODO: investigate the buffer path (IDEAS.md).
+    static RwIm2DVertex s_quad[4];
+    SetVertices(s_quad, posn, color, color, color, color, u1, v1, u2, v2, u3, v3, u4, v4);
+    RwRenderStateSet(rwRENDERSTATEVERTEXALPHAENABLE, RWRSTATE(TRUE));
+    RwIm2DRenderPrimitive(rwPRIMTYPETRIFAN, s_quad, 4);
+#endif
 }
 
 // non-textured polygon

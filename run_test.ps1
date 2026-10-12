@@ -17,6 +17,10 @@ public class Dlg{
  [DllImport("user32.dll",CharSet=CharSet.Unicode)] public static extern int GetClassNameW(IntPtr h, StringBuilder s, int n);
  [DllImport("user32.dll")] public static extern IntPtr SendMessageW(IntPtr h, uint msg, IntPtr wp, IntPtr lp);
  [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+ [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+ [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr h, IntPtr after, int x, int y, int cx, int cy, uint flags);
+ [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+ [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
  public struct RECT{public int L,T,R,B;}
  public static IntPtr Dialog=IntPtr.Zero, IgnoreBtn=IntPtr.Zero, Game=IntPtr.Zero; public static RECT GameRect; public static string DlgText="";
  public static void Scan(uint pid){ Dialog=IntPtr.Zero; IgnoreBtn=IntPtr.Zero; Game=IntPtr.Zero;
@@ -48,12 +52,23 @@ if ($p.HasExited) { Write-Host ("EXITED 0x{0:X8}" -f $p.ExitCode) }
 else { Write-Host ("RUNNING; cpu={0:N2}s ignores={1}" -f $p.TotalProcessorTime.TotalSeconds, $ignores) }
 
 if ($Shot -and -not $p.HasExited -and [Dlg]::Game -ne [IntPtr]::Zero) {
+    # Bring the game window to the foreground so CopyFromScreen captures IT (not whatever is on top).
+    [Dlg]::ShowWindow([Dlg]::Game, 9) | Out-Null                # SW_RESTORE
+    [Dlg]::SetWindowPos([Dlg]::Game, -1, 0, 0, 0, 0, 0x0043) | Out-Null  # HWND_TOPMOST, NOMOVE|NOSIZE|NOACTIVATE
+    [Dlg]::SetForegroundWindow([Dlg]::Game) | Out-Null
+    [Dlg]::SetWindowPos([Dlg]::Game, -2, 0, 0, 0, 0, 0x0043) | Out-Null  # HWND_NOTOPMOST
+    Start-Sleep -Milliseconds 400
+    [Dlg]::Scan([uint32]$p.Id)
     $r = [Dlg]::GameRect; $w = $r.R - $r.L; $h = $r.B - $r.T
     if ($w -gt 0 -and $h -gt 0) {
-        $bmp = New-Object System.Drawing.Bitmap $w, $h; $g = [System.Drawing.Graphics]::FromImage($bmp)
-        $g.CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size $w, $h))
+        $bmp = New-Object System.Drawing.Bitmap $w, $h
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $hdc = $g.GetHdc()
+        # PrintWindow renders the window's own content (immune to z-order / occlusion).
+        [Dlg]::PrintWindow([Dlg]::Game, $hdc, 2) | Out-Null   # PW_RENDERFULLCONTENT
+        $g.ReleaseHdc($hdc)
         $bmp.Save((Join-Path $PSScriptRoot $Shot), [System.Drawing.Imaging.ImageFormat]::Png)
-        Write-Host ("saved " + $Shot); $g.Dispose(); $bmp.Dispose()
+        Write-Host ("saved {0} ({1}x{2})" -f $Shot, $w, $h); $g.Dispose(); $bmp.Dispose()
     }
 }
 Write-Host "--- log tail ---"

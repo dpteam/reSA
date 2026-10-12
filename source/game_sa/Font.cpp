@@ -180,7 +180,9 @@ void CFont::Shutdown() {
 // this adds a single character into rendering buffer
 // 0x718A10
 void CFont::PrintChar(float x, float y, char character) {
+#ifndef NOTSA_STANDALONE
     return plugin::Call<0x718A10, float, float, char>(x, y, character);
+#endif
 
     // todo: check the fucking uv values
 
@@ -203,7 +205,7 @@ void CFont::PrintChar(float x, float y, char character) {
         return;
     }
 
-    if (!character || character == '?') {
+    if (character != '\0') { // NB: SA's reversed body had `if (!character || character == '?')` - a bug (only drew space/'?').
         float propValue = GetLetterIdPropValue(character) / 32.0f;
         bool zeroed = false;
 
@@ -593,8 +595,10 @@ void CFont::InitPerFrame() {
 // 0x719840
 void CFont::RenderFontBuffer() {
 #ifdef NOTSA_STANDALONE
-    // TODO: Not reversed (upstream neither). It flushes the accumulated characters (FontRenderStateBuf)
-    // into CSprite draws. Until it's implemented, text won't render at all (menus/HUD/loading) - see IDEAS.md.
+    // Standalone: flush the glyphs accumulated via `CSprite2d::AddToBuffer` and reset the per-frame state.
+    // TODO: verify against the original (this is a simplified version). See IDEAS.md.
+    CSprite2d::RenderVertexBuffer();
+    pEmptyChar = &FontRenderStateBuf[0]; // FontRenderStatePointer.pRenderState
 #else
     plugin::Call<0x719840>();
 #endif
@@ -664,9 +668,75 @@ void CFont::DrawFonts() {
 // 0x71A220
 int16 CFont::ProcessCurrentString(bool print, float x, float y, const GxtChar* text) {
 #ifdef NOTSA_STANDALONE
-    // TODO: Not reversed (upstream neither). Parses the string + appends glyphs to the render buffer.
-    // No-op for now (text won't render) - see RenderFontBuffer + IDEAS.md.
-    return 0;
+    // Standalone: original (and upstream) not reversed. Simplified reimplementation:
+    // apply the current font settings to `RenderState`, then walk the string calling `PrintChar`
+    // (which appends the glyph via `CSprite2d::AddToBuffer`). Approximate, but produces readable text.
+    // TODO: verify against the original (line height, token handling, alignment). See IDEAS.md.
+    RenderState.m_fWidth         = m_Scale.x;
+    RenderState.m_fHeight        = m_Scale.y;
+    RenderState.m_color          = m_Color;
+    RenderState.m_fSlant         = m_fSlant;
+    RenderState.m_vSlanRefPoint  = m_fSlantRefPoint;
+    RenderState.m_nFontStyle     = m_FontStyle;
+    RenderState.m_wFontTexture   = m_FontTextureId;
+    RenderState.m_bPropOn        = m_bFontPropOn;
+    RenderState.m_bContainImages = false;
+    RenderState.m_nOutline       = m_nFontOutlineSize;
+
+    if (print && m_FontTextureId < MAX_FONT_SPRITES) {
+        Sprite[m_FontTextureId].SetRenderState(); // bind the font texture before drawing glyphs
+    }
+
+    // Apply alignment: the passed X is the anchor, which depends on the current orientation.
+    if (m_bFontCentreAlign || m_bFontRightAlign) {
+        const float width = GetStringWidth(text, true, false);
+        if (m_bFontCentreAlign) {
+            x -= width * 0.5f;
+        } else {
+            x -= width;
+        }
+    }
+
+    const float startX = x;
+    float curX = x;
+    int16 numLines = 1;
+
+    for (const GxtChar* p = text; *p; ++p) {
+        const GxtChar ch = *p;
+
+        if (ch == '~') { // Token - handle newline, then skip to the closing '~'
+            const GxtChar tok = (p[1] != '~') ? p[1] : 0;
+            if (tok == 'n' || tok == 'N') {
+                m_bNewLine = true;
+            }
+            ++p;
+            if (*p != '~') {
+                while (*p && *p != '~') ++p;
+            }
+            if (!*p) break;
+            continue;
+        }
+
+        if (m_bNewLine || ch == '\n') {
+            m_bNewLine = false;
+            curX = startX;
+            y += 32.0f * m_Scale.y * 0.5f + 2.0f * m_Scale.y;
+            ++numLines;
+            if (ch == '\n') continue;
+        }
+
+        const uint8 c = (uint8)(ch - ' ');
+
+        if (print) {
+            const float drawY = m_fSlant != 0.0f
+                ? (m_fSlantRefPoint.x - curX) * m_fSlant + m_fSlantRefPoint.y
+                : y;
+            PrintChar(curX, drawY, (char)c);
+        }
+
+        curX += GetCharacterSize(c);
+    }
+    return numLines;
 #else
     return plugin::CallAndReturn<int16, 0x71A220, bool, float, float, const GxtChar*>(print, x, y, text);
 #endif
