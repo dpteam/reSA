@@ -2,6 +2,8 @@
 
 #include "RwHelper.h"
 
+#include "Plugins/TwoDEffectPlugin/2dEffect.h" // RpGeometryGet2dFxCount, used by Get2DEffectAtomicCallback
+
 void RwHelperInjectHooks() {
     RH_ScopedNamespaceName("RwHelper");
     RH_ScopedCategoryGlobal();
@@ -88,7 +90,15 @@ RpAtomic* GetFirstAtomic(RpClump* clump) {
 
 // 0x734850
 RpAtomic* Get2DEffectAtomicCallback(RpAtomic* atomic, void* data) {
-    return ((RpAtomic * (__cdecl*)(RpAtomic*, void*))0x734850)(atomic, data);
+    // Disasm (34 bytes, verified): geometry = atomic->geometry; if the geometry's 2dEffect plugin data
+    // exists and its m_nObjCount is > 0, latch `atomic` into *data and return NULL; else return the
+    // atomic unchanged. RpGeometryGet2dFxCount (0x4C4340, already reversed) is exactly the
+    // "plugin ? m_nObjCount : 0" read, so reuse it instead of poking offsets.
+    if (RpGeometryGet2dFxCount(RpAtomicGetGeometry(atomic)) > 0) {
+        *static_cast<RpAtomic**>(data) = atomic;
+        return nullptr;
+    }
+    return atomic;
 }
 
 // 0x734880
