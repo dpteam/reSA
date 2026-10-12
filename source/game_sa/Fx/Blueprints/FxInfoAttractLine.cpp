@@ -15,7 +15,11 @@ void FxInfoAttractLine_c::Load(FILESTREAM file, int32 version) {
 
 // 0x4A4880
 void FindClosestPtOnLine(CVector& out, CVector& lineA, CVector& lineB, CVector& point) {
+#ifndef NOTSA_STANDALONE
     return plugin::Call<0x4A4880, CVector&, CVector&, CVector&, CVector&>(out, lineA, lineB, point);
+#endif
+    // Standalone: drafted body was already present but shadowed by the plugin::Call above (see
+    // FxPrimBP.cpp). Not yet verified against disasm - see VERIFY.md.
 
     const auto a = DistanceBetweenPoints(point, lineA);
     const auto b = DistanceBetweenPoints(lineB, lineA);

@@ -81,6 +81,12 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 ## F. Gameplay / data
 | Feature | Addr | Status | Note |
 |---|---|---|---|
+| `CTaskSimpleFight::LoadMeleeData` | 0x5BEDC0 | ⚠️ | defaults for `m_aComboData` transcribed from disasm 0x5BEDC0..0x5BEE38 (verified). **Not ported**: the 7-entry float table at 0xC177D0 and the `data\melee.dat` parse (0x538900/0x536F80/0x8214D0) that overrides them |
+| `CMeleeInfo` layout | — | ✅ | corrected against the same disasm: 0x48/0x4C are **floats** (`m_fBlockHit`/`m_fBlockChain` = 100.0f), 0x50/0x55 are two `uint8[5]` arrays. `VALIDATE_SIZE(…,0x88)` holds |
+| `m_aComboData` size | — | ✅ | **13** entries, not 12 — outer loop is `(0xC177BC-0xC170D4)/0x88 = 13`, and `TaskSimpleUseGun.cpp` already read `[12]` (was out of bounds) |
+| `FxPrimBP_c::Load` | 0x5C2010 | ⚠️ | **unverified drafted body** enabled for standalone (was shadowed by `plugin::Call`). Needs a disasm pass |
+| `FxInfoManager_c::Load` | 0x5C0B70 | ⚠️ | same — drafted body enabled, needs disasm |
+| `FindClosestPtOnLine` | 0x4A4880 | ⚠️ | same — drafted body enabled, needs disasm |
 | `SurfaceInfos_c::LoadAdhesiveLimits` | 0x55D0E0 | ✅ | SetDir/OpenFile("data\\surface.dat")/LoadLine/sscanf — matches ours |
 | `CDecisionMakerTypes::{GetInstance,LoadEventIndices,AddDecisionMaker,RemoveDecisionMaker}` | many | ⚠️ | best-effort; verify mapping/return values |
 | `CDecision::{SetDefault,Set}` | 0x600530/0x600570 | ⚠️ | best-effort |

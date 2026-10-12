@@ -36,7 +36,12 @@ void FxPrimBP_c::GetRWMatrix(RwMatrix& outMatrix) {
 
 // 0x5C2010
 bool FxPrimBP_c::Load(FILESTREAM file, int32 version, FxName32_t* textureNames) {
+#ifndef NOTSA_STANDALONE
     return plugin::CallMethodAndReturn<bool, 0x5C2010, FxPrimBP_c*, FILESTREAM, int32, FxName32_t*>(this, file, version, textureNames);
+#endif
+    // Standalone: the body below was already written but unreachable (shadowed by the `plugin::Call`
+    // above, which is how upstream drafts a reversal). The original exe is not mapped here, so this is
+    // the only version available. NOTE: not yet verified line-by-line against disasm - see VERIFY.md.
 
     char line[256], field[128];
 

@@ -137,8 +137,12 @@ constexpr struct { int32 type; const char* name; } FXINFOMANAGER_C_LOAD_MAPPING[
 
 // 0x5C0B70
 void FxInfoManager_c::Load(FILESTREAM file, int32 version) {
+#ifndef NOTSA_STANDALONE
     plugin::CallMethod<0x5C0B70, FxInfoManager_c*, FILESTREAM, int32>(this, file, version);
     return;
+#endif
+    // Standalone: body was already drafted but shadowed by the plugin::Call above (see FxPrimBP.cpp).
+    // Not yet verified against disasm - see VERIFY.md.
 
     ReadField<void>(file);
     m_nNumInfos = ReadField<int32>(file, "NUM_INFOS:");
