@@ -89,7 +89,28 @@ public:
     // return -1 if model is not a vehicle model otherwise returns vehicle model type
     static int32 IsVehicleModelType(int32 index);
 
-    static CBaseModelInfo* GetModelInfo(int32 index) { return ms_modelInfoPtrs[index]; }
+    // return the model info at `index`, or nullptr if there is none.
+    //
+    // Standalone note: the original indexes this 20000-entry array (0xA9B0C8, bounds verified against
+    // refs/gtasa10us/gta_sa.exe - only ~2 bytes of slack follow it before ms_atomicModelInfoStore at
+    // 0xAAE950) with **no bounds check**, and a few call sites deliberately read past the end. Example:
+    // CStreaming::RequestModelStream does
+    //     CBaseModelInfo* mi = CModelInfo::GetModelInfo(modelId);
+    //     if (IsModelDFF(modelId)) { ... mi->GetModelType() ... }
+    // while modelId can be a COL/IFP resource id (RESOURCE_ID_COL == 25000, so COLToModelId(1) == 25001).
+    // In the original that read landed in adjacent .data and was never dereferenced, because
+    // IsModelDFF() is false for non-DFF ids. Here, `StaticRef` backs the array with a tightly-sized
+    // VirtualAlloc region (see Base.h::GetStandaloneStaticStorage), so the same read runs off the end of
+    // the mapping and faults. Clamping to nullptr reproduces the observable behaviour ("no info for this
+    // id") without touching the mod build, where the over-read is harmless.
+    static CBaseModelInfo* GetModelInfo(int32 index) {
+#ifdef NOTSA_STANDALONE
+        if (index < 0 || index >= NUM_MODEL_INFOS) {
+            return nullptr;
+        }
+#endif
+        return ms_modelInfoPtrs[index];
+    }
     static auto GetPedModelInfo(int32 index) { return GetModelInfo(index)->AsPedModelInfoPtr(); }
     static auto GetVehicleModelInfo(int32 index) { return GetModelInfo(index)->AsVehicleModelInfoPtr(); }
     static void SetModelInfo(int32 index, CBaseModelInfo* pInfo) { ms_modelInfoPtrs[index] = pInfo; }

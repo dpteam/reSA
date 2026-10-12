@@ -38,7 +38,18 @@ bool CCarFXRenderer::Initialise() {
 
 // 0x5D5BC0
 void CCarFXRenderer::InitialiseDirtTexture() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this loads the 16 car "dirt/grunge" textures (TXD "vehicle", e.g. "vehiclegrunge256"
+    // + its mask - verified in disasm 0x5D5BC0) into ms_aDirtTextures (0xC02BD0). They are consumed only
+    // by CVehicleModelInfo::SetDirtTextures, which guards every access with `if (info->m_apDirtMaterials[i])`,
+    // and those dirt materials are created exclusively by the custom RxPipeline car-FX renderer - which
+    // librw cannot provide (see Initialise() just above) and is therefore not attached here. So leaving
+    // the array zero-filled is inert: no dirt, no crash. TODO: real car env-map/dirt rendering on top of
+    // librw's pipelines - see IDEAS.md.
+    return;
+#else
     plugin::Call<0x5D5BC0>();
+#endif
 }
 
 // 0x5D5AD0
