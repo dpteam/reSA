@@ -298,6 +298,11 @@ void* HAnimHierarchyGetMatrices(void* hierarchy);
 int   HAnimIDGetIndex(void* hierarchy, int id);            //!< `RpHAnimIDGetIndex`
 void  HAnimHierarchyUpdateMatrices(void* hierarchy);       //!< `RpHAnimHierarchyUpdateMatrices`
 
+/*! @brief The RW class tag of an `RwObject`/`RpAtomic`/`RwCamera`/`RpLight` (librw `Object::type`).
+ *  Values (librw rwobjects.h): Frame 0, Atomic 1, Camera 2, Light 3, Material 4, World 7,
+ *  TexDictionary 6, Geometry 8. Used to check a blind `RwObject* -> RpAtomic*` cast is valid. */
+int ObjectGetType(const void* object);
+
 /*! @brief `RwFrameForAllChildren` / `RwFrameForAllObjects` (disasm 0x7F0DC0 / 0x7F1200).
  *  Both walk the frame's children (resp. attached objects) and call `cb`; iteration **stops as soon as
  *  the callback returns NULL** (that is RW's convention, and librw's `forAllChildren` matches it).

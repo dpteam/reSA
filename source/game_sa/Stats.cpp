@@ -113,7 +113,14 @@ bool CStats::IsStatFloat(eStats stat) {
 
 // 0x558EC0
 bool CStats::PopulateFavoriteRadioStationList() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: not reversed. Called from CStats::Init to seed the player's favourite-radio-station
+    // list; the list itself is only consulted by the radio/pause-menu code at runtime, so leaving it
+    // unseeded is inert for loading (worst case: no favourites until this is done).
+    return false;
+#else
     return plugin::CallAndReturn<bool, 0x558EC0>();
+#endif
 }
 
 // 0x558FA0
@@ -257,12 +264,34 @@ bool CStats::IsStatCapped(eStats stat) {
 
 // 0x559760
 void CStats::CheckForStatsMessage() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: not reversed (0x559760, ~256 bytes). Per disasm it bails out unless the player is in a
+    // state where messages are wanted, then walks 128 entries of a 0x10-byte table at 0xB78200, compares
+    // each entry's stat value against a threshold and, on a crossing, raises a HUD message (via 0x6A0050 /
+    // 0x588BE0) and sets a "shown" flag in the entry plus a byte at 0xB794D4.
+    // Every effect is HUD display state, and the only callers during loading are the two calls in
+    // CStats::Init right after setting STAT_MAX_HEALTH / STAT_STAMINA - i.e. "should we announce the
+    // initial value?", which is inert before any HUD exists. So skipping it changes nothing but a
+    // startup message. TODO: reverse with the stat-display table (see LoadStatUpdateConditions).
+    return;
+#else
     plugin::Call<0x559760>();
+#endif
 }
 
 // 0x559860
 void CStats::LoadStatUpdateConditions() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: not reversed. Per disasm it opens DATA\STATDISP.DAT ("rb", 0x859C6C) and parses the
+    // stat-display conditions. That file's own header says what it is:
+    //     "statdisp.dat - selects when to show messages based on stat values in the game"
+    // i.e. purely HUD message configuration, consumed by CheckForStatsMessage (also stubbed above). So
+    // skipping it changes nothing but which stat messages would appear. TODO: reverse together with
+    // CheckForStatsMessage.
+    return;
+#else
     plugin::Call<0x559860>();
+#endif
 }
 
 // 0x5599B0

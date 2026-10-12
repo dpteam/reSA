@@ -966,6 +966,10 @@ void* FrameForAllChildren(void* frame, void* cb, void* data) {
     return f;
 }
 
+int ObjectGetType(const void* object) {
+    return rp<const rw::ObjectWithFrame>(object)->object.type;
+}
+
 void* FrameForAllObjects(void* frame, void* cb, void* data) {
     auto* f = rp<rw::Frame>(frame);
     if (!cb) return f;
