@@ -884,11 +884,24 @@ void RwD3D9GetSamplerState(RwUInt32 stage, RwUInt32 type, void* value) {
 }
 
 void RwD3D9SetStencilClear(RwUInt32 stencilClear) {
+#ifdef NOTSA_STANDALONE
+    // Disasm 0x7F9D30 is two instructions: `mov ds:0xC97C44, eax` - RW's D3D9 driver simply remembers the
+    // value it will use when clearing the stencil buffer. librw has no such notion (its clear path never
+    // consults it) and RwD3D9GetStencilClear has no caller in this codebase, so storing the value
+    // reproduces the observable behaviour. The only gap is that stencil shadows are not cleared to a
+    // specific value - a render-fidelity issue, not a loading one.
+    rwbridge::SetStencilClear(stencilClear);
+#else
    ((void(__cdecl *)(RwUInt32))0x7F9D30)(stencilClear);
+#endif
 }
 
 RwUInt32 RwD3D9GetStencilClear() {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::GetStencilClear();
+#else
    return ((RwUInt32(__cdecl *)(void))0x7F9D40)();
+#endif
 }
 
 RwBool RwD3D9SetTexture(RwTexture* texture, RwUInt32 stage) {

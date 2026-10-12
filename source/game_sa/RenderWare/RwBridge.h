@@ -342,6 +342,11 @@ void* FrameRemoveChild(void* child);                    //!< `RwFrameRemoveChild
 void* FrameCloneHierarchy(void* root);                  //!< `RwFrameCloneHierarchy`
 void  FrameDestroyHierarchy(void* root);                //!< `RwFrameDestroyHierarchy`
 
+/*! @brief RW's D3D9 driver remembers the stencil value used on clear (a global at 0xC97C44 in the
+ *  original). librw has no equivalent, so the bridge stores it; nothing reads it back yet. */
+void     SetStencilClear(unsigned value);
+unsigned GetStencilClear();
+
 /*! @brief `RwFrameForAllChildren` / `RwFrameForAllObjects` (disasm 0x7F0DC0 / 0x7F1200).
  *  Both walk the frame's children (resp. attached objects) and call `cb`; iteration **stops as soon as
  *  the callback returns NULL** (that is RW's convention, and librw's `forAllChildren` matches it).

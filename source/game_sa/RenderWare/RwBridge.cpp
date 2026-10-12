@@ -113,6 +113,18 @@ const void* D3D9GetCaps() {
     return rw::d3d9::getD3D9Caps();
 }
 
+// RW's D3D9 driver keeps the "stencil value to clear to" as a driver global (0xC97C44 in the original).
+// librw has no such slot, so the bridge stores it here; see SetStencilClear.
+static unsigned s_stencilClear{};
+
+void SetStencilClear(unsigned value) {
+    s_stencilClear = value;
+}
+
+unsigned GetStencilClear() {
+    return s_stencilClear;
+}
+
 void SetMipmapping(bool enable) {
     rw::Texture::setMipmapping(enable ? 1 : 0);
 }
