@@ -616,7 +616,12 @@ RwTexDictionary* RwTexDictionarySetCurrent(RwTexDictionary* dict) {
 }
 
 const RwTexDictionary* RwTexDictionaryForAllTextures(const RwTexDictionary* dict, RwTextureCallBack fpCallBack, void* data) {
+#ifdef NOTSA_STANDALONE
+    // librw-managed TxdStore: the callback just iterates textures to free them; skipping is fine (may leak).
+    return dict;
+#else
     return ((const RwTexDictionary*(__cdecl *)(const RwTexDictionary*, RwTextureCallBack, void*))0x7F3730)(dict, fpCallBack, data);
+#endif
 }
 
 RwBool RwTexDictionaryForAllTexDictionaries(RwTexDictionaryCallBack fpCallBack, void* data) {

@@ -47,7 +47,12 @@ CVector* CAEScriptAudioEntity::AttachMissionAudioToPhysical(uint8 sampleId, CPhy
 
 // 0x4EC040
 void CAEScriptAudioEntity::ClearMissionAudio(uint8 sampleId) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: original body lives in gta_sa.exe; audio isn't functional here yet -> no-op.
+    // (Called from `Reset()` during `CAudioEngine::Reset()` when starting a new game.)
+#else
     plugin::CallMethod<0x4EC040, CAEScriptAudioEntity*, uint8>(this, sampleId);
+#endif
 }
 
 // 0x4EBFE0

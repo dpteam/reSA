@@ -461,7 +461,11 @@ void CStats::DisplayScriptStatUpdateMessage(eStatUpdateState state, eStats stat,
 
 // 0x55BC50
 void CStats::UpdateRespectStat(uint8 arg0) {
+#ifdef NOTSA_STANDALONE
+    // TODO: not reversed; no-op for now (updates the "respect" stat; not boot-critical). See VERIFY.md.
+#else
     plugin::Call<0x55BC50, uint8>(arg0);
+#endif
 }
 
 // 0x55BF20
