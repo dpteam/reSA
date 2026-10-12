@@ -2,6 +2,10 @@
 
 #include "rphanim.h"
 
+#ifdef NOTSA_STANDALONE
+#include "RwBridge.h" // librw-backed RenderWare (standalone build)
+#endif
+
 void RpHAnimHierarchySetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
     ((void(__cdecl *)(RwInt32, RwInt32))0x7C45E0)(blockSize, numBlocksToPrealloc);
 }
@@ -39,15 +43,27 @@ RpHAnimHierarchy* RpHAnimHierarchyDetachFrameIndex(RpHAnimHierarchy* hierarchy, 
 }
 
 RwBool RpHAnimFrameSetHierarchy(RwFrame* frame, RpHAnimHierarchy* hierarchy) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::HAnimFrameSetHierarchy(frame, hierarchy);
+#else
     return ((RwBool(__cdecl *)(RwFrame*, RpHAnimHierarchy*))0x7C5130)(frame, hierarchy);
+#endif
 }
 
 RpHAnimHierarchy* RpHAnimFrameGetHierarchy(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    return (RpHAnimHierarchy*)rwbridge::HAnimFrameGetHierarchy(frame);
+#else
     return ((RpHAnimHierarchy*(__cdecl *)(RwFrame*))0x7C5160)(frame);
+#endif
 }
 
 RwMatrix* RpHAnimHierarchyGetMatrixArray(RpHAnimHierarchy* hierarchy) {
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::HAnimHierarchyGetMatrices(hierarchy);
+#else
     return ((RwMatrix*(__cdecl *)(RpHAnimHierarchy*))0x7C5120)(hierarchy);
+#endif
 }
 
 // NOTSA
@@ -58,11 +74,20 @@ RwMatrix* RpHAnimHierarchyGetNodeMatrix(RpHAnimHierarchy* hierarchy, RwInt32 nod
 }
 
 RwBool RpHAnimHierarchyUpdateMatrices(RpHAnimHierarchy* hierarchy) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::HAnimHierarchyUpdateMatrices(hierarchy);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RpHAnimHierarchy*))0x7C51D0)(hierarchy);
+#endif
 }
 
 RwInt32 RpHAnimIDGetIndex(RpHAnimHierarchy* hierarchy, RwInt32 ID) {
+#ifdef NOTSA_STANDALONE
+    return (RwInt32)rwbridge::HAnimIDGetIndex(hierarchy, ID);
+#else
     return ((RwInt32(__cdecl *)(RpHAnimHierarchy*, RwInt32))0x7C51A0)(hierarchy, ID);
+#endif
 }
 
 RwBool RpHAnimPluginAttach() {

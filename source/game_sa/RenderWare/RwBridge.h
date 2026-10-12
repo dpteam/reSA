@@ -264,6 +264,40 @@ bool ImageFindRasterFormat(void* image, int rasterType, int* w, int* h, int* dep
 void RasterSetFromImage(void* raster, void* image);
 
 //-------------------------------------------------------------------------
+// RpSkin plugin (geometry skin + atomic hierarchy). `RpSkin*` is an *opaque* type in SA - the game
+// only ever goes through these accessors - so librw's `rw::Skin` can stand in for it directly.
+// Field correspondence (SA offsets from disasm, librw names from rwplugins.h):
+//   numBones 0x00 -> numBones | skinToBoneMatrices 0x0C -> inverseMatrices
+//   vertexBoneIndices 0x14 -> indices | vertexBoneWeights 0x18 -> weights
+// Note librw stores the bone indices as uint8 where RW's docs say uint32; that is what the game
+// actually assumes (see the RwUInt8 cast + TODO in ClothesBuilder.cpp:189).
+//-------------------------------------------------------------------------
+void* SkinGeometryGetSkin(void* geometry);                 //!< `RpSkinGeometryGetSkin`
+void  SkinGeometrySetSkin(void* geometry, void* skin);     //!< `RpSkinGeometrySetSkin`
+void* AtomicGetHAnimHierarchy(const void* atomic);         //!< `RpSkinAtomicGetHAnimHierarchy`
+void  AtomicSetHAnimHierarchy(void* atomic, void* hier);   //!< `RpSkinAtomicSetHAnimHierarchy`
+int   SkinGetNumBones(const void* skin);                   //!< `RpSkinGetNumBones`
+void* SkinGetVertexBoneWeights(const void* skin);          //!< `RpSkinGetVertexBoneWeights`
+void* SkinGetVertexBoneIndices(const void* skin);          //!< `RpSkinGetVertexBoneIndices`
+void* SkinGetSkinToBoneMatrices(const void* skin);         //!< `RpSkinGetSkinToBoneMatrices`
+
+//-------------------------------------------------------------------------
+// RpHAnim plugin (bone hierarchies attached to frames/clumps/atomics). `RpHAnimHierarchy` is again an
+// opaque type on the SA side, and librw implements the exact same lookup pair, so these are thin:
+//   RpHAnimFrameGetHierarchy(f)  <-> HAnimHierarchy::get(f)
+//   GetAnimHierarchyFromFrame(f)  = get(f), falling back to find(f)   (disasm 0x734AB0)
+//   GetAnimHierarchyFromClump(c)  = the above on c's frame            (disasm 0x734B10)
+//-------------------------------------------------------------------------
+void* HAnimFrameGetHierarchy(void* frame);                 //!< `RpHAnimFrameGetHierarchy`
+bool  HAnimFrameSetHierarchy(void* frame, void* hierarchy);//!< `RpHAnimFrameSetHierarchy`
+/*! @brief `GetAnimHierarchyFromFrame` (0x734AB0): the frame's own hierarchy, else search its objects. */
+void* HAnimGetHierarchyFromFrame(void* frame);
+/*! @brief `RpHAnimHierarchyGetMatrixArray` - librw's `matrices` (16-byte aligned). */
+void* HAnimHierarchyGetMatrices(void* hierarchy);
+int   HAnimIDGetIndex(void* hierarchy, int id);            //!< `RpHAnimIDGetIndex`
+void  HAnimHierarchyUpdateMatrices(void* hierarchy);       //!< `RpHAnimHierarchyUpdateMatrices`
+
+//-------------------------------------------------------------------------
 // RW object-plugin registration - the game's *own* plugins (Visibility, TxdStore, Collision, 2dEffect,
 // Breakable, NodeName, Pipeline, RpAnimBlend, ...), as opposed to the RW-SDK plugins that
 // `RegisterCorePlugins()` already installs.

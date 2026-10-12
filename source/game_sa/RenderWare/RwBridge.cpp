@@ -878,6 +878,84 @@ void RasterSetFromImage(void* raster, void* image) {
 }
 
 //-------------------------------------------------------------------------
+// RpSkin plugin - see the declarations in RwBridge.h for the field correspondence.
+//-------------------------------------------------------------------------
+void* SkinGeometryGetSkin(void* geometry) {
+    return rw::Skin::get(rp<const rw::Geometry>(geometry));
+}
+
+void SkinGeometrySetSkin(void* geometry, void* skin) {
+    rw::Skin::set(rp<rw::Geometry>(geometry), rp<rw::Skin>(skin));
+}
+
+void* AtomicGetHAnimHierarchy(const void* atomic) {
+    return rw::Skin::getHierarchy(rp<const rw::Atomic>(atomic));
+}
+
+void AtomicSetHAnimHierarchy(void* atomic, void* hier) {
+    rw::Skin::setHierarchy(rp<rw::Atomic>(atomic), rp<rw::HAnimHierarchy>(hier));
+}
+
+int SkinGetNumBones(const void* skin) {
+    return rp<const rw::Skin>(skin)->numBones;
+}
+
+void* SkinGetVertexBoneWeights(const void* skin) {
+    return rp<const rw::Skin>(skin)->weights;
+}
+
+void* SkinGetVertexBoneIndices(const void* skin) {
+    return rp<const rw::Skin>(skin)->indices;
+}
+
+void* SkinGetSkinToBoneMatrices(const void* skin) {
+    return rp<const rw::Skin>(skin)->inverseMatrices;
+}
+
+//-------------------------------------------------------------------------
+// RpHAnim plugin - see the declarations in RwBridge.h.
+//-------------------------------------------------------------------------
+void* HAnimFrameGetHierarchy(void* frame) {
+    return rw::HAnimHierarchy::get(rp<rw::Frame>(frame));
+}
+
+bool HAnimFrameSetHierarchy(void* frame, void* hierarchy) {
+    // RpHAnimFrameSetHierarchy returns FALSE when the frame already has one attached (the original
+    // refuses to overwrite); mirror that so callers that check it behave identically.
+    auto* f  = rp<rw::Frame>(frame);
+    auto* hd = rw::HAnimData::get(f);
+    if (hd->hierarchy) {
+        return false;
+    }
+    hd->hierarchy = rp<rw::HAnimHierarchy>(hierarchy);
+    return true;
+}
+
+void* HAnimGetHierarchyFromFrame(void* frame) {
+    auto* f = rp<rw::Frame>(frame);
+    // Disasm 0x734AB0: HAnimHierarchy::get(f), and if that is null, RwFrameForAllObjects with a callback
+    // that does the same lookup per child object - i.e. librw's recursive HAnimHierarchy::find(f).
+    if (auto* hier = rw::HAnimHierarchy::get(f)) {
+        return hier;
+    }
+    return rw::HAnimHierarchy::find(f);
+}
+
+void* HAnimHierarchyGetMatrices(void* hierarchy) {
+    return rp<rw::HAnimHierarchy>(hierarchy)->matrices;
+}
+
+int HAnimIDGetIndex(void* hierarchy, int id) {
+    return rp<rw::HAnimHierarchy>(hierarchy)->getIndex(id);
+}
+
+void HAnimHierarchyUpdateMatrices(void* hierarchy) {
+    if (hierarchy) {
+        rp<rw::HAnimHierarchy>(hierarchy)->updateMatrices();
+    }
+}
+
+//-------------------------------------------------------------------------
 // Matrix / Vector math - see the declarations in RwBridge.h for why this is safe as plain casts.
 // (`MatrixCreate()` already exists above, next to the other object helpers.)
 //-------------------------------------------------------------------------

@@ -137,7 +137,11 @@ RwFrame* GetFirstChild(RwFrame* frame) {
 // 0x734AB0
 RpHAnimHierarchy* GetAnimHierarchyFromFrame(RwFrame* frame) {
     assert(frame);
+#ifdef NOTSA_STANDALONE
+    return (RpHAnimHierarchy*)rwbridge::HAnimGetHierarchyFromFrame(frame);
+#else
     return ((RpHAnimHierarchy * (__cdecl*)(RwFrame*))0x734AB0)(frame);
+#endif
 }
 
 // 0x734B10
