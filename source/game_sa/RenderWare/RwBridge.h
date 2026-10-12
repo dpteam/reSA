@@ -147,6 +147,14 @@ void* StreamOpenMemory(const unsigned char* data, unsigned size);
 void* StreamInitializeMemory(const void* data, unsigned size);
 void  StreamClose(void* stream);
 unsigned StreamRead(void* stream, void* buffer, unsigned length);
+/*! @brief `RwStreamReadChunkHeaderInfo` - fills type/length/version/build (SA's extra `isComplex` field
+ *  is internal and unread by the game, so it is left alone). @return false on a short read. */
+bool StreamReadChunkHeaderInfo(void* stream, unsigned* type, unsigned* length, unsigned* version, unsigned* build);
+/*! @brief `RwStreamRead{Int16,Int32,Real}` - disasm 0x7ED4A0/0x7ED4F0/0x7ED540 all just forward
+ *  (stream, buffer, numBytes) to the byte reader, so `numBytes` is a BYTE count, not an element count. */
+bool StreamReadInt16(void* stream, void* buf, unsigned numBytes);
+bool StreamReadInt32(void* stream, void* buf, unsigned numBytes);
+bool StreamReadReal(void* stream, void* buf, unsigned numBytes);
 void  StreamSkip(void* stream, unsigned offset);
 bool  StreamFindChunk(void* stream, unsigned type, unsigned* lengthOut, unsigned* versionOut);
 void* TexDictionaryStreamRead(void* stream); //!< librw `TexDictionary::streamRead`

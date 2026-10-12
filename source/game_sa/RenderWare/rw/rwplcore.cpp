@@ -647,17 +647,39 @@ RwStream* RwStreamWriteInt16(RwStream* stream, const RwInt16* ints, RwUInt32 num
 }
 
 RwStream* RwStreamReadReal(RwStream* stream, RwReal* reals, RwUInt32 numBytes) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::StreamReadReal(stream, reals, numBytes) ? stream : nullptr;
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwReal*, RwUInt32))0x7ED4F0)(stream, reals, numBytes);
+#endif
 }
 
 RwStream* RwStreamReadInt32(RwStream* stream, RwInt32* ints, RwUInt32 numBytes) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::StreamReadInt32(stream, ints, numBytes) ? stream : nullptr;
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwInt32*, RwUInt32))0x7ED540)(stream, ints, numBytes);
+#endif
 }
 
 RwStream* RwStreamReadInt16(RwStream* stream, RwInt16* ints, RwUInt32 numBytes) {
+#ifdef NOTSA_STANDALONE
+    return rwbridge::StreamReadInt16(stream, ints, numBytes) ? stream : nullptr;
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwInt16*, RwUInt32))0x7ED4A0)(stream, ints, numBytes);
+#endif
 }
 
 RwStream* RwStreamReadChunkHeaderInfo(RwStream* stream, RwChunkHeaderInfo* chunkHeaderInfo) {
+#ifdef NOTSA_STANDALONE
+    // Fills the 4 header dwords; SA's struct has a 5th field (`isComplex`) that the original sets from an
+    // extra call, but it is documented "Internal Use" and nothing in the game reads it, so it is left
+    // untouched rather than invented here.
+    return rwbridge::StreamReadChunkHeaderInfo(stream, &chunkHeaderInfo->type,
+                                               &chunkHeaderInfo->length,
+                                               &chunkHeaderInfo->version,
+                                               &chunkHeaderInfo->buildNum) ? stream : nullptr;
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwChunkHeaderInfo*))0x7ED590)(stream, chunkHeaderInfo);
+#endif
 }

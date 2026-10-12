@@ -495,6 +495,32 @@ unsigned StreamRead(void* stream, void* buffer, unsigned length) {
     return static_cast<rw::Stream*>(stream)->read8(buffer, length);
 }
 
+bool StreamReadChunkHeaderInfo(void* stream, unsigned* type, unsigned* length, unsigned* version, unsigned* build) {
+    rw::ChunkHeaderInfo hdr{};
+    if (!rw::readChunkHeaderInfo(static_cast<rw::Stream*>(stream), &hdr)) {
+        return false;
+    }
+    if (type)    *type    = hdr.type;
+    if (length)  *length  = hdr.length;
+    if (version) *version = hdr.version;
+    if (build)   *build   = hdr.build;
+    return true;
+}
+
+bool StreamReadInt16(void* stream, void* buf, unsigned numBytes) {
+    return static_cast<rw::Stream*>(stream)->read16(buf, numBytes) == numBytes;
+}
+
+bool StreamReadInt32(void* stream, void* buf, unsigned numBytes) {
+    return static_cast<rw::Stream*>(stream)->read32(buf, numBytes) == numBytes;
+}
+
+bool StreamReadReal(void* stream, void* buf, unsigned numBytes) {
+    // RwReal is float on D3D9; the original forwards to the plain byte reader (disasm 0x7ED4F0),
+    // so no conversion is wanted here.
+    return static_cast<rw::Stream*>(stream)->read8(buf, numBytes) == numBytes;
+}
+
 void StreamSkip(void* stream, unsigned offset) {
     static_cast<rw::Stream*>(stream)->seek(static_cast<rw::int32>(offset), 1 /* SEEK_CUR */);
 }
