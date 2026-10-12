@@ -133,7 +133,37 @@ void CGarage::CloseThisGarage() {
 
 // 0x447600
 void CGarage::InitDoorsAtStart() {
+#ifdef NOTSA_STANDALONE
+    // Reversed from disasm 0x447600 (60 bytes, no calls). Offsets confirmed against CGarage's layout:
+    // 0x38 m_fDoorPosition, 0x3C m_nTimeToOpen, 0x4C m_nType, 0x4D m_nDoorState, 0x4E m_nFlags.
+    //
+    //   m_nFlags = (m_nFlags & 0x39) | 0x40
+    //       keeps m_b0x1 | m_bDoorOpensUp | m_bDoorGoesIn | m_bCameraFollowsPlayer,
+    //       clears m_bInactive, m_bUsedRespray, m_bRespraysAlwaysFree, and sets m_bDoorClosed.
+    //   m_nDoorState = GARAGE_DOOR_CLOSED;  m_nTimeToOpen = 0;
+    //   switch (m_nType)  [the jump table is indexed by type-1, so type 0 and type 13 fall through]
+    //       types 2..5 (bomb shops + pay 'spray) -> m_nDoorState = OPEN, m_fDoorPosition = 1.0f
+    //       types 1, 6..12, 14..45               -> m_fDoorPosition = 0.0f
+    //       type 0 (INVALID) and 13 (a gap in the enum) -> leave m_fDoorPosition alone
+    // So the door starts open only for bomb shops and pay 'sprays; everything else starts closed.
+    m_nFlags = static_cast<uint8>((m_nFlags & 0x39) | 0x40);
+    m_nDoorState = GARAGE_DOOR_CLOSED;
+    m_nTimeToOpen = 0;
+
+    const auto t = static_cast<int32>(m_nType);
+    if (t == static_cast<int32>(eGarageType::BOMBSHOP_TIMED) ||
+        t == static_cast<int32>(eGarageType::BOMBSHOP_ENGINE) ||
+        t == static_cast<int32>(eGarageType::BOMBSHOP_REMOTE) ||
+        t == static_cast<int32>(eGarageType::PAYNSPRAY)) {
+        m_nDoorState    = GARAGE_DOOR_OPEN;
+        m_fDoorPosition = 1.0f;
+    } else if (t >= 1 && t <= 45 && t != 13) {
+        m_fDoorPosition = 0.0f;
+    }
+    return;
+#else
     plugin::CallMethod<0x447600, CGarage*>(this);
+#endif
 }
 
 // 0x4487D0
