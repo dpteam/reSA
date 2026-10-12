@@ -132,6 +132,9 @@
     ModelInfo, Camera, Ped, Automobile, script, MemoryMgr, TxdStore. Пригодится для наших заглушённых
     custom-пайплайнов и мобильной логики.
   * `SAMP` — **SA-MP 0.2.5** (клиент+сервер+RakNet). Для будущего **встроенного мультиплеера** (см. §6).
+  * `VCSPC` — **Vice City Stories PC** (мод на движке SA; те же адреса `0x728200`/`0x7273D0`/`0x719840`, но
+    реализации через `WRAPPER/EAXJMP` в оригинальный exe). Полезен как справочник по **логике** (`Frontend.cpp`,
+    `MenuSystem.cpp`, `Hud.cpp`, `Renderer.cpp`, `Shaders/`), не по standalone-рендеру.
 
 ### 5.2 Оригинальный 1.0 US EXE + PDB + CrashList (`refs/gtasa10us`) 🆕
 - **Что:** `gta_sa.exe` (14 383 616 байт = оригинальный **1.0 US**, НЕ Compact), фанатский `gta_sa.pdb`
@@ -167,6 +170,15 @@
   это **no-op**, поэтому **текст не рисуется вообще** (меню/HUD/загрузка). Нужно реализовать: он проходит по
   накопленному `FontRenderStateBuf` и рисует глифы через `CSprite2d` (см. `CFont::PrintChar` — там уже есть
   логика UV). Крупная задача, но важная для играбельности.
+  **Статус (2026-10-12, WIP):** реализованы облегчённо `PrintChar`/`ProcessCurrentString`/`AddToBuffer`
+  (немедленная отрисовка). **Диагноз:** `PrintString` **вызывается корректно** (`Start Game` x=280 width=240,
+  центрирование ок), `AddToBuffer` вызывается, текстура шрифта **грузится** (растр 512), и `CSprite2d::DrawRect`
+  **рисуется** в тех же координатах (проверял красным квадратом) — но **квады глифов не появляются даже с
+  `TEXTURERASTER=NULL`**. Похоже, именно 2D-рисование из `PrintChar`-пути не проходит (в отличие от прямого
+  `DrawRect`). Возможные причины (проверить): сборка вершин `RwIm2DVertex` в `SetVertices(RwIm2DVertex*, ...)`
+  (screen Z/rhw), либо состояние, выставляемое между `DrawBackground` и `DrawStandardMenus`. Смотреть reVC/re3
+  `renderer/Font.cpp` + `renderer/Sprite2d.cpp` (`AddToBuffer`/`RenderVertexBuffer`) и `AdditionalSources/SOME_GTA_SA_Sources`.
+  Итого: **ещё не работает**.
   **Полная цепочка текста (нужно реализовать всё):**
   1. `CFont::PrintChar` (0x718A10) — есть тело под заглушкой (не хватает лишь `else if (RenderState.m_bContainImages)`).
   2. `CSprite2d::AddToBuffer` (0x728200) — **не реверснут**; кодит `CFontChar` (12 × 0x30) в `FontRenderStateBuf`

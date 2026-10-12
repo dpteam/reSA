@@ -20,6 +20,7 @@ used as a reference when turning this project into a standalone game.
 | `refs/AdditionalSources/SOME_GTA_SA_Sources` | (user-provided) | **Partial SA *engine* reverse** (class list, struct field docs, `Engine/C*.cpp`, incl. `CSprite2d::AddToBuffer`). Great for **struct/layout/method reference**. |
 | `refs/AdditionalSources/PartialSAMobileCode` | (user-provided) | **Mobile SA** code slices (`pipes/` = RxPipeline for PC/MBR/Xbox + shaders, ModelInfo, Camera, Ped, Automobile, script, MemoryMgr, TxdStore). Useful for RxPipeline + mobile-specific logic. |
 | `refs/AdditionalSources/SAMP` | SA-MP 0.2.5 (leaked) + RakNet + server | **Multiplayer reference** for a future built-in MP (`client/net`, `gui`, `game`, `chatwindow`, `playertags`, …). |
+| `refs/AdditionalSources/VCSPC` | Vice City Stories PC (mod source) | **SA-based total-conversion mod** (same addresses: `0x728200` `AddToBuffer`, `0x7273D0` `RenderVertexBuffer`, `0x719840` `RenderFontBuffer`). Mostly `WRAPPER/EAXJMP` into the original exe (no standalone impls), but has full `Frontend.cpp`/`MenuSystem.cpp`/`Hud.cpp`/`Renderer.cpp`/`Shaders/` useful as **logic/serving reference**. |
 
 > ⚠️ `AdditionalSources/*` are **user-provided references** — treat exactly like the rest of `refs/` (read-only, never
 > copy verbatim, never commit — `refs/` is gitignored). They may contain proprietary/leaked code; they are for
