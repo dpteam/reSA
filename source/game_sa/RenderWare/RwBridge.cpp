@@ -464,10 +464,30 @@ void* StreamOpenMemory(const unsigned char* data, unsigned size) {
     return stream;
 }
 
+// The one-and-only stream backing `_rwStreamInitialize` (see StreamInitializeMemory below). Process-lifetime,
+// never deleted - `StreamClose` must not free it, because the game closes it more than once.
+static rw::StreamMemory& CachedMemoryStream() {
+    static rw::StreamMemory s{};
+    return s;
+}
+
+void* StreamInitializeMemory(const void* data, unsigned size) {
+    // One cached stream, re-opened per call - see the comment in RwBridge.h. `StreamMemory::open` resets
+    // position to 0 and `close` is a no-op, so re-opening is exactly what the original's in-place
+    // re-initialisation of its `gRwStream` buffer did.
+    if (!data) {
+        return nullptr;
+    }
+    CachedMemoryStream().open(const_cast<rw::uint8*>(static_cast<const rw::uint8*>(data)), size);
+    return &CachedMemoryStream();
+}
+
 void StreamClose(void* stream) {
     if (auto* s = static_cast<rw::Stream*>(stream)) {
         s->close();
-        delete s;
+        if (static_cast<rw::Stream*>(&CachedMemoryStream()) != s) {
+            delete s; // owned by us (file / ad-hoc memory stream)
+        }
     }
 }
 
@@ -821,6 +841,67 @@ void* MaterialSetColor(void* material, const unsigned char* rgba) {
 
 void* MaterialGetColor(const void* material) {
     return &rp<rw::Material>(material)->color;
+}
+
+//-------------------------------------------------------------------------
+// Matrix / Vector math - see the declarations in RwBridge.h for why this is safe as plain casts.
+// (`MatrixCreate()` already exists above, next to the other object helpers.)
+//-------------------------------------------------------------------------
+void MatrixDestroy(void* matrix) {
+    if (matrix) {
+        rp<rw::Matrix>(matrix)->destroy();
+    }
+}
+
+void* MatrixMultiply(void* out, const void* src1, const void* src2) {
+    rw::Matrix::mult(rp<rw::Matrix>(out), rp<const rw::Matrix>(src1), rp<const rw::Matrix>(src2));
+    return out;
+}
+
+void* MatrixInvert(void* out, const void* src) {
+    rw::Matrix::invert(rp<rw::Matrix>(out), rp<const rw::Matrix>(src));
+    return out;
+}
+
+void* MatrixTranspose(void* out, const void* src) {
+    rw::Matrix::transpose(rp<rw::Matrix>(out), rp<const rw::Matrix>(src));
+    return out;
+}
+
+void* MatrixTransform(void* matrix, const void* transform, int combineOp) {
+    return rp<rw::Matrix>(matrix)->transform(rp<const rw::Matrix>(transform),
+                                             static_cast<rw::CombineOp>(combineOp));
+}
+
+void* MatrixRotate(void* matrix, const void* axis, float angle, int combineOp) {
+    return rp<rw::Matrix>(matrix)->rotate(rp<const rw::V3d>(axis), angle,
+                                          static_cast<rw::CombineOp>(combineOp));
+}
+
+void* MatrixTranslate(void* matrix, const void* translation, int combineOp) {
+    return rp<rw::Matrix>(matrix)->translate(rp<const rw::V3d>(translation),
+                                             static_cast<rw::CombineOp>(combineOp));
+}
+
+void* MatrixScale(void* matrix, const void* scale, int combineOp) {
+    return rp<rw::Matrix>(matrix)->scale(rp<const rw::V3d>(scale),
+                                         static_cast<rw::CombineOp>(combineOp));
+}
+
+void MatrixSetIdentity(void* matrix) {
+    rp<rw::Matrix>(matrix)->setIdentity();
+}
+
+void MatrixOptimize(void* matrix) {
+    rp<rw::Matrix>(matrix)->optimize();
+}
+
+void V3dTransformPoints(void* out, const void* in, int n, const void* matrix) {
+    rw::V3d::transformPoints(rp<rw::V3d>(out), rp<const rw::V3d>(in), n, rp<const rw::Matrix>(matrix));
+}
+
+void V3dTransformVectors(void* out, const void* in, int n, const void* matrix) {
+    rw::V3d::transformVectors(rp<rw::V3d>(out), rp<const rw::V3d>(in), n, rp<const rw::Matrix>(matrix));
 }
 
 void* RasterGetNativeTexture(const void* raster) {

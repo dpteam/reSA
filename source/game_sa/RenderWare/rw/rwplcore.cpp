@@ -47,7 +47,24 @@ void RwStreamSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreal
 }
 
 RwStream* _rwStreamInitialize(RwStream* stream, RwBool rwOwned, RwStreamType type, RwStreamAccessType accessType, const void* data) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: librw's Stream is a polymorphic class with a different layout, so the caller's SA-sized
+    // buffer (`stream`, always the `gRwStream` global) cannot be initialised in place. Re-open librw's
+    // cached memory stream instead and hand that back - every call site uses the returned pointer.
+    (void)stream;
+    (void)rwOwned;
+    (void)accessType;
+    if (type != rwSTREAMMEMORY || !data) {
+        return nullptr; // only readable memory streams are used this way by the game
+    }
+    // Mirrors `tRwStreamInitializeData` (Streaming.h:141, VALIDATE_SIZE 0x8) - that header is not
+    // available in this TU, and the layout is confirmed by disasm of 0x7EC810.
+    struct RwMemStreamInitData { uint8* buffer; uint32 size; };
+    const auto* mem = static_cast<const RwMemStreamInitData*>(data);
+    return (RwStream*)rwbridge::StreamInitializeMemory(mem->buffer, mem->size);
+#else
     return ((RwStream*(__cdecl *)(RwStream*, RwBool, RwStreamType, RwStreamAccessType, const void*))0x7EC810)(stream, rwOwned, type, accessType, data);
+#endif
 }
 
 RwStream* RwStreamOpen(RwStreamType type, RwStreamAccessType accessType, const void* data) {
@@ -194,7 +211,12 @@ void RwMatrixSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPreal
 }
 
 RwBool RwMatrixDestroy(RwMatrix* mpMat) {
-    return ((RwBool(__cdecl *)(RwMatrix*))0x7F2A20)(mpMat);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::MatrixDestroy(mpMat);
+    return true;
+#else    return ((RwBool(__cdecl *)(RwMatrix*))0x7F2A20)(mpMat);
+#endif
 }
 
 RwMatrix* RwMatrixCreate() {
@@ -206,11 +228,19 @@ RwMatrix* RwMatrixCreate() {
 }
 
 RwMatrix* RwMatrixMultiply(RwMatrix* matrixOut, const RwMatrix* MatrixIn1, const RwMatrix* matrixIn2) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, const RwMatrix*))0x7F18B0)(matrixOut, MatrixIn1, matrixIn2);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixMultiply(matrixOut, MatrixIn1, matrixIn2);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, const RwMatrix*))0x7F18B0)(matrixOut, MatrixIn1, matrixIn2);
+#endif
 }
 
 RwMatrix* RwMatrixTransform(RwMatrix* matrix, const RwMatrix* transform, RwOpCombineType combineOp) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, RwOpCombineType))0x7F25A0)(matrix, transform, combineOp);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixTransform(matrix, transform, combineOp);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, RwOpCombineType))0x7F25A0)(matrix, transform, combineOp);
+#endif
 }
 
 RwMatrix* RwMatrixOrthoNormalize(RwMatrix* matrixOut, const RwMatrix* matrixIn) {
@@ -218,19 +248,35 @@ RwMatrix* RwMatrixOrthoNormalize(RwMatrix* matrixOut, const RwMatrix* matrixIn) 
 }
 
 RwMatrix* RwMatrixInvert(RwMatrix* matrixOut, const RwMatrix* matrixIn) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*))0x7F2070)(matrixOut, matrixIn);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixInvert(matrixOut, matrixIn);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*))0x7F2070)(matrixOut, matrixIn);
+#endif
 }
 
 RwMatrix* RwMatrixScale(RwMatrix* matrix, const RwV3d* scale, RwOpCombineType combineOp) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F22C0)(matrix, scale, combineOp);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixScale(matrix, scale, combineOp);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F22C0)(matrix, scale, combineOp);
+#endif
 }
 
 RwMatrix* RwMatrixTranslate(RwMatrix* matrix, const RwV3d* translation, RwOpCombineType combineOp) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F2450)(matrix, translation, combineOp);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixTranslate(matrix, translation, combineOp);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F2450)(matrix, translation, combineOp);
+#endif
 }
 
 RwMatrix* RwMatrixRotate(RwMatrix* matrix, const RwV3d* axis, RwReal angle, RwOpCombineType combineOp) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwReal, RwOpCombineType))0x7F1FD0)(matrix, axis, angle, combineOp);
+
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::MatrixRotate(matrix, axis, angle, combineOp);
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwReal, RwOpCombineType))0x7F1FD0)(matrix, axis, angle, combineOp);
+#endif
 }
 
 RwMatrix* RwMatrixRotateOneMinusCosineSine(RwMatrix* matrix, const RwV3d* unitAxis, RwReal oneMinusCosine, RwReal sine, RwOpCombineType combineOp) {
@@ -242,11 +288,26 @@ const RwMatrix* RwMatrixQueryRotate(const RwMatrix* matrix, RwV3d* unitAxis, RwR
 }
 
 RwMatrix* RwMatrixUpdate(RwMatrix* matrix) {
+#ifdef NOTSA_STANDALONE
+    // Disasm 0x7F18A0 is two instructions, and RwMatrix's layout is identical in librw (MEMORY.md §10),
+    // so no bridge is needed - this is pure bit-twiddling on a struct we share:
+    //     mov eax,[esp+4] ; and dword [eax+0xC],0xFFFDFFFC ; ret      (eax doubles as the return value)
+    // i.e. clear the matrix *type* bits (librw Matrix::TYPEMASK = 0x3) and the IDENTITY flag
+    // (rwMATRIXINTERNALIDENTITY / librw Matrix::IDENTITY = 0x20000), marking it as "not derived yet".
+    matrix->flags &= ~(RwUInt32)(0x3 | 0x20000);
+    return matrix;
+#else
     return ((RwMatrix*(__cdecl *)(RwMatrix*))0x7F18A0)(matrix);
+#endif
 }
 
 RwMatrix* RwMatrixOptimize(RwMatrix* matrix, const RwMatrixTolerance* tolerance) {
-    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrixTolerance*))0x7F17E0)(matrix, tolerance);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::MatrixOptimize(matrix); // librw applies its own tolerances
+    return matrix;
+#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrixTolerance*))0x7F17E0)(matrix, tolerance);
+#endif
 }
 
 RwReal _rwMatrixDeterminant(const RwMatrix* matrix) {
@@ -282,19 +343,39 @@ RwReal RwV2dNormalize(RwV2d* out, const RwV2d* in) {
 }
 
 RwV3d* RwV3dTransformPoint(RwV3d* pointOut, const RwV3d* pointIn, const RwMatrix* matrix) {
-    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDD60)(pointOut, pointIn, matrix);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::V3dTransformPoints(pointOut, pointIn, 1, matrix);
+    return pointOut;
+#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDD60)(pointOut, pointIn, matrix);
+#endif
 }
 
 RwV3d* RwV3dTransformPoints(RwV3d* pointsOut, const RwV3d* pointsIn, RwInt32 numPoints, const RwMatrix* matrix) {
-    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDD90)(pointsOut, pointsIn, numPoints, matrix);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::V3dTransformPoints(pointsOut, pointsIn, numPoints, matrix);
+    return pointsOut;
+#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDD90)(pointsOut, pointsIn, numPoints, matrix);
+#endif
 }
 
 RwV3d* RwV3dTransformVector(RwV3d* vectorOut, const RwV3d* vectorIn, const RwMatrix* matrix) {
-    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDDC0)(vectorOut, vectorIn, matrix);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::V3dTransformVectors(vectorOut, vectorIn, 1, matrix);
+    return vectorOut;
+#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDDC0)(vectorOut, vectorIn, matrix);
+#endif
 }
 
 RwV3d* RwV3dTransformVectors(RwV3d* vectorsOut, const RwV3d* vectorsIn, RwInt32 numPoints, const RwMatrix* matrix) {
-    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDDF0)(vectorsOut, vectorsIn, numPoints, matrix);
+
+#ifdef NOTSA_STANDALONE
+    rwbridge::V3dTransformVectors(vectorsOut, vectorsIn, numPoints, matrix);
+    return vectorsOut;
+#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDDF0)(vectorsOut, vectorsIn, numPoints, matrix);
+#endif
 }
 
 RwReal _rwSqrt(const RwReal num) {

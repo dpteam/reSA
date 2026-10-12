@@ -133,6 +133,18 @@ void  LightSetFlags(void* light, unsigned flags);
 //-------------------------------------------------------------------------
 void* StreamOpenFile(const char* filename);
 void* StreamOpenMemory(const unsigned char* data, unsigned size);
+/*!
+ * @brief `_rwStreamInitialize(stream, rwOwned, rwSTREAMMEMORY, rwSTREAMREAD, {buf,size})`.
+ *
+ * The original initialises the *caller-supplied* buffer in place (disasm 0x7EC810: writes type/accessType/
+ * rwOwned into `[stream]`,`[stream+4]`,`[stream+0x20]`, then the memory block at `[stream+0xC]`) and
+ * returns it. Every call site passes the same global (`gRwStream`, 0x8E48AC) and re-initialises it, and
+ * `rwOwned` is 0 (the data is not the stream's). librw's `Stream` is a polymorphic class with a different
+ * layout, so we cannot reuse the SA buffer; instead we keep ONE cached `rw::StreamMemory` and re-open it,
+ * which reproduces that exact behaviour (see also `StreamClose`, which must not delete this one).
+ * @return The librw stream to use, or nullptr for anything but a readable memory stream.
+ */
+void* StreamInitializeMemory(const void* data, unsigned size);
 void  StreamClose(void* stream);
 unsigned StreamRead(void* stream, void* buffer, unsigned length);
 void  StreamSkip(void* stream, unsigned offset);
@@ -270,6 +282,26 @@ NOTSA_PLG_FUNCS(Light);
 NOTSA_PLG_FUNCS(Camera);
 NOTSA_PLG_FUNCS(World);
 #undef NOTSA_PLG_FUNCS
+
+//-------------------------------------------------------------------------
+// Matrix / Vector math (rwplcore).
+// `RwMatrix`/`RwV3d`/`RwV2d` are layout-identical to librw's (`MEMORY.md` §10), so these are plain
+// pointer casts around librw's own routines - no per-field translation, and the mod build is untouched.
+// Bridging the whole family at once because Fx, the world/streaming and every renderer path use it.
+//-------------------------------------------------------------------------
+void  MatrixDestroy(void* matrix);          //!< `RwMatrixDestroy`
+void* MatrixMultiply(void* out, const void* src1, const void* src2);  //!< `RwMatrixMultiply` (out = src1*src2)
+void* MatrixInvert(void* out, const void* src);                        //!< `RwMatrixInvert`
+void* MatrixTranspose(void* out, const void* src);                     //!< `RwMatrixTranspose`
+void* MatrixTransform(void* matrix, const void* transform, int combineOp);
+void* MatrixRotate(void* matrix, const void* axis, float angle, int combineOp);
+void* MatrixTranslate(void* matrix, const void* translation, int combineOp);
+void* MatrixScale(void* matrix, const void* scale, int combineOp);
+void  MatrixSetIdentity(void* matrix);      //!< `RwMatrixSetIdentity`
+void  MatrixOptimize(void* matrix);         //!< `RwMatrixOptimize` (default tolerances)
+/*! @brief `RwV3dTransformPoint(s)` / `RwV3dTransformVector(s)` (points include translation). */
+void  V3dTransformPoints(void* out, const void* in, int n, const void* matrix);
+void  V3dTransformVectors(void* out, const void* in, int n, const void* matrix);
 
 /*! @brief librw raster format/depth/flags of a raster, for debugging (0s if null). */
 void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags);
