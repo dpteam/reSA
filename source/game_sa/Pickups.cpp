@@ -262,8 +262,38 @@ CPickup* CPickups::FindPickUpForThisObject(CObject* object) {
 // returns pickup handle
 // g
 tPickupReference CPickups::GenerateNewOne(CVector coors, uint32 modelId, ePickupType pickupType, uint32 ammo, uint32 moneyPerDay, bool isEmpty, char* message) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the original (0x456F20) is not reversed, and it is reached from CFileLoader::LoadPickup
+    // while reading the IPL files, so the new game stopped cold on the first PICK line. Implement the
+    // obvious part: claim a free slot (free == PICKUP_NONE, which is also what CPickup::Remove leaves
+    // behind), fill it from the arguments, and hand back a unique reference so the caller can invalidate
+    // it later. The original additionally creates the pickup's CObject / radar blip / message and does the
+    // type-specific setup - left as TODO (IDEAS.md); the pickups exist but stay visually inert until then.
+    for (auto i = 0u; i < std::size(aPickUps); ++i) {
+        auto& pk = aPickUps[i];
+        if (pk.m_nPickupType != PICKUP_NONE) {
+            continue; // slot in use
+        }
+        pk.m_vecPos            = coors;
+        pk.m_nModelIndex       = static_cast<int16>(modelId);
+        pk.m_nPickupType       = pickupType;
+        pk.m_nAmmo             = ammo;
+        pk.m_nMoneyPerDay      = static_cast<uint16>(moneyPerDay);
+        pk.m_pObject           = nullptr;
+        pk.m_fRevenueValue     = 0.0f;
+        pk.m_nRegenerationTime = 0;
+        pk.m_nFlags.bDisabled  = false;
+        pk.m_nFlags.bEmpty     = isEmpty;
+        pk.m_nFlags.bVisible   = true;
+        (void)message; // pickup messages (aMessages) are part of the unreversed remainder
+        return GetNewUniquePickupIndex(static_cast<int32>(i));
+    }
+    NOTSA_LOG_WARN("CPickups::GenerateNewOne: no free pickup slot ({} used)", std::size(aPickUps));
+    return {}; // tPickupReference() == -1, i.e. "no pickup" - same as the original on failure
+#else
     auto retVal = plugin::CallAndReturn<int32, 0x456F20, CVector, uint32, ePickupType, uint32, uint32, bool, char*>(coors, modelId, pickupType, ammo, moneyPerDay, isEmpty, message);
     return tPickupReference(retVal);
+#endif
 }
 
 /*!
