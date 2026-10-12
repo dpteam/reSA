@@ -274,6 +274,14 @@ User-provided. **Read-only, never commit** (in gitignored `refs/`), treat like t
 > they contain close analogues of SA subsystems (`Frontend`/`MenuScreens` for `CMenuManager`, `renderer/Font.cpp` for
 > `CFont`/`CSprite2d`, `audio/`, `skel/win/win.cpp` for `psSelectDevice`/boot). Less guessing, faster. Read-only; reimplement.
 
+> 🥇 **TOP-PRIORITY REFERENCE — reverse the real `gta_sa.exe` (and its PDB):** for *exact* behavior, disassemble
+> `refs/gtasa10us/gta_sa.exe` (1.0 US, `objdump -d -M intel --start-address=0xADDR --stop-address=0xADDR2`) and read
+> `refs/gtasa10us/gta_sa.pdb`. **Check this FIRST / above reVC & refs** when a function's exact logic matters (field
+> offsets, render state, math). Tools on this machine: `objdump` (mingw, `C:\Users\DartPower\scoop\apps\mingw\current\bin\objdump.exe`),
+> Python `pefile` (no capstone/llvm-pdbutil though). ⚠️ Addresses are **1.0-US**; our build targets a **Compact** exe, so
+> match by **function identity/disassembly**, not by trusting addresses blindly. Example win: `CSprite2d::AddToBuffer`
+> (0x728200) / `RenderVertexBuffer` (0x7273D0) disassembly **matched our port exactly**.
+
 ### 5e. Viewport / windowed-mode (standalone) — fixed 2026-10-12
 Symptom: everything rendered **tiny in the top-left corner**. Cause: `psSelectDevice` (`WinPs.cpp`) only set `RsGlobal`
 in the **fullscreen/exclusive** branch; in windowed mode it stayed at the `640x448` default, and the camera raster

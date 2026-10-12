@@ -521,6 +521,14 @@ bool SetVideoMode(int index) { return rw::Engine::setVideoMode(index) != 0; }
 unsigned GetVersion() {
     return static_cast<unsigned>(rw::version);
 }
+
+void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags) {
+    if (!raster) { *format = 0; *depth = 0; *flags = 0; return; }
+    const auto* r = static_cast<const rw::Raster*>(raster);
+    *format = r->format;
+    *depth  = r->depth;
+    *flags  = r->flags;
+}
 } // namespace rwbridge
 
 #endif // NOTSA_STANDALONE

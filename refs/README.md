@@ -41,6 +41,11 @@ git clone --depth 1 --single-branch --branch master https://github.com/aap/librw
 
 ## Findings so far (details in `MEMORY.md` §3, §5b)
 
+> 🥇 **Priority: reverse the real game (`refs/gtasa10us/gta_sa.exe` + `gta_sa.pdb`) FIRST** when exact behavior matters.
+> Use `objdump` (mingw is installed) e.g.
+> `objdump -d -M intel --start-address=0x728200 --stop-address=0x728400 refs/gtasa10us/gta_sa.exe`.
+> `reVC`/`re3` remain great for *architecture/logic*, but the binary/PDB is the ground truth for *our* game.
+
 > **Tip (from the user):** when something on our side isn't reversed (a `plugin::Call` stub), **check `refs/reVC`** first —
 > many SA systems have a direct or near-equivalent VC implementation (`audio/`, `text/`, `renderer/`, `fakerw/`, `core/`).
 > Reimplement in our own style; don't copy verbatim.

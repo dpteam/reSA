@@ -169,4 +169,7 @@ bool SetVideoMode(int index);
 
 /*! @brief The RenderWare library version (as reported by the engine). */
 unsigned GetVersion();
+
+/*! @brief librw raster format/depth/flags of a raster, for debugging (0s if null). */
+void RasterGetInfo(const void* raster, unsigned* format, int* depth, unsigned* flags);
 } // namespace rwbridge
