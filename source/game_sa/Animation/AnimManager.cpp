@@ -189,7 +189,25 @@ AssocGroupId CAnimManager::GetAnimationGroupIdByName(notsa::ci_string_view name)
             return (AssocGroupId)(i);
         }
     }
+#ifdef NOTSA_STANDALONE
+    // Standalone: the first 118 entries of `ms_aAnimAssocDefinitions` (0x8AA5A8) are data baked into the
+    // original exe's .data (`Initialise` sets ms_numAnimAssocDefinitions = 118 - verified in disasm
+    // 0x5BF6B0: `mov ds:0xb4ea28,0x76` - and only *appends* the extra groups from DATA\ANIMGRP.DAT, which
+    // has just 21 of them and no `player`). StaticRef zero-fills them here, so every lookup fails.
+    // Rebuilding that table properly is a large, separate job (118 groups, up to 191 anims each, 34
+    // distinct AnimDescriptor sets, plus the AnimNames string tables) - tracked in IDEAS.md.
+    // Until then, fall back to the default group instead of killing the load: animations will be wrong,
+    // but the game gets to actually boot.
+    static bool s_warned{};
+    if (!s_warned) {
+        s_warned = true;
+        NOTSA_LOG_WARN("Standalone: anim group '{}' not in the (unreconstructed) definition table; "
+                       "falling back to ANIM_GROUP_DEFAULT. Further misses are silent.", name);
+    }
+    return AssocGroupId::ANIM_GROUP_DEFAULT;
+#else
     NOTSA_UNREACHABLE("Couldn't find group with name {}", name);
+#endif
 }
 
 // 0x4D3A40

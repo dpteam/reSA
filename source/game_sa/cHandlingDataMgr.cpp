@@ -184,13 +184,48 @@ void cHandlingDataMgr::LoadHandlingData() {
 
     auto nLoadedHandlings{ 0u };
 
+#ifdef NOTSA_STANDALONE
+    // `VehicleNames` (0x8D3978) is a table of 210 vehicle names that the original bakes into its .data.
+    // `StaticRef` only zero-fills it in the standalone build, which broke handling lookup twice over:
+    //   * `FindExactWord` strncmp's by `strlen(entry)`, and `strlen("")==0`, so *every* name matched
+    //     slot 0 - that is why the log claimed "259 handlings for 210 vehicles" while all of them were
+    //     really written into `m_aVehicleData[0]`;
+    //   * `GetHandlingId` uses `strcmp`, so it found nothing and died on "Can't find LANDSTAL".
+    // Rebuild the table while parsing, in the exact order the original has it (verified against
+    // refs/gtasa10us/gta_sa.exe): the first 210 handling lines in file order, skipping comments and the
+    // '^' anim-group lines, name = first token after stripping the '!' (bike) / '$' (flying) / '%' (boat)
+    // prefix. Bike names land at 162..174 and boat names at 175..186, and the trailing 49 lines in
+    // handling.cfg are *redefinitions* of already-interned names (they reuse the existing id).
+    const auto InternVehicleName = [](const char* name, int32& numFilled) -> int32 {
+        for (auto i = 0; i < numFilled; i++) {
+            const auto* entry = &VehicleNames[i][0];
+            if (!strncmp(name, entry, strlen(entry))) { // same prefix rule as `FindExactWord`
+                return i;
+            }
+        }
+        if (numFilled >= static_cast<int32>(std::size(VehicleNames))) {
+            return -1; // the original's table is exactly 210 entries; nothing beyond it is interned
+        }
+        const auto id = numFilled++;
+        strncpy_s(&VehicleNames[id][0], std::size(VehicleNames[id]), name, _TRUNCATE);
+        return id;
+    };
+    auto nVehicleNames{ 0 };
+#endif
+
     // Get handling by scanning name from `line` using `scanNameFormat`, then calls `GetHandlingFn` to get the handling ptr
     const auto DoLoadHandling = [&, this](const char* line, auto GetHandlingFn) -> int32 {
         char name[32]{};
         if (sscanf_s(line, "%31s", name, std::size(name)) != 1) { // FIX_BUGS: Sized string read
             return 0;
         }
-        const auto id = FindExactWord(name, &VehicleNames[0][0], std::size(VehicleNames[0]), std::size(VehicleNames));
+        const auto id = [&] {
+#ifdef NOTSA_STANDALONE
+            return InternVehicleName(name, nVehicleNames);
+#else
+            return FindExactWord(name, &VehicleNames[0][0], std::size(VehicleNames[0]), std::size(VehicleNames));
+#endif
+        }();
         if (id == -1) {
             return -1; // Issue logged by `FindExactWord`, so no need to care about it here
         }
