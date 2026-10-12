@@ -844,6 +844,40 @@ void* MaterialGetColor(const void* material) {
 }
 
 //-------------------------------------------------------------------------
+// RwImage / RT file readers - see the declarations in RwBridge.h for the layout caveat.
+//-------------------------------------------------------------------------
+void* ImageReadBMP(const char* path) {
+    return rw::readBMP(path);
+}
+
+void* ImageReadPNG(const char* path) {
+    return rw::readPNG(path);
+}
+
+void* ImageCreate(int width, int height, int depth) {
+    return rw::Image::create(width, height, depth);
+}
+
+void ImageDestroy(void* image) {
+    if (image) {
+        rp<rw::Image>(image)->destroy();
+    }
+}
+
+bool ImageFindRasterFormat(void* image, int rasterType, int* w, int* h, int* depth, unsigned* format) {
+    int32_t fmt = 0;
+    const bool ok = rw::Raster::imageFindRasterFormat(rp<rw::Image>(image), rasterType, w, h, depth, &fmt);
+    if (format) {
+        *format = static_cast<unsigned>(fmt);
+    }
+    return ok != 0;
+}
+
+void RasterSetFromImage(void* raster, void* image) {
+    rp<rw::Raster>(raster)->setFromImage(rp<rw::Image>(image));
+}
+
+//-------------------------------------------------------------------------
 // Matrix / Vector math - see the declarations in RwBridge.h for why this is safe as plain casts.
 // (`MatrixCreate()` already exists above, next to the other object helpers.)
 //-------------------------------------------------------------------------

@@ -249,6 +249,21 @@ void* MaterialSetColor(void* material, const unsigned char* rgba);
 void* MaterialGetColor(const void* material);
 
 //-------------------------------------------------------------------------
+// RwImage / RT file readers (BMP, PNG, TGA).
+// librw's `Image` differs from SA's `RwImage` (it inserts `bpp` after `depth`), so these are only safe
+// because the game handles images purely through functions - it never touches RwImage fields. The
+// raster handed to RasterSetFromImage is one this bridge created via RasterCreate, so both sides agree.
+//-------------------------------------------------------------------------
+void* ImageReadBMP(const char* path);        //!< `RtBMPImageRead`
+void* ImageReadPNG(const char* path);        //!< `RtPNGImageRead`
+void* ImageCreate(int width, int height, int depth);  //!< `RwImageCreate`
+void  ImageDestroy(void* image);                      //!< `RwImageDestroy`
+/*! @brief `RwImageFindRasterFormat`; fills the out-params, returns true on success. */
+bool ImageFindRasterFormat(void* image, int rasterType, int* w, int* h, int* depth, unsigned* format);
+/*! @brief `RwRasterSetFromImage` - upload an image into an existing (native) raster. */
+void RasterSetFromImage(void* raster, void* image);
+
+//-------------------------------------------------------------------------
 // RW object-plugin registration - the game's *own* plugins (Visibility, TxdStore, Collision, 2dEffect,
 // Breakable, NodeName, Pipeline, RpAnimBlend, ...), as opposed to the RW-SDK plugins that
 // `RegisterCorePlugins()` already installs.

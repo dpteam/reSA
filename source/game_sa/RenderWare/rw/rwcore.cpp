@@ -364,11 +364,20 @@ RxRenderStateVector* RxRenderStateVectorSetDefaultRenderStateVector(RxRenderStat
 }
 
 RwImage* RwImageCreate(RwInt32 width, RwInt32 height, RwInt32 depth) {
+#ifdef NOTSA_STANDALONE
+    return (RwImage*)rwbridge::ImageCreate(width, height, depth);
+#else
     return ((RwImage*(__cdecl *)(RwInt32, RwInt32, RwInt32))0x8026E0)(width, height, depth);
+#endif
 }
 
 RwBool RwImageDestroy(RwImage* image) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::ImageDestroy(image);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwImage*))0x802740)(image);
+#endif
 }
 
 RwImage* RwImageAllocatePixels(RwImage* image) {
@@ -1004,7 +1013,12 @@ RwImage* RwImageSetFromRaster(RwImage* image, RwRaster* raster) {
 }
 
 RwRaster* RwRasterSetFromImage(RwRaster* raster, RwImage* image) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::RasterSetFromImage(raster, image);
+    return raster;
+#else
     return ((RwRaster*(__cdecl *)(RwRaster*, RwImage*))0x804290)(raster, image);
+#endif
 }
 
 RwRaster* RwRasterRead(const RwChar* filename) {
@@ -1016,7 +1030,16 @@ RwRaster* RwRasterReadMaskedRaster(const RwChar* filename, const RwChar* masknam
 }
 
 RwImage* RwImageFindRasterFormat(RwImage* ipImage, RwInt32 nRasterType, RwInt32* npWidth, RwInt32* npHeight, RwInt32* npDepth, RwInt32* npFormat) {
+#ifdef NOTSA_STANDALONE
+    unsigned fmt = 0;
+    rwbridge::ImageFindRasterFormat(ipImage, nRasterType, npWidth, npHeight, npDepth, &fmt);
+    if (npFormat) {
+        *npFormat = static_cast<RwInt32>(fmt);
+    }
+    return ipImage;
+#else
     return ((RwImage*(__cdecl *)(RwImage*, RwInt32, RwInt32*, RwInt32*, RwInt32*, RwInt32*))0x8042C0)(ipImage, nRasterType, npWidth, npHeight, npDepth, npFormat);
+#endif
 }
 
 RwFrame* RwFrameForAllObjects(RwFrame* frame, RwObjectCallBack callBack, void* data) {
