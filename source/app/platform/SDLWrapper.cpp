@@ -7,6 +7,8 @@
 #include <WindowedMode.hpp>
 #include "PostEffects.h"
 #include "UIRenderer.h"
+#include "app.h"   // ForegroundApp
+#include "Pad.h"   // CPad::Pads / CPad::Clear
 
 static bool IsInFullscreen()
 {
@@ -68,6 +70,36 @@ void ProcessEvents() {
             }
             FrontEndMenuManager.m_nMousePosWinX = (int32)(s_MousePos.x);
             FrontEndMenuManager.m_nMousePosWinY = (int32)(s_MousePos.y);
+            break;
+        }
+        // Standalone: `ForegroundApp` used to be maintained by the Win32 WndProc (WM_ACTIVATEAPP /
+        // WM_SETFOCUS / WM_KILLFOCUS, see WndProc.cpp), which isn't compiled under SDL. Left at its
+        // zero-initialized `false` it silently disabled mouse input, because `CPad::UpdateMouse()`
+        // bails out when `!IsForegroundApp()` and so the button state never propagates from
+        // `TempMouseControllerState` to `NewMouseControllerState` (keyboard survived only because
+        // `OldKeyState = exchange(NewKeyState, TempKeyState)` happens outside that guard).
+        // Mirror the original's semantics using SDL's focus events.
+        case SDL_EVENT_WINDOW_FOCUS_GAINED: {
+            ForegroundApp = true;
+            if (!FrontEndMenuManager.m_bMainMenuSwitch && !FrontEndMenuManager.m_bMenuActive) {
+                FrontEndMenuManager.m_bActivateMenuNextFrame = true; // WM_SETFOCUS
+            }
+            RsEventHandler(rsACTIVATE, (void*)true); // WM_ACTIVATEAPP
+            for (auto& pad : CPad::Pads) {
+                pad.Clear(false, true);
+            }
+            NOTSA_LOG_DEBUG("SDL: focus gained");
+            break;
+        }
+        case SDL_EVENT_WINDOW_FOCUS_LOST: {
+            ForegroundApp = false;
+            RsEventHandler(rsACTIVATE, (void*)false);
+            for (auto& pad : CPad::Pads) {
+                pad.Clear(false, true);
+            }
+            // NOTE: the original also PauseAllSounds()/SetTimer() here; audio is stubbed in the
+            // standalone build for now, so only the foreground flag + pad clearing are replicated.
+            NOTSA_LOG_DEBUG("SDL: focus lost");
             break;
         }
         }

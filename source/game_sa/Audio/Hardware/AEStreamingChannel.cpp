@@ -492,6 +492,14 @@ void CAEStreamingChannel::Stop() {
 
 // 0x4F2550
 void CAEStreamingChannel::Service() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: not reversed yet (was `plugin::CallMethod<0x4F2550>`, which jumps into the original
+    // exe that isn't mapped here). This runs on the streaming thread, so an unguarded call faults the
+    // process - and it became reachable as soon as `ForegroundApp` started being maintained properly
+    // (see SDLWrapper::ProcessEvents), because CAEStreamThread::MainLoop only services when foreground.
+    // Matches the other audio no-ops for now: there is simply no streamed sound. TODO: reverse & re-enable.
+    return;
+#endif
     plugin::CallMethod<0x4F2550, CAEStreamingChannel*>(this);
 }
 

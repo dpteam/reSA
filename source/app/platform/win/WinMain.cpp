@@ -517,6 +517,13 @@ INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdL
     }
     PSGLOBAL(instance) = instance; // Not used anywhere, just set here
 
+#ifdef NOTSA_STANDALONE
+    // The Win32 WndProc that used to maintain this (WM_ACTIVATEAPP/WM_SETFOCUS) isn't compiled under
+    // SDL, and SDL doesn't guarantee a focus event at creation - so assume focused to start with
+    // (SDLWrapper::ProcessEvents keeps it in sync from here on).
+    ForegroundApp = true;
+#endif
+
     // 0x7487CF
 #ifndef NOTSA_USE_SDL3
     VERIFY(WinInput::Initialise());
