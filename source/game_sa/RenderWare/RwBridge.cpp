@@ -245,7 +245,13 @@ void FrameTransform(void* frame, const void* matrix, int combineOp) {
 }
 
 void FrameSetIdentity(void* frame) {
-    static_cast<rw::Frame*>(frame)->matrix.setIdentity();
+    // NOTE: this used to be just `matrix.setIdentity()`, which left the hierarchy marked clean - so any
+    // cached LTM / attached objects kept their old transform until something else dirtied the frame.
+    // RW's RwFrameSetIdentity sets the sync flags too (disasm 0x7F10B0 ORs 0x3 == HIERARCHYSYNC into the
+    // frame flags after writing the identity), which is what Frame::updateObjects() does in librw.
+    auto* f = static_cast<rw::Frame*>(frame);
+    f->matrix.setIdentity();
+    f->updateObjects();
 }
 
 void* RasterCreate(int width, int height, int depth, int flags) {
@@ -1030,6 +1036,43 @@ void* FrameForAllChildren(void* frame, void* cb, void* data) {
 
 int ObjectGetType(const void* object) {
     return rp<const rw::ObjectWithFrame>(object)->object.type;
+}
+
+// NOTE: FrameGetLTM, FrameDestroy and FrameSetIdentity already exist above (near FrameCreate) - not
+// duplicated here.
+
+void* FrameGetRoot(const void* frame) {
+    return rp<const rw::Frame>(frame)->root;
+}
+
+void FrameUpdateObjects(void* frame) {
+    rp<rw::Frame>(frame)->updateObjects();
+}
+
+void FrameSyncDirty() {
+    rw::Frame::syncDirty();
+}
+
+int FrameCount(const void* frame) {
+    return const_cast<rw::Frame*>(rp<const rw::Frame>(frame))->count();
+}
+
+void* FrameAddChild(void* parent, void* child, int append) {
+    auto* p = rp<rw::Frame>(parent);
+    p->addChild(rp<rw::Frame>(child), append != 0);
+    return p;
+}
+
+void* FrameRemoveChild(void* child) {
+    return rp<rw::Frame>(child)->removeChild();
+}
+
+void* FrameCloneHierarchy(void* root) {
+    return rp<rw::Frame>(root)->cloneHierarchy();
+}
+
+void FrameDestroyHierarchy(void* root) {
+    rp<rw::Frame>(root)->destroyHierarchy();
 }
 
 void* FrameForAllObjects(void* frame, void* cb, void* data) {

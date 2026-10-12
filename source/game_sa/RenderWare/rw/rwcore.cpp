@@ -1091,15 +1091,29 @@ RwFrame* RwFrameOrthoNormalize(RwFrame* frame) {
 }
 
 RwFrame* RwFrameSetIdentity(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameSetIdentity(frame);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*))0x7F10B0)(frame);
+#endif
 }
 
 RwFrame* RwFrameCloneHierarchy(RwFrame* root) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameCloneHierarchy(root);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*))0x7F0250)(root);
+#endif
 }
 
 RwBool RwFrameDestroyHierarchy(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameDestroyHierarchy(frame);
+    return true;
+#else
     return ((RwBool(__cdecl *)(RwFrame*))0x7F08A0)(frame);
+#endif
 }
 
 RwFrame* RwFrameForAllChildren(RwFrame* frame, RwFrameCallBack callBack, void* data) {
@@ -1111,27 +1125,54 @@ RwFrame* RwFrameForAllChildren(RwFrame* frame, RwFrameCallBack callBack, void* d
 }
 
 RwFrame* RwFrameRemoveChild(RwFrame* child) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameRemoveChild(child);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*))0x7F0CD0)(child);
+#endif
 }
 
 RwFrame* RwFrameAddChild(RwFrame* parent, RwFrame* child) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameAddChild(parent, child, 0);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, RwFrame*))0x7F0B00)(parent, child);
+#endif
 }
 
 RwFrame* RwFrameAddChildNoUpdate(RwFrame* parent, RwFrame* child) {
+#ifdef NOTSA_STANDALONE
+    // NOTE: librw's addChild has no "don't update" variant - it always marks the hierarchy dirty via
+    // updateObjects, which is only a missed optimisation here, never a correctness problem.
+    return (RwFrame*)rwbridge::FrameAddChild(parent, child, 0);
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*, RwFrame*))0x7F09C0)(parent, child);
+#endif
 }
 
 RwFrame* RwFrameGetRoot(const RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    return (RwFrame*)rwbridge::FrameGetRoot(frame);
+#else
     return ((RwFrame*(__cdecl *)(const RwFrame*))0x7F09B0)(frame);
+#endif
 }
 
 RwMatrix* RwFrameGetLTM(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    return (RwMatrix*)rwbridge::FrameGetLTM(frame);
+#else
     return ((RwMatrix*(__cdecl *)(RwFrame*))0x7F0990)(frame);
+#endif
 }
 
 RwFrame* RwFrameUpdateObjects(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    rwbridge::FrameUpdateObjects(frame);
+    return frame;
+#else
     return ((RwFrame*(__cdecl *)(RwFrame*))0x7F0910)(frame);
+#endif
 }
 
 void RwFrameSetFreeListCreateParams(RwInt32 blockSize, RwInt32 numBlocksToPrealloc) {
@@ -1165,11 +1206,23 @@ RwBool _rwFrameDeInit(RwFrame* frame) {
 }
 
 RwBool RwFrameDirty(const RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    // RW's RwFrameDirty *marks* the frame hierarchy dirty and returns TRUE (it is not a getter).
+    // librw's equivalent is Frame::updateObjects(), which sets HIERARCHYSYNC on the root and
+    // SUBTREESYNC on the frame.
+    rwbridge::FrameUpdateObjects(const_cast<RwFrame*>(frame));
+    return true;
+#else
     return ((RwBool(__cdecl *)(const RwFrame*))0x7F0340)(frame);
+#endif
 }
 
 RwInt32 RwFrameCount(RwFrame* frame) {
+#ifdef NOTSA_STANDALONE
+    return (RwInt32)rwbridge::FrameCount(frame);
+#else
     return ((RwInt32(__cdecl *)(RwFrame*))0x7F0E00)(frame);
+#endif
 }
 
 RwInt32 RwFrameRegisterPlugin(RwInt32 size, RwUInt32 pluginID, RwPluginObjectConstructor constructCB, RwPluginObjectDestructor destructCB, RwPluginObjectCopy copyCB) {

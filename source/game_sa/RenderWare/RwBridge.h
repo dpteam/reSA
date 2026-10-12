@@ -322,6 +322,26 @@ void  HAnimHierarchyUpdateMatrices(void* hierarchy);       //!< `RpHAnimHierarch
  *  TexDictionary 6, Geometry 8. Used to check a blind `RwObject* -> RpAtomic*` cast is valid. */
 int ObjectGetType(const void* object);
 
+//-------------------------------------------------------------------------
+// RwFrame layer (the rest of it; ForAllChildren/ForAllObjects are above).
+// Layout note: SA's RwFrame and librw's Frame are NOT field-compatible (SA keeps modelling/ltm matrices
+// where librw keeps objectList/matrix/ltm + child/next/root), so every frame access must come through
+// here - direct field access on a librw Frame via SA's offsets reads the wrong member.
+//-------------------------------------------------------------------------
+/*! @brief `RwFrameSetIdentity` (0x7F10B0): the original zeroes the local matrix to identity and ORs the
+ *  hierarchy-sync flags; librw's equivalent is `matrix.setIdentity()` + `updateObjects()` (which is
+ *  exactly librw's own "mark root HIERARCHYSYNC + subtree SUBTREESYNC" helper, used by its translate/
+ *  scale/transform the same way). */
+void FrameSetIdentity(void* frame);   // declared above, next to FrameCreate/FrameDestroy
+void* FrameGetRoot(const void* frame);                  //!< `RwFrameGetRoot`
+void  FrameUpdateObjects(void* frame);                  //!< `RwFrameUpdateObjects`
+void  FrameSyncDirty();                                 //!< `_rwFrameSyncDirty`
+int   FrameCount(const void* frame);                    //!< `RwFrameCount`
+void* FrameAddChild(void* parent, void* child, int append);   //!< `RwFrameAddChild`
+void* FrameRemoveChild(void* child);                    //!< `RwFrameRemoveChild`
+void* FrameCloneHierarchy(void* root);                  //!< `RwFrameCloneHierarchy`
+void  FrameDestroyHierarchy(void* root);                //!< `RwFrameDestroyHierarchy`
+
 /*! @brief `RwFrameForAllChildren` / `RwFrameForAllObjects` (disasm 0x7F0DC0 / 0x7F1200).
  *  Both walk the frame's children (resp. attached objects) and call `cb`; iteration **stops as soon as
  *  the callback returns NULL** (that is RW's convention, and librw's `forAllChildren` matches it).
