@@ -394,6 +394,11 @@ public:
     //! Return the custom command handler of a function (or null) as a reference
     static notsa::script::CommandHandlerFunction& CustomCommandHandlerOf(eScriptCommands command); // Returning a ref here for convenience (instead of having to make a `Set` function too)
 
+#ifdef NOTSA_STANDALONE
+    //! Standalone-only: report an opcode that has no handler (see the definition in RunningScript.cpp).
+    void LogUnimplementedCommand(eScriptCommands cmd);
+#endif
+
 private:
     void ResetIP();
 };

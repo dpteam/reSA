@@ -902,10 +902,66 @@ OpcodeResult CRunningScript::ProcessOneCommand() {
 
     if (const auto handler = CustomCommandHandlerOf((eScriptCommands)(op.Command))) {
         return std::invoke(handler, this);
-    } else {
-        return std::invoke(s_OriginalCommandHandlerTable[(size_t)op.Command / 100], this, (eScriptCommands)(op.Command));
+    }
+#ifdef NOTSA_STANDALONE
+    // Standalone: there is no original command dispatcher to fall back on. The mod build delegates
+    // un-hooked opcodes to `s_OriginalCommandHandlerTable` (0x8A6168) - 27 thiscall handlers indexed by
+    // `command / 100`, all baked as function pointers in the original's .data. Here that table is
+    // zero-filled (the "tabular statics" problem), so calling through it jumped to 0x0.
+    //
+    // We cannot simply skip the opcode either: without knowing its parameter count/types, not consuming
+    // the operands would desynchronise the instruction stream and every following "command" would be
+    // garbage - far worse than the crash. So the safe degradation is to **terminate this script
+    // cleanly**, exactly what COMMAND_TERMINATE_THIS_SCRIPT does (BasicCommands.cpp:164): unlink from the
+    // active list, park on the idle list, and sleep. No stream corruption, no crash.
+    //
+    // Deliberately NOT done here, and worth knowing: ShutdownThisScript() (0x465AA0) is still unreversed
+    // (its drafted body references GetStreamedScriptWithThisStartAddress, which is not declared in this
+    // tree). Skipping it leaks two pieces of bookkeeping - the streamed-script status refcount
+    // (StreamedScripts.m_aScripts[idx].Status--) and the ped-brain cleanup for external scripts
+    // (m_nExternalType 0/2/3/5). Neither affects booting; both matter for long gameplay sessions, so
+    // reversing them belongs with the script work.
+    //
+    // Coverage, measured 2026-10-13: 776 of 2864 opcodes are hooked (REGISTER_COMMAND_HANDLER), so
+    // ~2088 land here. The log below is the prioritisation data: it names each missing opcode once with
+    // a running total, so the first boot tells us exactly which commands the startup path needs.
+    LogUnimplementedCommand((eScriptCommands)(op.Command));
+    if (m_ThisMustBeTheOnlyMissionRunning) {
+        CTheScripts::bAlreadyRunningAMissionScript = false;
+    }
+    RemoveScriptFromList(&CTheScripts::pActiveScripts);
+    AddScriptToList(&CTheScripts::pIdleScripts);
+    return OR_WAIT;
+#else
+    return std::invoke(s_OriginalCommandHandlerTable[(size_t)op.Command / 100], this, (eScriptCommands)(op.Command));
+#endif
+}
+
+#ifdef NOTSA_STANDALONE
+// Reports an opcode that has no handler in the standalone build. Logs each distinct opcode once (with
+// the running total) so a single run reveals the whole missing set in the order the game hit it.
+void CRunningScript::LogUnimplementedCommand(eScriptCommands cmd) {
+    constexpr size_t NUM_OPCODES = (size_t)COMMAND_HIGHEST_ID_TO_HOOK + 1;
+    static std::array<bool, NUM_OPCODES> reported{};
+    static int s_total{};
+    static int s_distinct{};
+
+    const auto id = (size_t)cmd;
+    if (id >= NUM_OPCODES) {
+        NOTSA_LOG_ERR("[scripts] opcode {:#04X} is outside the known command enum", (unsigned)cmd);
+        return;
+    }
+
+    ++s_total;
+    if (!reported[id]) {
+        reported[id] = true;
+        ++s_distinct;
+        NOTSA_LOG_ERR("[scripts] unimplemented opcode {:#04X} ({}), terminating script '{}' to stay coherent"
+                      " [distinct: {}, total hits: {}]",
+                      (unsigned)cmd, notsa::script::GetScriptCommandName(cmd), m_szName, s_distinct, s_total);
     }
 }
+#endif
 
 // 0x469F00
 OpcodeResult CRunningScript::Process() {
