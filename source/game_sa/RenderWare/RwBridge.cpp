@@ -687,6 +687,10 @@ void ClumpSetFrame(void* clump, void* frame) {
     rp<rw::Clump>(clump)->setFrame(static_cast<rw::Frame*>(frame));
 }
 
+void* ClumpClone(void* clump) {
+    return rp<rw::Clump>(clump)->clone();
+}
+
 void* AtomicCreate() {
     return rw::Atomic::create();
 }

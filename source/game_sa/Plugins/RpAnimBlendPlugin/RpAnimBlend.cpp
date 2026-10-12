@@ -156,8 +156,27 @@ void RpAnimBlendClumpInitSkinned(RpClump* clump) { // Can't hook, `clump` passed
     // Now, fill in the frame blend data from the positions we've just calculated
     for (size_t i = 0; i < nBones; i++) {
         const auto fd = &bd->m_FrameDatas[i]; // Frame blend data
-            
+
+#ifdef NOTSA_STANDALONE
+        // Standalone: the original points KeyFrame into the hierarchy's RtAnimInterpolator keyframe
+        // array (rtANIMGETINTERPFRAME(hier->currentAnim, i)). That needs the RtAnim bridge, which does
+        // not exist yet, for two independent reasons:
+        //   * RpHAnimHierarchy::currentAnim is at 0x20 in SA but librw's HAnimHierarchy ends at 0x20
+        //     with `interpolator` at 0x1C; and
+        //   * SA's RtAnimInterpolator holds a `pFrames` POINTER with the callback fields inline before
+        //     maxInterpKeyFrameSize, whereas librw's AnimInterpolator stores its frames INLINE after the
+        //     struct (getFrames() == this+1) and orders the fields differently. So the two are not
+        //     layout-compatible at all, not just at a different offset.
+        // Everything else in this function (bone positions, node stack, frame data, bone tags) is
+        // reversed and works, so only this one assignment is skipped.
+        // KNOWN CONSEQUENCE, stated plainly: with no keyframes, skinned peds do not animate. Most readers
+        // guard on KeyFrame (eg. Ped.cpp:3474), but PedIK.cpp:29 and the blend functions in this file
+        // dereference it unconditionally - so anything that touches ped IK / animation will fault until
+        // the RtAnim+AnimBlend bridge lands. That bridge is the next milestone, not this commit.
+        fd->KeyFrame = nullptr;
+#else
         fd->KeyFrame = (RpHAnimBlendInterpFrame*)rtANIMGETINTERPFRAME(rpHAHier->currentAnim, i);
+#endif
         fd->BoneTag  = rpHAHier->pNodeInfo[i].nodeID;
         fd->BonePos  = bonePositions[i];
     }

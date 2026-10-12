@@ -95,8 +95,19 @@ RwObject* CClumpModelInfo::CreateInstance()
     if (atomic && RpSkinGeometryGetSkin(RpAtomicGetGeometry(atomic)) && !bHasComplexHierarchy) {
         auto hierarchy = GetAnimHierarchyFromClump(clonedClump);
         RpClumpForAllAtomics(clonedClump, SetHierarchyForSkinAtomic, hierarchy);
+#ifndef NOTSA_STANDALONE
+        // Standalone: these two need the RtAnim/RpAnimBlend interpolator, which is not bridged:
+        //   * `hierarchy->currentAnim` sits at 0x20 in SA (after rootParentOffset @0x1C) but librw's
+        //     HAnimHierarchy ends at 0x20 with `interpolator` at 0x1C - so the field read is out of
+        //     bounds here; and
+        //   * SA's RtAnimInterpolator and librw's AnimInterpolator disagree from 0x0C onwards (SA has
+        //     pAnimCallBack/pAnimCallBackData/animCallBackTime/pAnimLoopCallBack(+Data) before
+        //     maxInterpKeyFrameSize; librw parks them at the end, with its own TODO).
+        // Everything else in this branch is layout-safe (flags is 0x00 in both), so it still runs.
+        // Consequence: cloned skinned clumps get no current animation until the anim bridge lands.
         auto anim = RpAnimBlendCreateAnimationForHierarchy(hierarchy);
         RtAnimInterpolatorSetCurrentAnim(hierarchy->currentAnim, anim);
+#endif
         hierarchy->flags = rpHANIMHIERARCHYUPDATEMODELLINGMATRICES | rpHANIMHIERARCHYUPDATELTMS;
     }
 

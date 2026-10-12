@@ -203,6 +203,7 @@ void* ClumpGetFirstAtomic(void* clump);
 int   ClumpCountAtomics(const void* clump);
 void* ClumpGetFrame(const void* clump);
 void  ClumpSetFrame(void* clump, void* frame);
+void* ClumpClone(void* clump);                       //!< `RpClumpClone`
 
 void* AtomicClone(void* atomic);
 void  AtomicDestroy(void* atomic);

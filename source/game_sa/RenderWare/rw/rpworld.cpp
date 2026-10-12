@@ -763,7 +763,11 @@ RpClump* RpClumpCreate(void) {
 }
 
 RpClump* RpClumpClone(RpClump* clump) {
+#ifdef NOTSA_STANDALONE
+    return (RpClump*)rwbridge::ClumpClone(clump);
+#else
     return ((RpClump*(__cdecl *)(RpClump*))0x749F70)(clump);
+#endif
 }
 
 RwBool RpAtomicDestroy(RpAtomic* atomic) {
