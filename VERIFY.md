@@ -35,9 +35,10 @@ Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ 
 | Feature | Addr | Status | Note |
 |---|---|---|---|
 | `CFont::Initialise` | 0x5BA690 | ✅ | Sprite[0/1]@0xC71AD0/D4, `SetTexture("font2","font2m")` = ours |
-| `CFont::PrintChar` | 0x718A10 | ✅ | our port matches; **fixed stub guard** `!ch||ch=='?'`→`ch!='\0'` |
-| `CFont::RenderFontBuffer` | 0x719840 | ⚠️ | disasm: reads `FontRenderStateBuf`, `Sprite[style].SetRenderState`, `VERTEXALPHAENABLE=1`, per-char → **not implemented by us** (we flush via AddToBuffer) |
-| `CFont::ProcessCurrentString` | 0x71A220 | ⚠️ | **not implemented** (ours is a simplified reimpl) |
+| `CFont::PrintChar` | 0x718A10 | ✅ | ported upstream PR #1414 (full CFont) |
+| `CFont::RenderFontBuffer` | 0x719840 | ✅ | ported upstream PR #1414 (full reversal) |
+| `CFont::ProcessCurrentString` | 0x71A220 | ✅ | ported upstream PR #1414 |
+| `CFont` overall | — | ✅ | **upstream PR #1414 "CFont done" (branch `fonts`, `82f34b0`) ported by hand** — full CFont (see Font.cpp/Font.h) |
 | `CSprite2d::AddToBuffer` | 0x728200 | ✅ | disasm matched exactly (0x1C stride, buffers 0xC5F958/0xC4B958, thresholds 1532/4090) |
 | `CSprite2d::RenderVertexBuffer` | 0x7273D0 | ✅ | disasm matched (FILTER=LINEAR + `RwIm2DRenderIndexedPrimitive(TRILIST,…)`) |
 | `CSprite2d::SetVertices` (RwIm2DVertex) | 0x727A00 | ✅ | field order/offsets match ours |
