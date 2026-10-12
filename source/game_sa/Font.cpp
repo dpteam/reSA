@@ -9,9 +9,6 @@
 #include "Font.h"
 
 #include "eLanguage.h"
-#ifdef NOTSA_STANDALONE
-#include "RwBridge.h"
-#endif
 
 auto& FontRenderStateBuf = StaticRef<std::array<CFontChar, 9>>(0xC716B0);
 auto& pEmptyChar = StaticRef<CFontChar*>(0xC716A8);
