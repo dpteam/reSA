@@ -52,7 +52,20 @@ void CCustomBuildingRenderer::AtomicSetup(RpAtomic* atomic) {
 
 // 0x5D7F40
 bool CCustomBuildingRenderer::IsCBPCPipelineAttached(RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this asks whether the atomic carries one of the custom building RxPipelines
+    // (disasm: RpAtomicGetPipeline(atomic) (0x72FC40) compared against the CBPC pipeline IDs / their
+    // plugin data at 0x5D6E90). RenderWare's RxPipeline system does not exist in librw, and
+    // CCustomBuildingRenderer::PluginAttach/CreatePipe are not attached in standalone (see PluginAttach
+    // in app.cpp), so no atomic can ever have one attached here => false is the correct answer, not a
+    // shortcut. Every caller takes the plain-RW branch on false (AtomicSetupLightingCB,
+    // CAtomicModelInfo, CDamageAtomicModelInfo, CObject, CEntity), which is what we want.
+    // TODO: real custom-building rendering on top of librw's pipelines - see IDEAS.md.
+    (void)atomic;
+    return false;
+#else
     return plugin::CallAndReturn<bool, 0x5D7F40, RpAtomic*>(atomic);
+#endif
 }
 
 // 0x5D7F80
