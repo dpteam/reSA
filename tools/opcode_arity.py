@@ -31,7 +31,14 @@ import sys
 import pefile
 
 EXE = r"refs\gtasa10us\gta_sa.exe"
-COLLECT_PARAMS = 0x464080
+COLLECT_PARAMS = 0x464080   # CRunningScript::CollectParameters(count)  - consumes `count` operands
+STORE_PARAMS   = 0x464370   # CRunningScript::StoreParameters(count)    - also consumes `count` operands
+READ_TEXT      = 0x463D50   # CRunningScript::ReadTextLabelFromScript() - consumes 1 (a string operand)
+# (0x464250 CollectNextParameterWithoutIncreasingPC consumes none - it only peeks.)
+# Every operand-consuming helper a case may use. Counting only CollectParameters was the bug that
+# desynchronised the script stream: a case like 0x517 CREATE_LOCKED_PROPERTY_PICKUP collects 3, reads a
+# text label, and then stores 1 - 5 operands in total, while the first-only reading said 3.
+PARAM_CONSUMERS = {COLLECT_PARAMS: 'collect', STORE_PARAMS: 'store'}
 DISPATCHERS_VA = 0x8A6168
 NUM_DISPATCHERS = 27
 
@@ -136,8 +143,12 @@ def classify_case(target, end):
     """Inspect one case body and return (kind, arity) with kind in {fixed, none, irregular}.
 
     `end` is the start of the next case (cases are laid out contiguously), which is what makes the scan
-    trustworthy: without it, a 160-byte lookahead sees the *neighbouring* cases' CollectParameters calls
-    and every case looks "irregular".
+    trustworthy: without it, a lookahead sees the *neighbouring* cases' CollectParameters calls.
+
+    The arity is the SUM of every operand-consuming call in the body, not just the first one. Reading only
+    the first was a real bug: 0x517 collects 3, reads a text label (1) and stores 1, so 5 operands are
+    consumed while the first-only reading claimed 3 - which desynchronised the instruction stream exactly
+    as feared, and was caught by the in-flight-command record added to ProcessOneCommand.
     """
     target = follow_thunk(target)
     if end is None or end <= target:
@@ -145,31 +156,36 @@ def classify_case(target, end):
     o = file_off(target)
     if o is None:
         return ('irregular', None)
-    body = pe.__data__[o:o + max(0, min(end - target, 240))]
+    body = pe.__data__[o:o + max(0, min(end - target, 1024))]
     if len(body) < 9:
         return ('irregular', None)
 
-    # The common prologue, exactly at offset 0:  6A <n> | 8B CE | E8 <rel32 -> CollectParameters>
-    if body[0] == 0x6A and body[2:4] == b'\x8b\xce' and body[4] == 0xE8:
-        if target + 9 + struct.unpack('<i', body[5:9])[0] == COLLECT_PARAMS:
-            n = body[1]
-            # ScriptParams is 32 deep, so a larger literal is a misread rather than a fat command.
-            if n <= 32:
-                return ('fixed', n)
-            return ('irregular', None)
-
-    # Otherwise: does the case call CollectParameters at all, and if so how is the count pushed?
-    calls = []
+    total = 0
+    sawAny = False
     for j in range(0, len(body) - 9):
-        if body[j] == 0xE8 and target + j + 5 + struct.unpack('<i', body[j + 1:j + 5])[0] == COLLECT_PARAMS:
-            calls.append(j)
-    if not calls:
-        return ('none', 0)                 # reads no operands at entry -> skipping is just "continue"
-    if len(calls) == 1:
-        j = calls[0]
-        if j >= 3 and body[j - 3] == 0x6A and body[j - 1:j + 1] == b'\x8b\xce' and body[j - 2] <= 32:
-            return ('fixed', body[j - 2])  # same shape, just not at offset 0
-    return ('irregular', None)             # computed count, or several collections -> decide by hand
+        if body[j] != 0xE8:
+            continue
+        callee = target + j + 5 + struct.unpack('<i', body[j + 1:j + 5])[0]
+        if callee in PARAM_CONSUMERS:
+            # The count is `push imm8` immediately before the call: `6A ib 8B CE E8`, so with the call at j
+            # the opcode is at j-4 and the literal at j-3. (An earlier version tested j-3 for the opcode,
+            # i.e. off by one, which rejected every well-formed call and made the whole table "irregular".)
+            if j >= 4 and body[j - 4] == 0x6A and body[j - 2:j] == b'\x8b\xce':
+                total += body[j - 3]
+                sawAny = True
+            else:
+                return ('irregular', None)
+        elif callee == READ_TEXT:
+            total += 1
+            sawAny = True
+
+    if not sawAny:
+        return ('none', 0)
+    # A single CollectParameters is capped by ScriptParams' depth (32), but the sum across several calls is
+    # not, so the sanity bound is looser here than it was when only the first call was read.
+    if total > 100:
+        return ('irregular', None)
+    return ('fixed', total)
 
 
 def parse_actual_base(disp):

@@ -35,6 +35,21 @@ static notsa::log_ptr logger;
 //! Holds all custom command handlers (or null for commands with no custom handler)
 static inline std::array<notsa::script::CommandHandlerFunction, (size_t)(COMMAND_HIGHEST_ID_TO_HOOK) + 1> s_CustomCommandHandlerTable{};
 
+#ifdef NOTSA_STANDALONE
+/*!
+ * @brief The command whose processing is in flight, plus what the fallback did with it.
+ *
+ * @details Only here so the "instruction pointer is no longer on a valid command" check below can name the
+ *          command that actually consumed the wrong number of operands. That check fires AFTER a command
+ *          has been processed, so without this record a desync only ever reports "the next opcode is
+ *          garbage", which is a symptom several commands downstream of the cause. Measured value: this
+ *          immediately named the real culprit in the first run after the arity-driven fallback started
+ *          letting MAIN get far enough to execute script bodies properly.
+ */
+static uint16 s_CmdInFlight{};        //!< opcode currently being processed
+static uint16 s_CmdInFlightArity{};   //!< operand count the fallback assumed (0xFFFF when a real handler ran)
+#endif
+
 std::array<std::array<char, COMMANDS_CHAR_BUFFER_SIZE>, COMMANDS_CHAR_BUFFERS_COUNT> CRunningScript::ScriptArgCharBuffers        = {};
 uint8                                                                                CRunningScript::ScriptArgCharNextFreeBuffer = 0;
 
@@ -889,7 +904,25 @@ OpcodeResult CRunningScript::ProcessOneCommand() {
     // Check if IP is valid pre-return
     notsa::ScopeGuard guardIP{[this]() {
         const auto next{ GetAtIPAs<scm::Instruction>(false) };
+#ifdef NOTSA_STANDALONE
+        // A command consumed the wrong number of operands and the instruction pointer is now in the middle
+        // of the parameter stream. Report WHICH command did it together with the count the fallback assumed
+        // - otherwise this only ever looks like "some opcode far ahead is invalid", which is a symptom
+        // several commands away from the cause. VERIFY is non-fatal in this build (see app_debug.h), so the
+        // script keeps running; the script is terminated instead, which is the same safe degradation the
+        // unknown-arity path uses.
+        if (next.Command > COMMAND_HIGHEST_VANILLA_ID) {
+            NOTSA_LOG_ERR("[scripts] DESYNC: after opcode {:#04X} ({}) with assumed operand count {}, the "
+                          "next opcode reads as {:#06X} - the count was wrong. Terminating '{}' to stop the "
+                          "stream being interpreted as commands.",
+                          s_CmdInFlight, notsa::script::GetScriptCommandName((eScriptCommands)s_CmdInFlight),
+                          s_CmdInFlightArity, (unsigned)next.Command, m_szName);
+        } else {
+            VERIFY(next.Command <= COMMAND_HIGHEST_VANILLA_ID);
+        }
+#else
         VERIFY(next.Command <= COMMAND_HIGHEST_VANILLA_ID);
+#endif
     }};
 
 #ifdef NOTSA_SCRIPT_TRACING
@@ -901,6 +934,11 @@ OpcodeResult CRunningScript::ProcessOneCommand() {
 #endif
     
     m_NotFlag = op.NotFlag;
+
+#ifdef NOTSA_STANDALONE
+    s_CmdInFlight      = op.Command;
+    s_CmdInFlightArity = 0xFFFF;   // "a real handler consumed the operands", unless the fallback below says otherwise
+#endif
 
     if (const auto handler = CustomCommandHandlerOf((eScriptCommands)(op.Command))) {
         return std::invoke(handler, this);
@@ -929,9 +967,10 @@ OpcodeResult CRunningScript::ProcessOneCommand() {
     // twice (skewing the distinct/total counters that prioritise the work) and the first one would claim
     // "skipping" for opcodes that then take the terminate path.
     const auto arity = notsa::script::OpcodeArityOf((eScriptCommands)(op.Command));
+    s_CmdInFlightArity = static_cast<uint16>(arity >= 0 ? arity : (arity == notsa::script::OPCODE_ARITY_NONE ? 0 : 0xFFFE));
     if (arity >= 0) {
         LogUnimplementedCommand((eScriptCommands)(op.Command), "skipped (operand count known)");
-        CollectParameters(static_cast<int16>(arity));
+        SkipScriptParameters(static_cast<int16>(arity));
         return OR_CONTINUE;
     }
     if (arity == notsa::script::OPCODE_ARITY_NONE) {
@@ -976,6 +1015,36 @@ void CRunningScript::LogUnimplementedCommand(eScriptCommands cmd, const char* ac
         // describes an assumption instead of the behaviour is worse than no diagnostic.
         NOTSA_LOG_ERR("[scripts] unimplemented opcode {:#04X} ({}) - {} [distinct: {}, total hits: {}]",
                       (unsigned)cmd, notsa::script::GetScriptCommandName(cmd), action, s_distinct, s_total);
+    }
+}
+
+/*! Standalone-only: consume one script operand of any type.
+ *  Dispatches on the operand's own type byte and reuses the game's parsers, so all 16 SCM parameter
+ *  forms are handled: the numeric ones through CollectParameters(1) and the eight string forms through
+ *  ReadTextLabelFromScript (which also reads the type byte itself and consumes the payload). */
+void CRunningScript::SkipScriptParameters(int16 count) {
+    char buf[LONG_STRING_SIZE]; // long enough for any single operand (the longest SCM string is 16 bytes)
+
+    for (auto i = 0; i < count; i++) {
+        switch (*m_IP) {
+        case SCRIPT_PARAM_STATIC_SHORT_STRING:
+        case SCRIPT_PARAM_GLOBAL_SHORT_STRING_VARIABLE:
+        case SCRIPT_PARAM_LOCAL_SHORT_STRING_VARIABLE:
+        case SCRIPT_PARAM_GLOBAL_SHORT_STRING_ARRAY:
+        case SCRIPT_PARAM_GLOBAL_LONG_STRING_ARRAY:
+        case SCRIPT_PARAM_LOCAL_SHORT_STRING_ARRAY:
+        case SCRIPT_PARAM_STATIC_PASCAL_STRING:
+        case SCRIPT_PARAM_STATIC_LONG_STRING:
+            // CollectParameters does not handle the string forms: their types fall out of its switch and
+            // consume no payload, which is precisely the desync this function exists to avoid.
+            ReadTextLabelFromScript(buf, static_cast<uint8>(sizeof buf));
+            break;
+        case SCRIPT_PARAM_END_OF_ARGUMENTS: // vararg terminator - there is nothing further to consume
+            return;
+        default:
+            CollectParameters(1);
+            break;
+        }
     }
 }
 #endif

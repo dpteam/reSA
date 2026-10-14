@@ -398,6 +398,19 @@ public:
     //! Standalone-only: report an opcode that has no handler (see the definition in RunningScript.cpp).
     //! `action` must describe what was actually done, so the log cannot mislead.
     void LogUnimplementedCommand(eScriptCommands cmd, const char* action);
+
+    /*!
+     * @brief Standalone-only: consume `count` script operands of ANY type, advancing `m_IP` exactly as the
+     *        original command would have.
+     *
+     * @details Needed because `CollectParameters` deliberately handles only the numeric types - it does not
+     *          know the string types, so using it to skip a command with a string operand would consume the
+     *          type byte and then stop, desynchronising the instruction stream. Dispatching on the operand's
+     *          own type byte and reusing the game's existing parsers (`CollectParameters(1)` for numerics,
+     *          `ReadTextLabelFromScript` for the eight string forms) means every type the SCM format defines
+     *          is consumed correctly, without duplicating either parser.
+     */
+    void SkipScriptParameters(int16 count);
 #endif
 
 private:
