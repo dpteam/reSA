@@ -4,6 +4,7 @@
 #include "FurnitureGroup_c.h"
 #include "FurnitureSubGroup_c.h"
 #include "FurnitureItem.h"
+#include "Furniture_c.h" // complete type: g_furniturePool is an array of it
 #include "List_c.h"
 
 class Furniture_c;
@@ -38,3 +39,19 @@ private:
 VALIDATE_SIZE(FurnitureManager_c, 0x2078);
 
 static inline auto& g_furnitureMan = StaticRef<FurnitureManager_c>(0xBAB380);
+
+/*!
+ * @brief The global pool of furniture instances that `FurnitureSubGroup_c::AddFurniture` carves entries
+ *        out of (256 slots; the cursor is the LOW WORD of `g_currFurnitureId`).
+ *
+ * @details Undeclared upstream: `AddFurniture` (0x5C00C0) is marked `.Reversed = false`, so the pool it
+ *          writes to had no home in this tree. The address is derived, not guessed - it sits immediately
+ *          after the subgroup store, whose end is computable:
+ *              0xBAD3F8 + 128 * sizeof(FurnitureSubGroup_c = 0x1C) = 0xBAD3F8 + 0xE00 = 0xBAE1F8
+ *          and the disasm indexes it as `lea esi,[eax+eax*4]` then `lea esi,[esi*4+0xBAE1F8]`, i.e.
+ *          stride 20 == sizeof(Furniture_c), which cross-checks the base independently.
+ *          The capacity comes from the `cmp cx, 0x100` at 0x5C00CD. Note the counter is touched as a
+ *          WORD only, because 0xBAB37A is a separate 16-bit slot: the upper half of the dword at
+ *          0xBAB378 must not be written, so go through the word view below.
+ */
+inline auto& g_furniturePool = StaticRef<std::array<Furniture_c, 256>>(0xBAE1F8);
