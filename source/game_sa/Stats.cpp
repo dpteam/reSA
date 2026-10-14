@@ -336,7 +336,109 @@ int32 CStats::FindMaxNumberOfGroupMembers() {
 
 // 0x559AF0
 float CStats::GetFatAndMuscleModifier(eStatModAbilities statMod) {
+#if defined(NOTSA_STANDALONE)
+    // Reversed from disasm 0x559AF0. Header: `cmp eax,0xF ; ja <default> ; jmp [eax*4+0x559F5C]`, i.e. a
+    // direct 16-entry jump table (resolved with the same method as the script dispatchers), so every case
+    // below is a transcription, not an inference.
+    //
+    // Reading notes, because the x87 sequence is easy to misread and two of the helpers are NOT what the
+    // addresses suggest:
+    //   * 0x420800 and 0x404330 are both max(a,b) - they differ only in the flag they test
+    //     (`test ah,0x41 / jne` vs `test ah,0x5 / jp`), i.e. the equality case. Both are transcribed as
+    //     std::max, and the debug-SDK build's variants are worth remembering if an exact tie ever matters.
+    //   * two of the cases (3 and 6) tail-jump into the shared tail at 0x559BFB; that is a straight
+    //     fall-through, not a separate case body, so it is written once here.
+    //   * every `fcom` guard is "if the value is greater than the cap, return the cap", and the ones that
+    //     test `ah,0x5` also skip the cap on NaN - std::min reproduces all of them except for NaN inputs,
+    //     which cannot arise from integer statistics.
+    //   * the stat indices are named rather than left as magic offsets; STAT_FAT is the 0xB793D4
+    //     reference that opens almost every case, which is why the function is named for fat and muscle.
+    const auto fat     = StatTypesFloat[STAT_FAT];
+    const auto muscle  = StatTypesFloat[STAT_MUSCLE];
+    const auto stamina = StatTypesFloat[STAT_STAMINA];
+
+    switch (statMod) {
+    // 0: 0 if fat >= 800, 0 if fat < 400, else 2 - the only case whose default is not 0
+    case STAT_MOD_0:
+        return fat < 800.0f ? (fat < 400.0f ? 2.0f : 0.0f) : 0.0f;
+    // 1: 1.0 + (fat-200)/800*(max with 0) + 0.2*(muscle-50)/950, capped at 0.7
+    case STAT_MOD_1:
+        return std::min(1.0f
+                        + (fat - 200.0f) / 800.0f * std::max(0.0f, (stamina - 200.0f) / 800.0f * -0.4f)
+                        + 0.2f * (muscle - 50.0f) / 950.0f,
+                        0.7f);
+    // 2: 1.0 + (fat-200)/800*(max with 0) + (-0.1)*(muscle-50)/950, capped at 0.8
+    case STAT_MOD_2:
+        return std::min(1.0f
+                        + (fat - 200.0f) / 800.0f * std::max(0.0f, (stamina - 200.0f) / 800.0f * -0.2f)
+                        + -0.1f * (muscle - 50.0f) / 950.0f,
+                        0.8f);
+    // 3: 1.0 - 0.2*(fat-200)/800 (value comes from max) + (-0.1)*(muscle-50)/950, capped at 0.8
+    //    (falls into the same tail as case 6)
+    case STAT_MOD_3:
+        return std::min(std::max((fat - 200.0f) / 800.0f * -0.2f, 0.0f) + 1.0f
+                        + -0.1f * (muscle - 50.0f) / 950.0f,
+                        0.8f);
+    // 4: 1.0 - 0.2*(fat-200)/800 + 1.0*(muscle-50)/950, floored at 2.0
+    case STAT_MOD_4:
+        return std::max((fat - 200.0f) / 800.0f * -0.2f + 1.0f
+                        + 1.0f * (muscle - 50.0f) / 950.0f,
+                        2.0f);
+    // 5: 1.0 - 1.0*(fat-200)/800 + 0.5*(muscle-50)/950 + 0.5*stamina*0.001 + 1.0*cyclingSkill*0.001,
+    //    capped at 2.0, floored at 0.25
+    case STAT_MOD_5: {
+        const auto v = (fat - 200.0f) / 800.0f * -1.0f + 1.0f
+                     + 0.5f * (muscle - 50.0f) / 950.0f
+                     + 0.5f * (stamina * 0.001f)
+                     + 1.0f * (StatTypesInt[STAT_CYCLING_SKILL - FIRST_INT_STAT] * 0.001f);
+        return (v > 2.0f) ? 2.0f : std::max(v, 0.25f);
+    }
+    // 6: 1.0 - 0.5*(fat-200)/800 + 1.0*bikeSkill*0.001, capped at 2.0, floored at 0.5
+    //    (shares the tail with case 3)
+    case STAT_MOD_6: {
+        const auto v = (fat - 200.0f) / 800.0f * -0.5f + 1.0f
+                     + 1.0f * (StatTypesInt[STAT_BIKE_SKILL - FIRST_INT_STAT] * 0.001f);
+        return (v > 2.0f) ? 2.0f : std::max(v, 0.5f);
+    }
+    // 7: stamina*0.001*3000 + 150
+    case STAT_MOD_TIME_CAN_RUN:
+        return stamina * 0.001f * 3000.0f + 150.0f;
+    // 8: (lungCapacity + stamina) * 0.0005 * 3000 + 1000
+    case STAT_MOD_AIR_IN_LUNG:
+        return (StatTypesInt[STAT_LUNG_CAPACITY - FIRST_INT_STAT] + stamina) * 0.0005f * 3000.0f + 1000.0f;
+    // 9: maxHealth * 0.001 * 176
+    case STAT_MOD_MAX_HEALTH:
+        return StatTypesFloat[STAT_MAX_HEALTH] * 0.001f * 176.0f;
+    // 10: the constant 176 - the only case that returns a literal, with no stat read at all
+    case STAT_MOD_10:
+        return 176.0f;
+    // 11: 1.0 + 0.5*max(0, stamina*0.001)  -- the cap is 1.0 but max() already forces >= 0
+    case STAT_MOD_11:
+        return 1.0f + 0.5f * std::max(0.0f, stamina * 0.001f);
+    // 12: 1.0 + 0.3*max(0, stamina*0.001)
+    case STAT_MOD_12:
+        return 1.0f + 0.3f * std::max(0.0f, stamina * 0.001f);
+    // 13: 1.0 + 0.25*max(0, stamina*0.001)
+    case STAT_MOD_13:
+        return 1.0f + 0.25f * std::max(0.0f, stamina * 0.001f);
+    // 14: 1.0 + (fat-200)/800*0.5 + 0.5*(drivingSkill-200)/800, floored at 1.0
+    case STAT_MOD_DRIVING_SKILL:
+        return std::max((fat - 200.0f) / 800.0f * 0.5f
+                        + 1.0f
+                        + 0.5f * (static_cast<float>(StatTypesInt[STAT_DRIVING_SKILL - FIRST_INT_STAT]) - 200.0f) / 800.0f,
+                        1.0f);
+    // 15: 1.0 - 0.5*(fat-200)/800 + -0.25*(muscle-50)/950, floored at 0.5
+    case STAT_MOD_15:
+        return std::max((fat - 200.0f) / 800.0f * -0.5f
+                        + 1.0f
+                        + -0.25f * (muscle - 50.0f) / 950.0f,
+                        0.5f);
+    default:
+        return 0.0f;   // 0x559F58: the out-of-range path loads the 0.0f constant and returns
+    }
+#else
     return plugin::CallAndReturn<float, 0x559AF0, eStatModAbilities>(statMod);
+#endif
 }
 
 // 0x559730
