@@ -71,6 +71,7 @@ void CPlayerPed::InjectHooks() {
     RH_ScopedInstall(EvaluateTarget, 0x60D020);
     RH_ScopedInstall(PlayerHasJustAttackedSomeone, 0x60D5A0);
     RH_ScopedInstall(SetupPlayerPed, 0x60D790);
+    RH_ScopedInstall(ProcessWeaponSwitch, 0x60D850);
 
     RH_ScopedVMTInstall(ProcessControl, 0x60EA90);
     RH_ScopedVMTInstall(SetMoveAnim, 0x609490);
@@ -999,7 +1000,116 @@ void CPlayerPed::SetupPlayerPed(int32 playerId) {
 
 // 0x60D850
 void CPlayerPed::ProcessWeaponSwitch(CPad* pad) {
-    plugin::CallMethod<0x60D850, CPlayerPed *, CPad*>(this, pad);
+    auto& data    = *GetPlayerData();
+    const auto camMode = TheCamera.m_PlayerWeaponMode.m_nMode;
+
+    if (!CDarkel::FrenzyOnGoing() && !m_pAttachedTo && !GetIntelligence()->GetTaskJetPack()) {
+        // Pick the next/previous slot that actually holds a usable weapon. Skipped while locked-on,
+        // free-aiming, or when changing weapons is otherwise forbidden.
+        if (!m_pTargetedObject && !data.m_bFreeAiming && !data.m_bDontAllowWeaponChange && !data.m_bInVehicleDontAllowWeaponChange) {
+            const auto hasUsableWeapon = [this](uint8 slot) {
+                return m_aWeapons[slot].m_Type != WEAPON_UNARMED
+                    && m_aWeapons[slot].HasWeaponAmmoToBeUsed()
+                    && (!CGameLogic::IsCoopGameGoingOn() || m_aWeapons[slot].CanBeUsedFor2Player());
+            };
+
+            if (pad->CycleWeaponRightJustDown()) {
+                // Not in a first-person weapon mode - there the camera owns the weapon.
+                if (camMode != MODE_M16_1STPERSON && camMode != MODE_M16_1STPERSON_RUNABOUT
+                    && camMode != MODE_SNIPER && camMode != MODE_SNIPER_RUNABOUT
+                    && camMode != MODE_ROCKETLAUNCHER && camMode != MODE_ROCKETLAUNCHER_RUNABOUT
+                    && camMode != MODE_ROCKETLAUNCHER_HS && camMode != MODE_ROCKETLAUNCHER_RUNABOUT_HS
+                    && camMode != MODE_CAMERA
+                ) {
+                    data.m_nChosenWeapon = m_nActiveWeaponSlot + 1;
+                    while (true) {
+                        if (data.m_nChosenWeapon >= NUM_WEAPON_SLOTS) {
+                            data.m_nChosenWeapon = 0; // Wrap around to unarmed
+                            break;
+                        }
+                        if (hasUsableWeapon(data.m_nChosenWeapon)) {
+                            break;
+                        }
+                        data.m_nChosenWeapon++;
+                    }
+                }
+            } else if (pad->CycleWeaponLeftJustDown()) {
+                if (camMode != MODE_M16_1STPERSON && camMode != MODE_SNIPER && camMode != MODE_ROCKETLAUNCHER
+                    && camMode != MODE_ROCKETLAUNCHER_HS && camMode != MODE_CAMERA
+                ) {
+                    data.m_nChosenWeapon = m_nActiveWeaponSlot - 1;
+                    while (true) {
+                        if (static_cast<int8>(data.m_nChosenWeapon) < 0) {
+                            data.m_nChosenWeapon = NUM_WEAPON_SLOTS - 1;
+                        }
+                        if (data.m_nChosenWeapon == 0) { // Unarmed
+                            break;
+                        }
+                        if (hasUsableWeapon(data.m_nChosenWeapon)) {
+                            break;
+                        }
+                        data.m_nChosenWeapon--;
+                    }
+                }
+            }
+        }
+
+        // If the active weapon is out of ammo (and isn't melee), pick something usable instead.
+        const auto& activeWeapon = GetActiveWeapon();
+        if (CWeaponInfo::GetWeaponInfo(activeWeapon.m_Type, eWeaponSkill::STD)->GetFireType() != WEAPON_FIRE_MELEE
+            && (!pad->GetWeapon(this) || activeWeapon.m_Type != WEAPON_MINIGUN)
+            && activeWeapon.m_TotalAmmo <= 0
+        ) {
+            // Never drop out of a first-person weapon mode to switch.
+            if (camMode == MODE_M16_1STPERSON || camMode == MODE_SNIPER
+                || camMode == MODE_ROCKETLAUNCHER || camMode == MODE_ROCKETLAUNCHER_HS
+            ) {
+                return;
+            }
+
+            // The detonator keeps the thrown slot if it still holds a satchel charge (so it can be detonated).
+            if (activeWeapon.m_Type == WEAPON_DETONATOR && m_aWeapons[+eWeaponSlot::THROWN].m_Type == WEAPON_REMOTE_SATCHEL_CHARGE) {
+                data.m_nChosenWeapon = +eWeaponSlot::THROWN;
+            } else {
+                data.m_nChosenWeapon = m_nActiveWeaponSlot - 1;
+            }
+
+            while (true) {
+                if (static_cast<int8>(data.m_nChosenWeapon) < 0) {
+                    data.m_nChosenWeapon = 0;
+                    break;
+                }
+                if (data.m_nChosenWeapon == WEAPON_BASEBALLBAT && m_aWeapons[+WEAPON_BASEBALLBAT].m_Type == WEAPON_BASEBALLBAT) {
+                    break;
+                }
+                if (m_aWeapons[data.m_nChosenWeapon].m_TotalAmmo > 0
+                    && data.m_nChosenWeapon != WEAPON_MOLOTOV
+                    && data.m_nChosenWeapon != WEAPON_TEARGAS
+                    && data.m_nChosenWeapon != WEAPON_GRENADE
+                ) {
+                    break;
+                }
+                data.m_nChosenWeapon--;
+            }
+        }
+    }
+
+    // Finally, actually switch - but never mid-fire/reload.
+    if (data.m_nChosenWeapon != m_nActiveWeaponSlot) {
+        if (const auto gunTask = GetIntelligence()->GetTaskUseGun()) {
+            const auto cmd = gunTask->m_NextCmd;
+            if (cmd == eGunCommand::FIRE || cmd == eGunCommand::FIREBURST
+                || (cmd == eGunCommand::RELOAD && gunTask->m_Anim)
+            ) {
+                return;
+            }
+        }
+        RemoveWeaponAnims(m_nActiveWeaponSlot, 1000.0f);
+        // `m_nChosenWeapon` is unsigned; this is the original's guard for it having been left at -1 (0xFF).
+        if (static_cast<int8>(data.m_nChosenWeapon) != -1) {
+            MakeChangesForNewWeapon(m_aWeapons[data.m_nChosenWeapon].m_Type);
+        }
+    }
 }
 
 // 0x60DC50
