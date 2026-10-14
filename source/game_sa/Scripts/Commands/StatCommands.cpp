@@ -50,6 +50,33 @@ void SetTotalNumberOfMissions(int32 count) {
     CStats::SetStatValue(STAT_TOTAL_NUMBER_OF_MISSIONS_IN_GAME, static_cast<float>(count));
 }
 
+// COMMAND_SET_PROGRESS_TOTAL (0x30D)
+// Same shape, different stat. Resolved with tools/opcode_case.py: the 700-799 dispatcher (0x47FA30) uses
+// `add eax,-703; cmp eax,95`, so index = 781-703 = 78, selector 43, case target 0x480D28:
+//     CollectParameters(&m_IP, 1);                       // 0x464080
+//     CStats::SetStatValue(STAT_TOTAL_PROGRESS,          // 0x55A070, stat 1
+//                          (float)ScriptParams[0].iParam);
+// Also silent (no DisplayScriptStatUpdateMessage), exactly like 0x42C.
+void SetTotalProgress(int32 total) {
+    CStats::SetStatValue(STAT_TOTAL_PROGRESS, static_cast<float>(total));
+}
+
+// COMMAND_SET_MISSION_RESPECT_TOTAL (0x997)
+// COMMAND_AWARD_PLAYER_MISSION_RESPECT (0x998)
+// Both found by `tools/opcode_case.py --stats 0x478000`, which enumerates the cases of the 2400-2499
+// dispatcher that are nothing but `CollectParameters(1)` around an already-reversed stat call:
+//     0x997 -> case 0x478EA4: CStats::SetStatValue(STAT_RESPECT_MISSION_TOTAL /*228*/, (float)param)
+//     0x998 -> case 0x478ECB: CStats::IncrementStat(STAT_RESPECT_MISSION        /*224*/, (float)param)
+// The command names match the stats they touch, which is the cross-check that the scan found the right
+// cases rather than a lookalike.
+void SetMissionRespectTotal(int32 total) {
+    CStats::SetStatValue(STAT_RESPECT_MISSION_TOTAL, static_cast<float>(total));
+}
+
+void AwardMissionRespect(int32 respect) {
+    CStats::IncrementStat(STAT_RESPECT_MISSION, static_cast<float>(respect));
+}
+
 // GET_INT_STAT (1618)
 // GET_FLOAT_STAT (1619)
 template<typename T>
@@ -74,6 +101,9 @@ void notsa::script::commands::stat::RegisterHandlers() {
     REGISTER_COMMAND_HANDLER(COMMAND_SET_FLOAT_STAT, SetStat<float>);
 
     REGISTER_COMMAND_HANDLER(COMMAND_SET_TOTAL_NUMBER_OF_MISSIONS, SetTotalNumberOfMissions);
+    REGISTER_COMMAND_HANDLER(COMMAND_SET_PROGRESS_TOTAL, SetTotalProgress);
+    REGISTER_COMMAND_HANDLER(COMMAND_SET_MISSION_RESPECT_TOTAL, SetMissionRespectTotal);
+    REGISTER_COMMAND_HANDLER(COMMAND_AWARD_PLAYER_MISSION_RESPECT, AwardMissionRespect);
 
     REGISTER_COMMAND_HANDLER(COMMAND_GET_INT_STAT, GetStat<int32>);
     REGISTER_COMMAND_HANDLER(COMMAND_GET_FLOAT_STAT, GetStat<float>);

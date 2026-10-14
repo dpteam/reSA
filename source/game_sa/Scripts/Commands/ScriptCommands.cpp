@@ -81,12 +81,23 @@ void SetPlayerInStadium(bool enable) {
     CTheScripts::bPlayerIsOffTheMap = enable;
 }
 
+// COMMAND_SET_DEATHARREST_STATE (0x111)
+// Reversed from disasm: the 200-299 dispatcher (0x469390, base -214) case at index 59 is 0x469A7B:
+//     CollectParameters(&m_IP, 1);                                   // 0x464080
+//     m_IsDeathArrestCheckEnabled = (ScriptParams[0].iParam == 1);   // the byte at this+0xD3
+// Note the original compares against exactly 1 (`sete`), so any other value - including 2 - means FALSE.
+// It does not touch m_DoneDeathArrest (this+0xD4); the case following 0x111 is the one reading that byte.
+void SetDeathArrestState(CRunningScript& S, int32 enabled) {
+    S.m_IsDeathArrestCheckEnabled = (enabled == 1);
+}
+
 };
 
 void notsa::script::commands::script::RegisterHandlers() {
     REGISTER_COMMAND_HANDLER_BEGIN("Script");
 
     REGISTER_COMMAND_HANDLER(COMMAND_TERMINATE_ALL_SCRIPTS_WITH_THIS_NAME, TerminateAllScriptsWithThisName);
+    REGISTER_COMMAND_HANDLER(COMMAND_SET_DEATHARREST_STATE, SetDeathArrestState);
     REGISTER_COMMAND_HANDLER(COMMAND_REMOVE_ALL_SCRIPT_FIRES, RemoveAllScriptFires);
     REGISTER_COMMAND_HANDLER(COMMAND_LOAD_SCENE, LoadScene);
     REGISTER_COMMAND_HANDLER(COMMAND_LOAD_SCENE_IN_DIRECTION, LoadSceneInDirection);
