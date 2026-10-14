@@ -26,15 +26,44 @@ void CRealTimeShadowManager::Init() {
 
     for (auto& shdw : m_apShadows) {
         shdw = new CRealTimeShadow();
+#ifdef NOTSA_STANDALONE
+        // Standalone: the shadow *cameras* are not created, only the pool. Why this is the safe cut and
+        // not a blanket stub:
+        //   * Update() walks m_apShadows twice WITHOUT consulting m_bInitialised (the loop at the top
+        //     dereferences shdw->m_pOwner, and the trailing debug loop writes shdw->m_bKeepAlive). The
+        //     original's invariant is therefore "Init allocated all 16 slots", so the pool must exist.
+        //     With m_pOwner left null, every iteration `continue`s and only the keepAlive write happens -
+        //     i.e. the subsystem is genuinely inert rather than half-built.
+        //   * What is skipped is exactly `CRealTimeShadow::Create` (a directional light + its frame, plus
+        //     the shadow camera + its frame and rasters) and the two manager cameras below. Those exist
+        //     solely to render shadows, and the shadow render path is not bridged yet, so nothing can
+        //     observe their absence except by not seeing a shadow.
+        //   * Leaving them uncreated is what makes the boot survive at all: creating them is what trips a
+        //     real librw dirty-list/objectList corruption (see MEMORY.md "librw frame dirty-list
+        //     corruption" - diagnosed 2026-10-14, fix outstanding). The crash surfaced as
+        //     `Frame::syncDirty` calling 0x3F800000 (a float, 1.0f) as an ObjectWithFrame::syncCB from
+        //     CShadowCamera::MakeGradientRaster -> RwCameraBeginUpdate.
+        // Degradation, stated plainly: no real-time shadows under peds/vehicles until that bug is fixed.
+        (void)shdw;
+#else
         shdw->Create(true, 4, true);
+#endif
     }
 
+#ifdef NOTSA_STANDALONE
+    // See the note above: the blur/gradient cameras and the gradient raster are the same cut. The original
+    // order is Create(blur), Create(gradient), MakeGradientRaster() - all skipped.
+    NOTSA_LOG_WARN("Standalone: real-time shadows disabled (librw frame dirty-list corruption in the "
+                   "shadow camera path); the shadow pool is allocated so Update() stays safe");
+    return;
+#else
     m_BlurCamera.Create(6);
 
     m_GradientCamera.Create(6);
     m_GradientCamera.MakeGradientRaster();
 
     m_bInitialised = true;
+#endif
 }
 
 // 0x706A60
