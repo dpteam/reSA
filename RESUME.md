@@ -1,3 +1,44 @@
+## Hand-off snapshot (2026-10-14, end of the headless + script-VM push)
+
+**State: LOADING IS DONE. The game reaches the per-frame loop and instantiates the player.**
+
+Three deliverables the user asked for, all landed:
+* `docs_new/` - the OpenSpore pipeline adopted: `reimplementation-field-guide.md`,
+  `ai-brief-and-commands.md`, `toolchain-rea.md`, `audit-review-method.md`.
+* REA installed and working here (`rea setup --yes --client opencode` -> healthy: true, skill installed).
+  A full Ghidra analysis of `refs/gtasa10us/gta_sa.exe` completed: 13 segments, 21,041 procedures,
+  8,435 strings; snapshot retained at `refs/ghidra/snap/gta_sa.json`.
+* **Headless mode** - `--autostart` / `--quit-after=N` / `--dump-progress` / `--idle-frames=N` in the
+  engine, driven by `tools/probe.ps1`. This is what made the rest possible; it found, on its own:
+  the log being duplicated ~2x by `dump_backtrace` (so every marker count in the docs was inflated),
+  two unbounded waits in the audio init that HANG the boot with no log and no stack, and the
+  `RpAtomic::geometry` layout divergence.
+
+Progress chain this session: `Init2 line 462` -> `Init2 466/477/492/495/509/511` -> `Initialise 555` ->
+`559 (CTheScripts::Process)` -> `560 (TheCamera.Process)` -> **`Init3` completes** ->
+`CGame::Process` per-frame -> `CreatePlayer` -> `CPlayerPed::SetupPlayerPed`.
+
+**Next concrete step (single, well-defined):** the player model's RW object is uninitialised memory.
+Evidence: `CEntity::GetRpClump` reports type 16, then 32, then 48, then 216 across runs - a value that
+VARIES is proof of uninitialised storage, not a foreign structure (librw's IDs are fixed: Frame 0,
+Atomic 1, Clump 2, Light 3, Camera 4, TexDict 6, World 7, Geometry 8, and SA uses the same numbers, so
+this is not an enum-value desync like the font bug). `MODELS\PLAYER.IMG` opens fine. So look at
+`CClumpModelInfo::SetClump` / `CPedModelInfo` population for the player model, i.e. whether the streamed
+clump is ever handed to the model info at all. The crash then lands at
+`CPed::SetModelIndex` -> `UpdateRpHAnim` -> `HAnimHierarchy::updateMatrices` reading 0xCDCDCDCD.
+
+Second, deferred: the librw `frameDirtyList`/`objectList` corruption behind the real-time-shadow crash -
+fully diagnosed in `IDEAS.md` (entry "ОТКРЫТЫЙ БАГ"), currently isolated by not creating the shadow
+cameras, and the two hardening fixes already in `librw/` (`FORK.md` items 2 and 3) are NOT the cause.
+
+Third, and the biggest remaining phase after the world is up: **nothing renders yet** - `CVisibilityPlugins`
+/ `RwIm3D` / the atomic render path.
+
+Commands: build `python setup.py --build -o standalone=True -s compiler.version=194` (the wrapper prints
+`Exited with code 1` even on success - check for the `-> ...reSA.exe` line and no `error C/LNK`);
+test `powershell -NoProfile -ExecutionPolicy Bypass -File tools\probe.ps1 -Frames 400 -TimeoutSec 240`.
+Logs: `bin\Debug\logs\log.log` and `logs\runtime_reports.txt` (read with FileShare::ReadWrite).
+
 # RESUME.md — Session snapshot
 
 > **How to use:** at the *start* of a session, read this + `MEMORY.md` + `PROGRESS.md`. Rewrite at the end of a session.

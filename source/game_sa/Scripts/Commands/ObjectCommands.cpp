@@ -7,6 +7,8 @@
 #include "SetPieces.h"
 #include "Fx.h"
 #include "PointLights.h"
+#include "Collision/ColStore.h"   // CColStore::RequestCollision (0x4E4)
+#include "Game.h"                 // CGame::currArea (0x4E4)
 #include "CommandParser/Parser.hpp"
 
 using namespace notsa;
@@ -117,6 +119,26 @@ bool HasModelLoaded(script::Model model) {
     return CStreaming::IsModelLoaded(model);
 }
 
+// COMMAND_REQUEST_COLLISION (0x4E4)
+// Reversed from disasm 0x48C244 (the 1200-1299 dispatcher 0x48B590, base -1200, index 52):
+//     CollectParameters(&m_IP, 2);                       // 0x464080
+//     CColStore::RequestCollision(                       // 0x410C00
+//         CVector{ ScriptParams[0].fParam, ScriptParams[1].fParam, 0.0f },
+//         CGame::currArea );                             // 0xB72914
+// The operand count is 2 while the call takes a CVector, which at first looks like an out-of-bounds read -
+// it is not, and the resolution matters because it decides what z is. The original pushes the two
+// arguments *between* the stores, so every [esp+disp] after a push is 4/8 bytes lower than the same
+// spelling before it. Recomputing all five accesses against the pre-push esp gives
+//     local[0x88] = SP[0]        (the vector's x, and the address `lea edx,[esp+0x8C]` takes after
+//                                 one push - i.e. the same slot)
+//     local[0x8C] = SP[1]        (written as `[esp+0x94]` after two pushes = pre-push 0x8C) -> y
+//     local[0x90] = 0            (written as `[esp+0x98]` after two pushes = pre-push 0x90) -> z
+// So the position is 2D with z forced to 0, which is exactly right for an area/collision lookup.
+void RequestCollision(CRunningScript& S, float x, float y) {
+    CColStore::RequestCollision(CVector{ x, y, 0.0f },
+                                static_cast<eAreaCodes>(static_cast<int32>(CGame::currArea)));
+}
+
 void MarkModelNotNeeded(CRunningScript* S, script::Model model) {
     if (CTheScripts::ScriptResourceManager.RemoveFromResourceManager(model, RESOURCE_TYPE_MODEL_OR_SPECIAL_CHAR, S)) {
         CStreaming::SetMissionDoesntRequireModel(model);
@@ -209,6 +231,7 @@ void notsa::script::commands::object::RegisterHandlers() {
 
     REGISTER_COMMAND_HANDLER(COMMAND_REQUEST_MODEL, LoadModel);
     REGISTER_COMMAND_HANDLER(COMMAND_HAS_MODEL_LOADED, HasModelLoaded);
+    REGISTER_COMMAND_HANDLER(COMMAND_REQUEST_COLLISION, RequestCollision);
     REGISTER_COMMAND_HANDLER(COMMAND_MARK_MODEL_AS_NO_LONGER_NEEDED, MarkModelNotNeeded);
     REGISTER_COMMAND_HANDLER(COMMAND_LOAD_ALL_MODELS_NOW, LoadAllModelsNow);
     REGISTER_COMMAND_HANDLER(COMMAND_IS_MODEL_AVAILABLE, IsModelAvailable);
