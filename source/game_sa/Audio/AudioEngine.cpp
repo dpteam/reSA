@@ -12,6 +12,10 @@
 
 auto& AudioEngine = StaticRef<CAudioEngine>(0xB6BC90);
 
+#ifdef NOTSA_STANDALONE
+bool CAudioEngine::m_bAudioDisabled{};
+#endif
+
 void CAudioEngine::InjectHooks() {
     RH_ScopedClass(CAudioEngine);
     RH_ScopedCategory("Audio");
@@ -109,8 +113,24 @@ bool CAudioEngine::Initialise() {
     CAEAudioUtility::StaticInitialise();
 
     if (!AEAudioHardware.Initialise()) {
+#ifdef NOTSA_STANDALONE
+        // Standalone: the hardware is unavailable (typically DSERR_NODEVICE - DirectSound is deprecated on
+        // modern Windows and can report no device even while WDM endpoints read OK). Record that so the
+        // rest of the audio subsystem stays inert, and still load the *data-only* tables that the aborted
+        // sequence below would have loaded: they are plain file reads with no device dependency, and
+        // without them the game faults on null pointers long before it ever tries to make a sound
+        // (measured: GetDefaultVolume -> m_pAudioEventVolumes == nullptr, via the menu's
+        // ReportFrontendAudioEvent). Returning false keeps the original's contract; the caller ignoring
+        // it is pre-existing upstream behaviour, not something this build introduces.
+        m_bAudioDisabled = true;
+        NOTSA_LOG_ERR("Failed to initialise Audio Hardware - audio disabled for this run "
+                      "(no sound; loading data-only tables so the rest of the game stays alive)");
+        CAEAudioEntity::StaticInitialise();
+        return false;
+#else
         NOTSA_LOG_ERR("Failed to initialise Audio Hardware");
         return false;
+#endif
     }
 
     m_nBackgroundAudioChannel = AEAudioHardware.AllocateChannels(1);
@@ -166,6 +186,15 @@ bool CAudioEngine::Initialise() {
 
 // 0x5078F0
 void CAudioEngine::InitialisePostLoading() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this function ends in `while (!AEAudioHardware.IsSoundBankLoaded(...11 banks...)) {
+    // AEAudioHardware.Service(); }` - an unbounded wait for the sound banks to stream in. With no audio
+    // device they never load, so without this gate the boot HANGS there: no crash, no log line, no stack -
+    // the worst possible failure mode for an unattended probe. Skip the whole thing when audio is off.
+    if (m_bAudioDisabled) {
+        return;
+    }
+#endif
     m_FrontendAE.AddAudioEvent(AE_FRONTEND_LOADING_TUNE_STOP);
     AudioEngine.Service();
     CAECollisionAudioEntity::InitialisePostLoading();
@@ -349,6 +378,15 @@ void CAudioEngine::DisableEffectsLoading() {
 
 // 0x506EA0
 void CAudioEngine::ReportFrontendAudioEvent(eAudioEvents eventId, float volumeChange, float speed) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this is the path that faulted (menu -> CMenuManager::CheckForMenuClosing -> here ->
+    // CAEFrontendAudioEntity::AddAudioEvent -> GetDefaultVolume on a null table). The data-only hoist in
+    // Initialise() already removes the null deref, but with audio off there is nothing to report to, so
+    // skipping is both cheaper and immune to the next half-initialised read.
+    if (m_bAudioDisabled) {
+        return;
+    }
+#endif
     m_FrontendAE.AddAudioEvent(eventId, volumeChange, speed);
 }
 
@@ -606,6 +644,14 @@ void CAudioEngine::ResumeAllSounds() {
 void CAudioEngine::Service() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: the per-frame audio pump (5 callers: app_game, MenuManager_Input, itself). With no
+    // device it only walks half-initialised hardware/channel state, so it is skipped wholesale rather
+    // than patched piece by piece - see m_bAudioDisabled.
+    if (m_bAudioDisabled) {
+        return;
+    }
+#endif
     m_FrontendAE.AddAudioEvent(AE_FRONTEND_WAKEUP_AMPLIFIER);
     if (!CTimer::GetIsPaused())
         m_FrontendAE.AddAudioEvent(AE_FRONTEND_RADIO_RETUNE_STOP_PAUSED);
@@ -673,6 +719,17 @@ void CAudioEngine::ServiceLoadingTune(float fScalingFactor) {
 
 // 0x507A90
 void CAudioEngine::Reset() {
+#ifdef NOTSA_STANDALONE
+    // Standalone: two reasons this must be skipped when audio is off. (1) It starts by pumping
+    // AESoundManager/AEAudioHardware, which are uninitialised in that state (measured: the menu's
+    // DoSettingsBeforeStartingAGame -> Reset -> GetTrackPlayTime -> CAEStreamThread dereferencing a null
+    // stream thread). (2) It contains a second unbounded wait - `while (IsRadioOn()) { Service(...);
+    // AEAudioHardware.Service(); }` - and with no device the radio can never actually stop, so that loop
+    // would hang the boot with no log and no stack. See m_bAudioDisabled.
+    if (m_bAudioDisabled) {
+        return;
+    }
+#endif
     AESoundManager.Service();
 
     if (AERadioTrackManager.IsRadioOn())

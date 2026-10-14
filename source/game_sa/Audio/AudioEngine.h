@@ -39,6 +39,25 @@ public:
 public:
     static void InjectHooks();
 
+#ifdef NOTSA_STANDALONE
+    /*!
+     * @brief True when the audio subsystem could not come up (no DirectSound device), so every entry
+     *        point must stay inert instead of touching half-initialised state.
+     *
+     * @details The original treats a failed `AEAudioHardware.Initialise()` as fatal, but its only caller
+     *          (`CGame::InitialiseCoreDataAfterRW`, whose result `WinMain.cpp:258` already ignores) lets
+     *          execution continue - so the game really does run on this path and then faults on data that
+     *          the aborted init never allocated (measured: `CAEAudioEntity::GetDefaultVolume` reading a
+     *          null `m_pAudioEventVolumes`, from the menu's `ReportFrontendAudioEvent`).
+     *          This build has no sound at all yet (audio is stubbed), so "inert" is the desired state;
+     *          the flag just makes it reach that state safely instead of by luck.
+     *
+     *          Deliberately `static` so it does not perturb CAudioEngine's validated object layout.
+     */
+    static bool m_bAudioDisabled;
+    static bool AudioDisabled() { return m_bAudioDisabled; }
+#endif
+
     CAudioEngine() = default;  // 0x507670
     ~CAudioEngine() = default; // 0x506CD0
 
