@@ -233,7 +233,24 @@ bool CHeli::SendDownSwat() {
 void CHeli::UpdateHelis() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: not ported. Reached from CGame::Process (the first per-frame wall after loading
+    // completed), and reading the disasm shows why it is not worth blocking on:
+    //   * half A (0x6C79A0..0x6C7B12) locates the player vehicle, tests it against two heli model ids
+    //     (501 / 488, compared against `WORD [veh+0x22]`), and on a timer + two gameplay gates
+    //     (0xB7CB8C == 0, 0x8E73A4 == 1, 0xB7CB84 > 0xC1C960) SPAWNS the two mission/searchlight helis
+    //     through 0x56E210 (pool allocate) + 0x6C6520 + 0x571B70, caching them in the statics at
+    //     0xC1C964 / 0xC1C968. It also consults 0x72DDC0, 0xB72914, 0x8D338C and 0xC8131C/0xC81320.
+    //   * half B (0x6C7B12..) walks exactly those two statics and processes each.
+    // So the function's inputs are the two statics, and they are zero-filled here: nothing spawns them
+    // while this is stubbed, therefore half B has nothing to walk and the whole function is inert.
+    // Degradation, stated plainly: the scripted/searchlight helicopters never appear. Everything that
+    // does not involve them is unaffected. Reversing it belongs with the heli gameplay work (it needs
+    // 0x56E230 / 0x561FA0 / 0x72DDC0 / 0x56E210 / 0x6C6520 / 0x571B70 first), not with booting.
+    return;
+#else
     ((void(__cdecl*)())0x6C79A0)();
+#endif
 }
 
 // 0x6C7C50
