@@ -37,6 +37,19 @@ void SetStat(eStats stat, T value) {
     CStats::DisplayScriptStatUpdateMessage(eStatUpdateState::STAT_UPDATE_INCREASE, stat, (float)(value));
 }
 
+// COMMAND_SET_TOTAL_NUMBER_OF_MISSIONS (0x42C)
+// Transcribed from disasm: the 1000-1099 dispatcher (0x489500) switches on `command - 1000` through the
+// byte table at 0x48A2B4; case 68 (0x42C - 1000) lands at 0x489D5B, which is
+//     CollectParameters(&m_IP, 1);                                    // 0x464080
+//     CStats::SetStatValue(STAT_TOTAL_NUMBER_OF_MISSIONS_IN_GAME,     // 0x55A070, stat 148
+//                          (float)ScriptParams[0].iParam);            // ScriptParams == 0xA43C78
+// Note it deliberately does NOT call DisplayScriptStatUpdateMessage, unlike the SET_INT/FLOAT_STAT pair
+// above - the value is recorded silently, which is why this is written out separately rather than reusing
+// SetStat<int32>.
+void SetTotalNumberOfMissions(int32 count) {
+    CStats::SetStatValue(STAT_TOTAL_NUMBER_OF_MISSIONS_IN_GAME, static_cast<float>(count));
+}
+
 // GET_INT_STAT (1618)
 // GET_FLOAT_STAT (1619)
 template<typename T>
@@ -59,6 +72,8 @@ void notsa::script::commands::stat::RegisterHandlers() {
 
     REGISTER_COMMAND_HANDLER(COMMAND_SET_INT_STAT, SetStat<int32>);
     REGISTER_COMMAND_HANDLER(COMMAND_SET_FLOAT_STAT, SetStat<float>);
+
+    REGISTER_COMMAND_HANDLER(COMMAND_SET_TOTAL_NUMBER_OF_MISSIONS, SetTotalNumberOfMissions);
 
     REGISTER_COMMAND_HANDLER(COMMAND_GET_INT_STAT, GetStat<int32>);
     REGISTER_COMMAND_HANDLER(COMMAND_GET_FLOAT_STAT, GetStat<float>);

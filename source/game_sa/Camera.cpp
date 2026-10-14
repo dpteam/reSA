@@ -1531,7 +1531,28 @@ void CCamera::ProcessScriptedCommands() {
 void CCamera::Process() {
     ZoneScoped;
 
+#ifdef NOTSA_STANDALONE
+    // Standalone: NOT reversed yet, and deliberately stubbed rather than guessed at. Measured size: the
+    // body spans roughly 0x52B730..0x52C100 with 33 internal calls - it is the whole camera mode
+    // state machine (script/cinematic/follow modes, fades, shakes, wide-screen, linear tracks), so it is
+    // its own milestone, not a one-step unblock. Reaching it is the milestone marker here: CGame::Initialise
+    // line 560 is the last per-frame call before Init3, i.e. loading is fully behind us.
+    //
+    // What reads this function's output, and what is therefore degraded (field-guide rule: state it, do
+    // not hide it): the camera's position/rotation/FOV, which the renderer consumes every frame. With the
+    // pump skipped, the camera keeps whatever values its initialisation left it with, so the world will
+    // draw from a fixed viewpoint and fades/zooms will not animate. Nothing here leaves dangling state -
+    // Process only *writes* camera fields and calls sub-systems, so skipping it cannot corrupt anything
+    // that later code reads back.
+    //
+    // The already-reversed pieces it would drive (ProcessScriptedCommands, ProcessFade, ProcessMusicFade,
+    // ProcessWideScreenOn, ProcessFOVLerp, ...) are left uncalled on purpose: calling a subset in the
+    // wrong order is more likely to produce a misleading crash than a useful one.
+    // TODO(reversal): the camera subsystem. See VERIFY.md section G.
+    return;
+#else
     plugin::CallMethod<0x52B730, CCamera*>(this);
+#endif
 }
 
 // 0x514860
