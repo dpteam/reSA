@@ -68,9 +68,18 @@ LONG WINAPI WindowsExceptionHandler(PEXCEPTION_POINTERS pExceptionInfo) {
     }
     s_HasHandled = true;
 
+    // In standalone this re-emission is not just useless but actively harmful: `enable_backtrace` keeps the
+    // last N records, and `dump_backtrace` re-logs them *with their original timestamps* - so every message
+    // that is already present in logs/log.log appears a second time. For a short log (fewer records than the
+    // backtrace capacity) that doubles the entire file, which silently corrupts any line-counting metric
+    // (this project's yardstick is the number of `Loading the Game -> Loading` markers, and it read ~2x high).
+    // The backtrace only earns its keep when the log is not otherwise persisted; here it is, and it is
+    // flushed every 100 ms, so skip it and keep the log exactly once-per-message.
+#ifndef NOTSA_STANDALONE
     spdlog::apply_all([](auto&& logger) {
         logger->dump_backtrace();
     });
+#endif
     
     const auto Section = [](const char* name) {
         SPDLOG_INFO("*********{}**********", name);

@@ -88,7 +88,12 @@ template<typename... Ts>
     );
 
     spdlog::error(mbMsg);
+#ifndef NOTSA_STANDALONE
+    // Standalone: skipped on purpose - see the same guard in app_debug.cpp. The backtrace re-emits records
+    // that are already in logs/log.log (with identical timestamps), which doubles recent lines and corrupts
+    // line-counting metrics. The message logged just above is what the file needs.
     spdlog::dump_backtrace();
+#endif
     spdlog::apply_all([](std::shared_ptr<spdlog::logger> l) { // Flush all sinks immidiately
         l->flush();
     });
@@ -96,7 +101,7 @@ template<typename... Ts>
 #ifdef NOTSA_STANDALONE
     // Standalone: never put up a modal dialog. This build is run unattended a lot (and the user is often
     // busy driving the menu by hand), so a blocking Abort/Retry/Ignore box here just stalls debugging -
-    // the same reason VERIFY is non-fatal. The message plus a backtrace are already in logs/log.log, so
+    // the same reason VERIFY is non-fatal. The message is already in logs/log.log, so
     // exit at once with a distinctive code instead of waiting for a click.
     // NOTE: still [[noreturn]] on purpose - callers rely on it (many end their last branch with
     // NOTSA_UNREACHABLE and have no `return`), so letting this return would be undefined behaviour.
