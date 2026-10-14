@@ -910,7 +910,29 @@ bool CPlayerPed::PlayerWantsToAttack() {
 
 // 0x60CD20
 void CPlayerPed::SetInitialState(bool bGroupCreated) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: NOT reversed yet, stubbed so the boot can be measured past it. Measured size first:
+    // 0x60CD20..0x60D000 (the next function is MakeChangesForNewWeapon) = 736 bytes, 387 instructions,
+    // 30 internal calls, and it opens with a call to 0x71D780 followed by `mov ds:0xB7CB64, 0x3F800000`
+    // (a 1.0f global). So this is the player's initial loadout/stat/group setup - a gameplay milestone in
+    // its own right, not a one-step unblock, and reversing it half-way (some of the 30 callees are still
+    // raw thunks) would leave the player in a state that is worse than clearly-empty because it would look
+    // plausible.
+    //
+    // What is degraded, stated plainly: the player starts with no weapons, no group, and whatever the
+    // globals this function writes were zero-initialised to. The ped itself, its model and its anim
+    // hierarchy are set up by CPed::SetModelIndex BEFORE this (already working), so the world should still
+    // instantiate around the player - only the player's own equipment/state is missing.
+    //
+    // Deliberately NOT attempted: the two globals it writes at 0xB7CB64 and friends are left at zero. If a
+    // later crash turns out to read one of them, that is the signal this stub is on the critical path and
+    // the function must be reversed rather than skipped; the log line below makes that traceable.
+    NOTSA_LOG_WARN("Standalone: CPlayerPed::SetInitialState skipped (not reversed) - the player will have "
+                   "no initial weapons/state");
+    return;
+#else
     plugin::CallMethod<0x60CD20, CPlayerPed *, bool>(this, bGroupCreated);
+#endif
 }
 
 // 0x60D000

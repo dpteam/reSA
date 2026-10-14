@@ -34,6 +34,31 @@ public:
         }
     }
 
+#ifdef NOTSA_STANDALONE
+    /*!
+     * @brief Construct the six static allocator objects, which the original's CRT used to build for us.
+     *
+     * @details These are the "polymorphic statics" failure mode: each is a stateless, vtable-only object
+     *          (VALIDATE_SIZE == sizeof(void*), the headers even say "vtable only") living at a fixed
+     *          address. In the ASI build the original exe has already run its static initialisers, so the
+     *          vtable pointer is in place; the standalone build zero-fills the statics region, so the
+     *          pointer is null and the first virtual call goes to garbage. Measured:
+     *          CreatePlayer -> CPlayerPed ctor -> SetDefaultTaskAllocatorType ->
+     *          SetDefaultTaskAllocator -> `m_DefaultTaskAllocator->AllocateDefaultTasks(...)` faulted.
+     *
+     *          Constructing them is enough - they hold no data, so there is nothing else to initialise.
+     *          Called from InitGameGlobalStatics() before the game loop.
+     */
+    static void SeedStaticAllocators() {
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorFollowAnyMeans&>(ms_FollowAnyMeansAllocator));
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorFollowLimited&>(ms_FollowLimitedAllocator));
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorStandStill&>(ms_StandStillAllocator));
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorChat&>(ms_ChatAllocator));
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorRandom&>(ms_RandomAllocator));
+        notsa::ConstructStatic(const_cast<CPedGroupDefaultTaskAllocatorSitInLeaderCar&>(ms_SitInLeaderCarAllocator));
+    }
+#endif
+
 public:
     static void InjectHooks() {
         RH_ScopedClass(CPedGroupDefaultTaskAllocators);

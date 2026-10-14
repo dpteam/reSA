@@ -2,6 +2,12 @@
 
 #include "PedGroups.h"
 
+#ifdef NOTSA_STANDALONE
+#include "PedGroup.h"              // CPedGroup's members (m_groupMembership / m_bIsMissionGroup)
+#include "PedGroupMembership.h"    // GetMember / RemoveMember, TOTAL_PED_GROUP_MEMBERS
+#include "PedGroupIntelligence.h"  // Flush
+#endif
+
 void CPedGroups::InjectHooks() {
     RH_ScopedClass(CPedGroups);
     RH_ScopedCategoryGlobal();
@@ -23,7 +29,44 @@ void CPedGroups::Load() {
 // return the index of the added group , return -1 if failed.
 // 0x5FB800
 int32 CPedGroups::AddGroup() {
+#ifdef NOTSA_STANDALONE
+    // Reversed from disasm 0x5FB800 (98 bytes):
+    //     eax = -1
+    //     for (ebx = 0; ebx < 8; ebx++)
+    //         if (ms_activeGroups[ebx] == 0) goto found;
+    //     return -1;                       // no free slot
+    // found:
+    //     ms_activeGroups[ebx] = 1;
+    //     esi = &ms_groups[ebx];           // 0xC09920 + ebx * 0x2D4
+    //     for (edi = 0; edi < 8; edi++)
+    //         if (esi->m_groupMembership.m_members[edi] != 0)
+    //             esi->m_groupMembership.RemoveMember(edi);      // 0x5F80D0, ecx = group+8
+    //     esi->m_groupIntelligence.Flush();                      // 0x5F7350, ecx = group+0x30
+    //     esi->m_bIsMissionGroup = false;                        // [esi+0x2D0]
+    //     return ebx;
+    // The activation flushes whatever stale membership the slot still carried from its previous life, which
+    // is why it is not simply "mark active".
+    for (auto i = 0; i < static_cast<int32>(ms_groups.size()); i++) {
+        if (ms_activeGroups[i]) {
+            continue;
+        }
+        ms_activeGroups[i] = true;
+
+        auto&       group      = ms_groups[i];
+        auto&       membership = group.GetMembership();
+        for (auto j = 0; j < TOTAL_PED_GROUP_MEMBERS; j++) {
+            if (membership.GetMember(j)) {
+                membership.RemoveMember(j);
+            }
+        }
+        group.GetIntelligence().Flush();
+        group.m_bIsMissionGroup = false;
+        return i;
+    }
+    return -1;
+#else
     return plugin::CallAndReturn<int32, 0x5FB800>();
+#endif
 }
 
 // 0x5FB870
@@ -43,27 +86,45 @@ void CPedGroups::RemoveAllFollowersFromGroup(int32 groupId) {
 // 0x5FB8C0
 void CPedGroups::Init() {
 #ifdef NOTSA_STANDALONE
-    // Reversed from disasm 0x5FB8C0: for each of the 8 groups (stride 0x2D4 == VALIDATE_SIZE(CPedGroup),
-    // walking 0xC09928..0xC0AFC8):
+    // Reversed from disasm 0x5FB8C0. Both branches are implemented; an earlier version of this file
+    // contained only the else-branch, on the false premise that the active branch's two helpers were not
+    // reversed and "not even declared in this tree". They were both already reversed and I had simply
+    // searched in the wrong place - 0x5F80D0 is CPedGroupMembership::RemoveMember(int32) and 0x5F7350 is
+    // CPedGroupIntelligence::Flush. Recorded here because the mistake is the transferable kind: an
+    // assertion of absence is much easier to write than to verify, and it silently disabled a code path.
+    //
+    // The shape, per group i (stride 0x2D4 == VALIDATE_SIZE(CPedGroup)):
     //     if (ms_activeGroups[i]) {
     //         ms_activeGroups[i] = 0;
-    //         for (8 membership slots) if (slot != 0) <CPedGroup::0x5F80D0>(slot);   // per-member flush
-    //         <CPedGroup::0x5F7350>() at +0x28;
-    //         byte at +0x2C8 = 0;
+    //         for (j = 0..7) if (membership.m_members[j]) membership.RemoveMember(j);
+    //         intelligence.Flush();                       // [edi+0x28]
+    //         group.m_bIsMissionGroup = false;            // [edi+0x2C8]
     //     } else {
     //         ScriptReferenceIndex[i] = 1;
     //     }
-    // The active branch cannot be expressed here: its two helpers (0x5F80D0, 0x5F7350) are not reversed
-    // and are not even declared in this tree. That is fine *for this call site*, because
-    // ms_activeGroups is provably all-zero when CTheScripts::Init runs - the only writer is
-    // CPedGroups::AddGroup (script/runtime driven), which has not run yet. So only the else-branch is
-    // reachable, and it is what is implemented. Guarded so a future caller that reaches Init() with live
-    // groups fails loudly instead of silently skipping the flush.
-    // NOTE (pre-existing, unrelated to standalone): the original walks groups starting at 0xC09928 while
-    // `ms_groups` is declared at 0xC09920 - an 8-byte difference. Worth checking against the PDB if group
-    // data ever looks shifted.
-    VERIFY(std::all_of(ms_activeGroups.begin(), ms_activeGroups.end(), [](char a) { return a == 0; }));
-    ScriptReferenceIndex.fill(1);
+    //
+    // Reading note that resolves a discrepancy flagged in an earlier commit: the original's loop register
+    // starts at 0xC09928, eight bytes above `ms_groups` at 0xC09920, which looked like a wrong base. It is
+    // not - the register holds the *membership* pointer (group + 8), which is what the two calls need as
+    // `this` (`mov ecx, edi` before the RemoveMember call). Hence +0x28 == group+0x30 == the intelligence,
+    // and +0x2C8 == group+0x2D0 == m_bIsMissionGroup. Both functions now agree on the layout.
+    for (auto i = 0; i < static_cast<int32>(ms_groups.size()); i++) {
+        if (ms_activeGroups[i]) {
+            ms_activeGroups[i] = false;
+
+            auto& group      = ms_groups[i];
+            auto& membership = group.GetMembership();
+            for (auto j = 0; j < TOTAL_PED_GROUP_MEMBERS; j++) {
+                if (membership.GetMember(j)) {
+                    membership.RemoveMember(j);
+                }
+            }
+            group.GetIntelligence().Flush();
+            group.m_bIsMissionGroup = false;
+        } else {
+            ScriptReferenceIndex[i] = 1;
+        }
+    }
     return;
 #else
     plugin::Call<0x5FB8C0>();

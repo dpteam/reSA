@@ -1034,9 +1034,34 @@ int HAnimIDGetIndex(void* hierarchy, int id) {
 }
 
 void HAnimHierarchyUpdateMatrices(void* hierarchy) {
-    if (hierarchy) {
-        rp<rw::HAnimHierarchy>(hierarchy)->updateMatrices();
+    if (!hierarchy) {
+        return;
     }
+    auto* h = rp<rw::HAnimHierarchy>(hierarchy);
+    // Standalone: librw's `HAnimHierarchy::create` does allocate an AnimInterpolator (anim.cpp:186), but
+    // `AnimInterpolator::create` initialises only up to `numNodes` and leaves the *callbacks*
+    // (applyCB/blendCB/interpCB/addCB) unset - its own header says "TODO some callbacks, parent/sub".
+    // They are filled in when an animation is assigned via setCurrentAnim, and `updateMatrices` calls
+    // `anim->applyCB(&animMat, anim->getInterpFrame(i))` unconditionally (hanim.cpp:175). So updating a
+    // hierarchy that has no current animation is a call through uninitialised heap - measured as EIP
+    // 0xCDCDCDCD from CEntity::UpdateRpHAnim during CPed::SetModelIndex.
+    //
+    // This is not a workaround for a librw bug so much as the original's precondition stated explicitly:
+    // disasm 0x7C52B1 loads the hierarchy's currentAnim and immediately dereferences it (+0x24, +0x3C,
+    // +0x4C) with NO null check, i.e. RW 3.7 also requires an animation to be attached first - in the
+    // original that is guaranteed by RpHAnimHierarchyAttach (0x7C4F40), which our RtAnim bridge does not
+    // implement yet (see IDEAS.md: the interpolator/animation storage model differs - SA keeps a pFrames
+    // pointer, librw keeps frames inline after the struct).
+    //
+    // Skipping is the honest interim: the bone matrices simply keep whatever the hierarchy was built with,
+    // i.e. skinned peds hold their bind pose. Checking applyCB rather than only currentAnim means the
+    // *actual* thing being called is verified, so a future path that sets currentAnim without caching the
+    // callbacks cannot reintroduce the same silent garbage call.
+    const auto* interp = h->interpolator;
+    if (!interp || !interp->currentAnim || !interp->applyCB) {
+        return;
+    }
+    h->updateMatrices();
 }
 
 void* FrameForAllChildren(void* frame, void* cb, void* data) {

@@ -438,5 +438,30 @@ CTaskAllocator* CPedGroupIntelligence::ComputeEventResponseTasks() {
 }
 
 void CPedGroupIntelligence::ComputeScriptCommandTasks() {
+#ifdef NOTSA_STANDALONE
+    // 0x5F7800. Standalone: not ported, and a PROVABLE no-op here rather than a hopeful one. Measured shape
+    // of the original (0x5F7800..0x5F79B3, 207 instructions, only 2 calls - both already reversed:
+    // 0x69D980 = CTaskAllocator::operator new and 0x69CAF0 = CTaskAllocatorKillThreatsDriveby::Constructor):
+    //   1. build a local array of 8 CPedTaskPair from m_ScriptCommandPedTaskPairs, remapping each entry
+    //      through the group's m_members (a linear search over the 8 pairs when membership[i] != pairs[i].Ped)
+    //   2. for each of the 8 pairs: if (pairs[i].Task == 0) skip; else look the ped up in the local array
+    //      and either act or clear the task
+    //   3. write the 8 local entries back into m_ScriptCommandPedTaskPairs unconditionally
+    //
+    // Why every step is inert at this point: CPedGroups::AddGroup - which created this group immediately
+    // before - calls CPedGroupIntelligence::Flush, which runs CPedTaskPair::Flush over ALL FOUR pair arrays
+    // (Ped = nullptr, Task deleted/null, Slot = TASK_SECONDARY_INVALID), and it also empties the membership.
+    // So in step 1 every local entry is {null,null,INVALID,0,false}; in step 2 the guard `pairs[i].Task == 0`
+    // (disasm 0x5F78BA `test ecx,ecx / je`) skips all 8; and in step 3 the write-back is value-identical to
+    // what Flush already left (MatchID/UsedTask are not reset by Flush, but they are zero in a fresh group
+    // anyway), so nothing observable changes.
+    //
+    // Degradation, stated plainly: once a script actually assigns group tasks (SetTask on
+    // m_ScriptCommandPedTaskPairs), those tasks are not recomputed/remapped per frame, so gang
+    // script-driven behaviour will not update. That is gameplay, not booting. TODO(reversal): port it with
+    // the group-AI work - it is self-contained (two loops over a fixed 8-entry array plus a remap search).
+    return;
+#else
     plugin::CallMethod<0x5F7800>(this);
+#endif
 }

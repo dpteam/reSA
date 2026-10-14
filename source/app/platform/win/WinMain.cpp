@@ -35,6 +35,8 @@
 #include "HudColours.h"
 #include "ModelInfo.h"
 #include "Shopping.h"
+#include "Tasks/Allocators/PedGroup/PedGroupDefaultTaskAllocators.h"
+#include "PedGroups.h"
 #endif
 
 #include <toolsmenu/UIRenderer.h>
@@ -508,6 +510,20 @@ void InitGameGlobalStatics() {
     // into .data. Left null, CShopping::Init -> LoadStats -> GetPriceSectionFromName called
     // _stricmp(name, nullptr) and the UCRT aborted (stricmp.cpp(48): rhs != nullptr).
     CShopping::SeedBakedSectionNames();
+
+    // The six ped-group default task allocators: stateless vtable-only objects at fixed addresses
+    // (0xC09908..0xC0991C). Zero-filled, the first virtual call through them faults - measured as
+    // CreatePlayer -> CPlayerPed ctor -> SetDefaultTaskAllocator -> AllocateDefaultTasks.
+    CPedGroupDefaultTaskAllocators::SeedStaticAllocators();
+
+    // The 8 ped groups themselves (0xC09920). `CPedGroup() = default`, but its members are declared with
+    // initialisers that wire back-pointers - `CPedGroupMembership m_groupMembership{*this}` and
+    // `CPedGroupIntelligence m_groupIntelligence{this}` - so the default constructor is what makes
+    // `membership->m_group` non-null. Zero-filled, CPedGroupMembership::GivePedRandomObjectToHold
+    // dereferenced `m_group->m_bIsMissionGroup` at address 0 (measured: CreatePlayer ->
+    // CPlayerPed ctor -> CPedGroupMembership::SetLeader -> GivePedRandomObjectToHold). Constructing the
+    // array constructs every element, exactly as the original exe's static-init does.
+    notsa::ConstructStatic(CPedGroups::ms_groups);
 }
 #endif
 
