@@ -263,9 +263,22 @@ void CEntity::SetModelIndexNoCreate(uint32 index) {
 // This function handles model instantiation, streaming, and effect creation
 // 0x533D30
 void CEntity::CreateRwObject() {
+#ifdef NOTSA_STANDALONE
+    // TEMPORARY DIAGNOSTIC: the player's RW object is uninitialised memory (the type byte VARIES between
+    // runs - 16/32/48/216 - so it is not an enum-value desync but stale/poisoned storage), and the
+    // anomaly check further down NEVER fired. That means this function returned before assigning anything,
+    // leaving m_pRwObject as whatever the pool slot held from a previous life. Log both early exits with
+    // the reason so one run says which, and for which model.
+    if (!GetIsVisible()) {
+        NOTSA_LOG_ERR("[crw] idx={} bailed: not visible (m_pRwObject left as {})", m_nModelIndex,
+                      (void*)m_pRwObject);
+        return;
+    }
+#else
     if (!GetIsVisible()) {
         return;
     }
+#endif
 
     auto* mi = GetModelInfo();
 
@@ -279,8 +292,45 @@ void CEntity::CreateRwObject() {
     }
 
     if (!GetRwObject()) {
+#ifdef NOTSA_STANDALONE
+        // Not an anomaly: a model that is simply not currently streamed has no template, so
+        // CreateInstance returns null by design and the entity stays without an RW object. 277 such models
+        // on one boot is normal, so this reports the first case only - enough to prove the path works,
+        // without burying the log. The ANOMALY check below (wrong kind of object) is the interesting one.
+        static bool s_reportedOnce{};
+        if (!s_reportedOnce) {
+            s_reportedOnce = true;
+            NOTSA_LOG_INFO("[crw] first model with no RW template: idx={} mi={} miType={} rwModelType={} - "
+                           "expected for a model that is not streamed; further cases are not logged",
+                           m_nModelIndex, (void*)mi, (uint32)mi->GetModelType(), (uint32)mi->GetRwModelType());
+        }
+#endif
         return;
     }
+
+#ifdef NOTSA_STANDALONE
+    // TEMPORARY DIAGNOSTIC (the player model's RW object turns out to be uninitialised memory; the type
+    // byte VARIES between runs - 16/32/48/216 - which rules out an enum-value desync and points either at a
+    // bad template or at a bad clone). Fires ONLY on the anomaly, so it stays quiet and one run is enough:
+    // model info pointer -> its type -> its template object -> the instance that came back.
+    {
+        const auto tmpl  = mi->GetRwObject();
+        const auto got   = RwObjectGetType(GetRwObject());
+        const auto want  = mi->GetRwModelType();
+        if (got != want) {
+            NOTSA_LOG_ERR("[crw] ANOMALY idx={} mi={} miType={} want={} got={} tmpl={} tmplType={} inst={}",
+                          m_nModelIndex, (void*)mi, (uint32)mi->GetModelType(), (uint32)want, (uint32)got,
+                          (void*)tmpl, tmpl ? (uint32)RwObjectGetType(tmpl) : 0xFFFFu, (void*)GetRwObject());
+            if (tmpl) {
+                const auto* d = static_cast<const uint32*>(static_cast<const void*>(tmpl));
+                NOTSA_LOG_ERR("   template dwords: {:08x} {:08x} {:08x} {:08x}", d[0], d[1], d[2], d[3]);
+            }
+            const auto* d2 = static_cast<const uint32*>(static_cast<const void*>(GetRwObject()));
+            NOTSA_LOG_ERR("   instance dwords: {:08x} {:08x} {:08x} {:08x} {:08x} {:08x}",
+                          d2[0], d2[1], d2[2], d2[3], d2[4], d2[5]);
+        }
+    }
+#endif
 
     // Update building counter and RenderWare state
     if (GetIsTypeBuilding()) {

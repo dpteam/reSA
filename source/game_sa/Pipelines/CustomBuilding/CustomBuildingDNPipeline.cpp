@@ -108,6 +108,34 @@ RwInt32 CCustomBuildingDNPipeline::pluginExtraVertColourStreamGetSizeCB(const vo
 
 // 0x5D5FC0
 bool AtomicHasNVCPipeline(RpAtomic* atomic) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: this comparison is meaningless here, and worse, it was actively lying.
+    //
+    // Two independent reasons:
+    //   1. `atomic->pipeline` is a field read through SA's RpAtomic layout, where pipeline sits at 0x68
+    //      (after repEntry, the two spheres, the clump link, renderCallBack and the interpolator). librw
+    //      keeps it at 0x44, because it has neither `repEntry` nor an `RpInterpolator`. So the value read
+    //      is not a pipeline pointer at all - it is whatever else lives in the atomic.
+    //   2. `ObjPipeline` is never created in this build: CCustomBuildingRenderer::Initialise() returns
+    //      early (librw has no RxPipeline, so the custom pipelines cannot exist), which means CreatePipe()
+    //      never runs and the static stays null.
+    //
+    // Together those two made the guard return TRUE for every atomic whose misread slot happened to be
+    // null - i.e. for essentially ALL of them, since `null == null`. Measured consequence:
+    // CEntity::CreateRwObject -> PreRenderUpdate -> NVCPipelineProcess ran on ordinary building atomics,
+    // whose geometry carries no ExtraVertColour plugin data, and crashed reading DayColors/NightColors
+    // through lerp() (stack: lerp<unsigned char> <- lerp<RwRGBA> <- NVCPipelineProcess <-
+    // CCustomBuildingDNPipeline::PreRenderUpdate <- CEntity::CreateRwObject <- CStreaming::LoadScene).
+    //
+    // The invariant is what makes this honest rather than a patch: if no NVC pipeline OBJECT exists, no
+    // atomic can have it attached, so the answer is false. Guarding on ObjPipeline (rather than
+    // unconditionally returning false) keeps the original's logic intact for the day the pipelines are
+    // ported - and at that point reason (1) still has to be fixed by going through a bridged accessor,
+    // which is recorded in IDEAS.md with the rest of the pipeline family.
+    if (!CCustomBuildingDNPipeline::ObjPipeline) {
+        return false;
+    }
+#endif
     return atomic->pipeline == CCustomBuildingDNPipeline::ObjPipeline;
 }
 
