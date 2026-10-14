@@ -154,6 +154,10 @@ RwBool psInitialize() {
     }();
 
     if (s_OSStatus.OSVer == WinVer::WIN_95) {
+#ifdef NOTSA_STANDALONE
+        NOTSA_LOG_ERR("Cannot run on Windows 95 (WIN_95)");
+        return FALSE;
+#else
         MessageBoxW(
             NULL,
             (LPCWSTR)TheText.Get("WIN_95"),	 // Grand Theft Auto San Andreas cannot run on Windows 95
@@ -162,10 +166,16 @@ RwBool psInitialize() {
         );
 
         return FALSE;
+#endif
     }
 
     // Originally figured out available dx version and only allowed dx9, but we've simplified it.
     if (!CheckDirectX()) {
+#ifdef NOTSA_STANDALONE
+        // Fatal either way (without D3D9 there is nothing to render with), but reported, not shown.
+        NOTSA_LOG_ERR("DirectX 9 is unavailable - cannot continue (this build renders through D3D9)");
+        return FALSE;
+#else
         MessageBoxW(
             NULL,
             (LPCWSTR)TheText.Get("WIN_DX"),	 // Grand Theft Auto San Andreas requires at least DirectX version 8.1
@@ -173,12 +183,29 @@ RwBool psInitialize() {
             MB_OK
         );
         return FALSE;
+#endif
     }
 
     // CheckDirectX() Checks for Dx9 only, so use that
     s_OSStatus.DxVer = 0x900;
 
     if (!CheckDirectSound()) {
+#ifdef NOTSA_STANDALONE
+        // Standalone: **warn and continue without sound** instead of refusing to start. Three reasons,
+        // all measured rather than assumed:
+        //   1. The original treats "no sound device" as fatal, but this build's audio engine is stubbed
+        //      anyway (no sound yet), so the gate buys nothing here.
+        //   2. DirectSound is deprecated on modern Windows and can report no device even while WDM
+        //      endpoints are healthy: reproduced independently of the game -
+        //      `DirectSoundCreate(NULL, ...)` -> 0x88780078 (DSERR_NODEVICE) on a box whose
+        //      Win32_SoundDevice entries all read OK. So this is an environment condition, not a
+        //      reason to consider the machine unable to run the game.
+        //   3. It was a modal box, which aborts an unattended probe run with no log line and no exit
+        //      code that says why - the exact failure mode the probe harness exists to avoid.
+        // The HRESULT is logged so a real device problem stays distinguishable from this one.
+        NOTSA_LOG_WARN("DirectSound reported no device (DSERR_NODEVICE) - continuing without sound. "
+                       "This does not affect rendering or loading; see IDEAS.md for the audio work.");
+#else
         MessageBoxW(
             NULL,
             (LPCWSTR)TheText.Get("WIN_NSC"), // Grand Theft Auto San Andreas requires a sound card (I guess?)
@@ -186,6 +213,7 @@ RwBool psInitialize() {
             MB_ICONEXCLAMATION
         );
         return FALSE;
+#endif
     }
 
     MEMORYSTATUS memstat{ sizeof(MEMORYSTATUS) };
@@ -218,12 +246,24 @@ void psWindowSetText(const char* str) {
 
 // 0x7451D0
 void psErrorMessage(const char* str) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: never modal. These two helpers are the game's generic "tell the user" path and RW
+    // reaches them from device/video-mode failures, so a modal box here can block the process at any
+    // point - fatal for an unattended run (see the probe harness in extensions/CommandLine.h) and
+    // useless for a log-reading one. The message is preserved verbatim, just routed to the log.
+    NOTSA_LOG_ERR("[psErrorMessage] {}", str ? str : "(null)");
+#else
     MessageBoxA(nullptr, str, RsGlobal.appName, MB_ICONERROR | MB_TASKMODAL | MB_TOPMOST);
+#endif
 }
 
 // 0x7451F0
 void psWarningMessage(const char* str) {
+#ifdef NOTSA_STANDALONE
+    NOTSA_LOG_WARN("[psWarningMessage] {}", str ? str : "(null)");
+#else
     MessageBoxA(nullptr, str, RsGlobal.appName, MB_ICONWARNING | MB_TASKMODAL | MB_TOPMOST);
+#endif
 }
 
 // 0x745210
@@ -448,7 +488,13 @@ static BOOL CheckDefaultVideoModeSupported() {
         return TRUE;
     }
 
+#ifdef NOTSA_STANDALONE
+    // Same reasoning as the boot gates: report, do not block. A missing 800x600 mode is fatal for
+    // rendering, but the log line says so and the caller still gets its FALSE.
+    NOTSA_LOG_ERR("Cannot find an 800x600x32 video mode");
+#else
     MessageBox(NULL, "Cannot find 800x600x32 video mode", "GTA: San Andreas", IDOK);
+#endif
     return FALSE;
 }
 
