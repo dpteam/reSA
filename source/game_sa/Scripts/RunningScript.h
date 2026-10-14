@@ -396,7 +396,8 @@ public:
 
 #ifdef NOTSA_STANDALONE
     //! Standalone-only: report an opcode that has no handler (see the definition in RunningScript.cpp).
-    void LogUnimplementedCommand(eScriptCommands cmd);
+    //! `action` must describe what was actually done, so the log cannot mislead.
+    void LogUnimplementedCommand(eScriptCommands cmd, const char* action);
 #endif
 
 private:
