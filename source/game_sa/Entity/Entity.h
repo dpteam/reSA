@@ -306,8 +306,48 @@ public:
     RwMatrix* GetBoneMatrix(RwUInt32 nodeID) const;
 
     RwObject* GetRwObject() const noexcept { return m_pRwObject; }
+#ifdef NOTSA_STANDALONE
+    /* Standalone: the raw `assert` here aborted the process (UCRT assert -> abort) with no indication of
+       what the type actually was, which is the whole question when a model's RwObject turns out not to be
+       the expected kind. Report it and carry on: returning the same pointer the assert was guarding is a
+       deliberate choice - the callers of GetRpClump/GetRpAtomic already cope with a model that has not
+       streamed, and a loud one-shot log beats a silent death. The type values agree between SA and librw
+       (rpATOMIC 1, rpCLUMP 2, rwCAMERA 4, Geometry 8), so a mismatch here is a real state problem, not a
+       translation bug. */
+    RpClump*  GetRpClump()  const noexcept { LogIfWrongRwObject(m_pRwObject, rpCLUMP, "GetRpClump"); return reinterpret_cast<RpClump*>(m_pRwObject); }
+    RpAtomic* GetRpAtomic() const noexcept { LogIfWrongRwObject(m_pRwObject, rpATOMIC, "GetRpAtomic"); return reinterpret_cast<RpAtomic*>(m_pRwObject); }
+private:
+    static void LogIfWrongRwObject(RwObject* obj, RwInt32 want, const char* whence) noexcept {
+        if (!obj)
+            return;
+        const auto got = RwObjectGetType(obj);
+        if (got == want)
+            return;
+        static bool s_once[16]{};
+        const auto slot = (static_cast<unsigned>(want) < 16u) ? static_cast<unsigned>(want) : 0u;
+        if (s_once[slot])
+            return;
+        s_once[slot] = true;
+        NOTSA_LOG_ERR("Standalone: {} found an RwObject of type {} (wanted {}): obj={}. "
+                      "The model's RW object is not the kind this entity expects - usually means the "
+                      "model never streamed or the wrong model info was used. Further hits of this kind "
+                      "are suppressed.", whence, got, want, (void*)obj);
+        // Identify the memory by content rather than guessing which object it really is: neither 16 nor 32
+        // is a class ID librw ever assigns (Frame 0, Atomic 1, Clump 2, Light 3, Camera 4, TexDict 6,
+        // World 7, Geometry 8), and the value CHANGED between runs - so this is uninitialised or poisoned
+        // storage, not a foreign structure. Six dwords is enough to name the pattern (0xCDCDCDCD = fresh
+        // debug heap, 0xDDDDDDDD = freed, 0x00000000 = zeroed page).
+        {
+            const auto* d = static_cast<const uint32*>(static_cast<const void*>(obj));
+            NOTSA_LOG_ERR("   dwords: {:08x} {:08x} {:08x} {:08x} {:08x} {:08x}",
+                          d[0], d[1], d[2], d[3], d[4], d[5]);
+        }
+    }
+public:
+#else
     RpClump*  GetRpClump()  const noexcept { assert(!m_pRwObject || RwObjectGetType(m_pRwObject) == rpCLUMP); return reinterpret_cast<RpClump*>(m_pRwObject); }
     RpAtomic* GetRpAtomic() const noexcept { assert(!m_pRwObject || RwObjectGetType(m_pRwObject) == rpATOMIC); return reinterpret_cast<RpAtomic*>(m_pRwObject); }
+#endif
     RpAtomic* GetRpAtomicOrFirstAtomicOfClump() const noexcept;
 
     // Always returns a non-null value. In case there's no LOD object `this` is returned
