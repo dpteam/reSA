@@ -1954,13 +1954,34 @@ void CVehicle::ApplyBoatWaterResistance(tBoatHandlingData* boatHandling, float f
 
 // 0x6D2950
 RpMaterial* SetCompAlphaCB(RpMaterial* material, void* data) {
+#ifdef NOTSA_STANDALONE
+    // Reversed from disasm (11 bytes, no calls):
+    //     mov eax,[esp+4]  ; material
+    //     mov cl, [esp+8]  ; the alpha, carried in the low byte of the `data` pointer
+    //     mov [eax+7],cl   ; material->color.alpha
+    //     ret
+    // Offset 7 is SA's RpMaterial = { texture @0x00; RwRGBA color @0x04 } so alpha is color+3. librw's
+    // Material is laid out differently, so RpMaterialGetColor (bridged) is used rather than the raw field.
+    RpMaterialGetColor(material)->alpha = static_cast<RwUInt8>(reinterpret_cast<uintptr_t>(data));
+    return material;
+#else
     return ((RpMaterial * (__cdecl*)(RpMaterial*, void*))0x6D2950)(material, data);
+#endif
 }
 
 // 0x6D2960
 void CVehicle::SetComponentAtomicAlpha(RpAtomic* atomic, int32 alpha) {
-    auto geometry = atomic->geometry;
-    geometry->flags |= rpGEOMETRYMODULATEMATERIALCOLOR;
+    // Standalone: this used to poke the fields directly (`atomic->geometry`, `geometry->flags`). That is
+    // wrong against librw, and the reason is a 4-byte divergence rather than anything exotic:
+    //   SA    RpAtomic        = RwObjectHasFrame(0x14) + repEntry(4)  + geometry  -> geometry at 0x18
+    //   librw rw::Atomic      = ObjectWithFrame(0x14)                 + geometry  -> geometry at 0x14
+    // (librw's ObjectWithFrame is Object 0x08 + LLLink 0x08 + Sync 0x04; SA's RwObject has the same 0x08
+    // shape, so the bases agree and only `repEntry` separates them.) Reading 0x18 on a librw atomic
+    // therefore returns `boundingSphere.center.x` - a float - and the crash showed exactly that: EAX =
+    // 0x33E00000 (~1.05e-7, a plausible near-zero coordinate) faulting at 0x33E00008 when treated as
+    // `geometry->flags`. Using the bridged accessors fixes it and is what the rest of the file does.
+    const auto geometry = RpAtomicGetGeometry(atomic);
+    RpGeometryGetFlags(geometry) |= rpGEOMETRYMODULATEMATERIALCOLOR;
     RpGeometryForAllMaterials(geometry, SetCompAlphaCB, reinterpret_cast<void*>(alpha));
 }
 
@@ -2319,7 +2340,11 @@ RwObject* FindReplacementUpgradeCB(RwObject* object, void* data) {
 RpAtomic* RemoveAllUpgradesCB(RpAtomic* atomic, void* data) {
     auto* mi = CVisibilityPlugins::GetModelInfo(atomic);
     if (mi) {
-        RpClumpRemoveAtomic(atomic->clump, atomic);
+        // Standalone: `atomic->clump` is a field read through SA's layout, where clump sits at 0x3C
+        // (after repEntry + geometry + two spheres). librw has no repEntry, so its clump is at 0x38 -
+        // reading 0x3C would pick up part of the world/two-spheres block. RpAtomicGetClump is bridged,
+        // so it is used instead. (Same class as the SetComponentAtomicAlpha geometry fix; see VERIFY.md.)
+        RpClumpRemoveAtomic(RpAtomicGetClump(atomic), atomic);
         RpAtomicDestroy(atomic);
         mi->RemoveRef();
     }
