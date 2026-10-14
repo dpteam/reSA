@@ -36,6 +36,15 @@ Frame::create(void)
 	numAllocated++;
 	f->object.init(Frame::ID, 0);
 	f->objectList.init();
+	/* Self-link the dirty-list node instead of leaving it as raw allocator bytes.
+	   Why: Frame::destroy() and Frame::destroyHierarchy() both do
+	       if (this->object.privateFlags & HIERARCHYSYNC) this->inDirtyList.remove();
+	   and LLLink::remove() is `prev->next = next; next->prev = prev`. A frame that carries HIERARCHYSYNC
+	   without having been queued (see cloneRecurse below, which used to inherit the bit) therefore
+	   "removes" itself through pointers that were never written - a silent write through garbage.
+	   Self-linking makes such a remove an exact no-op. */
+	f->inDirtyList.next = &f->inDirtyList;
+	f->inDirtyList.prev = &f->inDirtyList;
 	f->child = nil;
 	f->next = nil;
 	f->root = f;
@@ -329,6 +338,14 @@ cloneRecurse(Frame *old, Frame *newroot)
 	if(newroot == nil)
 		newroot = frame;
 	frame->object.copy(&old->object);
+	/* Object::copy() copies privateFlags, and for a Frame those are the dirty-state bits
+	   (HIERARCHYSYNCLTM/HIERARCHYSYNCOBJ/SUBTREESYNCLTM/SUBTREESYNCOBJ). They record whether the frame is
+	   queued in engine->frameDirtyList, which a freshly created clone demonstrably is not. Inheriting
+	   them makes the clone look dirty while absent from the list, so its destroy() takes the
+	   `inDirtyList.remove()` branch on a node that was never linked. Clear them - a fresh clone is clean
+	   by construction. cloneAndLink() already did exactly this for the hierarchy root only, which is
+	   good evidence this is the intended semantics and the children were simply missed. */
+	frame->object.privateFlags &= ~(Frame::HIERARCHYSYNC | Frame::SUBTREESYNC);
 	frame->matrix = old->matrix;
 	frame->root = newroot;
 	old->root = frame;	// Remember cloned frame
