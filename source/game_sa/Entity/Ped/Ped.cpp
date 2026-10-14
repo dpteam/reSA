@@ -3691,7 +3691,33 @@ void CPed::DeleteRwObject()
 */
 void CPed::ProcessControl()
 {
+#if defined(NOTSA_STANDALONE)
+    // Standalone: NOT reversed, and this is the honest boundary between "the game boots" and "the game
+    // plays". Measured: 2311 instructions, 63 calls - the largest function met so far - and it is the core
+    // per-frame ped update: it services the ped's audio entity (the first call is 0x4E2EE0 =
+    // CAEPedAudioEntity::Service, itself unreversed), dispatches on m_nPedState, and drives the whole task
+    // system through m_pIntelligence (ped+0x138). Reversing it means porting the task system with it, so it
+    // is a project of its own, not a step.
+    //
+    // It is stubbed rather than left to fault because a fault here stops CWorld::Process, i.e. the world,
+    // and with it every later thing that could be measured. The reduction in fidelity is severe and is NOT
+    // claimed to be inert - this is the opposite of the other stubs in this codebase:
+    //   * no ped moves, turns, or runs its tasks (so the player is frozen in place);
+    //   * no ped physics/state updates from this path;
+    //   * ped audio is not serviced.
+    // Everything else in CWorld::Process (other entity types, the camera, rendering, scripts) still runs,
+    // which is the point: it keeps the boot measurable until this is ported.
+    // TODO(reversal): port CPed::ProcessControl with the task system. See IDEAS.md.
+    static bool s_warnedOnce{};
+    if (!s_warnedOnce) {
+        s_warnedOnce = true;
+        NOTSA_LOG_WARN("Standalone: CPed::ProcessControl stubbed (2311 instrs / 63 calls, needs the task "
+                       "system) - peds do not move or run tasks. Further calls are silent.");
+    }
+    return;
+#else
     plugin::CallMethod<0x5E8CD0, CPed*>(this);
+#endif
 }
 
 /*!

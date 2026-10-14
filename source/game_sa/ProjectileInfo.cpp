@@ -89,7 +89,31 @@ void CProjectileInfo::RemoveProjectile(CProjectileInfo* info, CProjectile* objec
 
 // 0x738B20
 void CProjectileInfo::Update() {
-    return plugin::Call<0x738B20>();
+#if defined(NOTSA_STANDALONE)
+    // Standalone: not ported (measured 1056 instructions and 35 calls - a real per-frame job, not a
+    // one-step unblock), and a PROVABLE no-op here. The disasm shape, in full:
+    //     738b20: if (CReplay::Mode == 1) return;                 // 0xA43088 == CReplay::Mode; the ==1
+    //                                                             // path jumps straight to the epilogue
+    //     738b37: for (eax = 0; eax < 32; eax++) {                // 0xC89110 = ms_apProjectile (32 ptrs)
+    //                 esi = ms_apProjectile[eax];
+    //                 ebx = &gaProjectileInfo[eax];               // 0xC891A8 + eax*0x24
+    //                 if (!gaProjectileInfo[eax].m_bActive)       // 0xC891B8 == base + 0x10
+    //                     goto next;                              // 0x73983A = inc/cmp/jl, i.e. the
+    //                                                             // loop increment, so the body is skipped
+    //                 ... the entire 1000-instruction body, which dereferences esi ...
+    //             }
+    // The guard is the ONLY entry into the body, and `CProjectileInfo::Initialise` (reversed earlier in
+    // this file) sets m_bActive = false for all 32 - so at boot, and until a weapon actually fires, the
+    // loop runs 32 times doing nothing and returns. That also means ms_apProjectile's null entries are
+    // never dereferenced, which is what makes the stub safe rather than merely untested.
+    //
+    // Degradation, stated plainly: once projectiles exist (grenades, rockets, molotovs in flight), their
+    // per-frame update does not run, so they will not move, explode or expire. That is gameplay, and the
+    // function is self-contained enough to port on its own when weapons work. See IDEAS.md.
+    return;
+#else
+    plugin::Call<0x738B20>();
+#endif
 }
 
 // 0x739860
