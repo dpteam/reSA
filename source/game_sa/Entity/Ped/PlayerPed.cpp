@@ -11,6 +11,11 @@
 #include "PedClothesDesc.h"
 #include "PedStats.h"
 #include "TaskSimpleUseGun.h"
+#include "TaskSimpleFight.h"
+#include "AnimManager.h"
+#include "Clothes.h"
+#include "PedModelInfo.h"
+#include "WeaponModelInfo.h"
 #include "EntryExitManager.h"
 #include "MBlur.h"
 
@@ -43,6 +48,7 @@ void CPlayerPed::InjectHooks() {
     RH_ScopedInstall(ProcessPlayerWeapon, 0x6097F0);
     RH_ScopedInstall(PickWeaponAllowedFor2Player, 0x609800);
     RH_ScopedInstall(UpdateCameraWeaponModes, 0x609830);
+    RH_ScopedInstall(ProcessAnimGroups, 0x6098F0);
     RH_ScopedInstall(ClearWeaponTarget, 0x609c80);
     RH_ScopedInstall(GetWeaponRadiusOnScreen, 0x609CD0);
     RH_ScopedInstall(PedCanBeTargettedVehicleWise, 0x609D90);
@@ -345,7 +351,121 @@ void CPlayerPed::UpdateCameraWeaponModes(CPad* pad) {
 
 // 0x6098F0
 void CPlayerPed::ProcessAnimGroups() {
-    plugin::CallMethod<0x6098F0, CPlayerPed *>(this);
+    auto& data = *GetPlayerData();
+
+    // The group we should end up with, and whether the fat/muscular variant (stored immediately after the
+    // base group) has to be added - true for every group except the ones that have no variants.
+    auto requiredMotionGroup = m_nAnimGroup;
+    bool addFatOffset = true;
+
+    // While the player mouse-strafes in a mouse-aim camera the strafe anims own the motion group, so it is
+    // left alone - but only that: if it is still the default group the fat/muscular handling below runs
+    // regardless (the disasm's `jne` off the strafe path lands in the middle of it).
+    if ((data.m_fFPSMoveHeading > DegreesToRadians(-50.0f) && data.m_fFPSMoveHeading < DegreesToRadians(50.0f))
+        || !TheCamera.GetActiveCam().Using3rdPersonMouseCam()
+        || !CanStrafeOrMouseControl()
+    ) {
+        // The weapon is read off the model actually in the player's hand, not from the ped's weapon slots.
+        auto weaponType = WEAPON_UNARMED;
+        if (m_pWeaponObject) {
+            if (const auto mi = CVisibilityPlugins::GetClumpModelInfo(m_pWeaponObject)) {
+                if (mi->GetModelType() == MODEL_INFO_WEAPON) {
+                    weaponType = static_cast<CWeaponModelInfo*>(mi)->GetWeaponInfo();
+                }
+            }
+        }
+
+        if (weaponType == WEAPON_RLAUNCHER || weaponType == WEAPON_RLAUNCHER_HS) {
+            requiredMotionGroup = ANIM_GROUP_PLAYERROCKET;
+        } else if (GetIntelligence()->GetTaskJetPack()) {
+            requiredMotionGroup = ANIM_GROUP_PLAYERJETPACK;
+            addFatOffset = false;
+        } else if (weaponType == WEAPON_BASEBALLBAT || weaponType == WEAPON_SHOVEL || weaponType == WEAPON_POOL_CUE) {
+            requiredMotionGroup = ANIM_GROUP_PLAYERBBBAT;
+        } else if (weaponType == WEAPON_CHAINSAW || weaponType == WEAPON_FLAMETHROWER || weaponType == WEAPON_MINIGUN) {
+            requiredMotionGroup = ANIM_GROUP_PLAYERCSAW;
+        } else if (weaponType == WEAPON_M4 || weaponType == WEAPON_AK47 || weaponType == WEAPON_SPAS12_SHOTGUN
+                || weaponType == WEAPON_SHOTGUN || weaponType == WEAPON_SNIPERRIFLE || weaponType == WEAPON_COUNTRYRIFLE) {
+            requiredMotionGroup = ANIM_GROUP_PLAYER2ARMED;
+        } else if (data.m_pPedClothesDesc->GetIsWearingBalaclava()) {
+            requiredMotionGroup = ANIM_GROUP_PLAYERSNEAK;
+            addFatOffset = false;
+        } else {
+            requiredMotionGroup = ANIM_GROUP_PLAYER;
+        }
+    }
+
+    // A player-2 model may name its own default motion group instead of the shared player one.
+    if (requiredMotionGroup == ANIM_GROUP_PLAYER && m_nPedType == PED_TYPE_PLAYER2) {
+        const auto mi = static_cast<CPedModelInfo*>(CModelInfo::GetModelInfo(m_nModelIndex));
+        if (mi->m_nAnimType != ANIM_GROUP_PLAYER) {
+            requiredMotionGroup = mi->m_nAnimType;
+            addFatOffset = false;
+        }
+    }
+
+    if (addFatOffset) {
+        requiredMotionGroup = static_cast<AssocGroupId>(requiredMotionGroup + CClothes::GetDefaultPlayerMotionGroup() - ANIM_GROUP_PLAYER);
+    }
+
+    if (m_nAnimGroup != requiredMotionGroup) {
+        m_nAnimGroup = requiredMotionGroup;
+        ReApplyMoveAnims();
+    }
+
+    // Melee weapons with a combo set need that set's anim block streamed in and referenced; when the set
+    // changes (or the weapon is no longer melee) the old one is released.
+    //
+    // The base and the extra combo do exactly the same thing, so both go through this - it returns whether
+    // the group referenced before the call has to be released. `referencedGroup` is updated in place.
+    const auto updateMeleeCombo = [&](uint8 combo, uint32& referencedGroup) -> bool {
+        if (combo == static_cast<uint8>(STYLE_STANDARD)) {
+            // No combo set - nothing to stream, just drop whatever was referenced.
+            return referencedGroup != ANIM_GROUP_DEFAULT;
+        }
+
+        const auto animGroup = CTaskSimpleFight::m_aComboData[combo - static_cast<uint8>(STYLE_STANDARD)].m_nAnimGroup;
+        if (animGroup == referencedGroup) {
+            return false;
+        }
+
+        const bool removeOld = referencedGroup != ANIM_GROUP_DEFAULT;
+
+        auto* animBlock = CAnimManager::GetAssocGroups()[animGroup].GetAnimBlock();
+        if (!animBlock) {
+            animBlock = CAnimManager::GetAnimationBlock(CAnimManager::GetAnimBlockName(animGroup));
+        }
+        const auto blockIndex = CAnimManager::GetAnimationBlockIndex(animBlock);
+        if (!animBlock->IsLoaded) {
+            CStreaming::RequestModel(IFPToModelId(blockIndex), STREAMING_KEEP_IN_MEMORY);
+        } else if (referencedGroup == ANIM_GROUP_DEFAULT) {
+            CAnimManager::AddAnimBlockRef(blockIndex);
+            referencedGroup = animGroup;
+        }
+        return removeOld;
+    };
+
+    const auto* weaponInfo = CWeaponInfo::GetWeaponInfo(GetActiveWeapon().m_Type, GetWeaponSkill());
+    bool removeStdMeleeCombo = false;
+    bool removeExtraMeleeCombo = false;
+
+    if (weaponInfo->GetFireType() == WEAPON_FIRE_MELEE && !bInVehicle) {
+        removeStdMeleeCombo   = updateMeleeCombo(weaponInfo->m_nBaseCombo, data.m_nMeleeWeaponAnimReferenced);
+        // `m_nFightingStyle` is the "extra melee combo" (the mobile source's `m_nExtraMeleeCombo`); the two
+        // share the same values - `STYLE_STANDARD` is `MCOMBO_UNARMED_1`.
+        removeExtraMeleeCombo = updateMeleeCombo(static_cast<uint8>(m_nFightingStyle), data.m_nMeleeWeaponAnimReferencedExtra);
+    }
+
+    if (removeStdMeleeCombo && data.m_nMeleeWeaponAnimReferenced != ANIM_GROUP_DEFAULT) {
+        CAnimManager::RemoveAnimBlockRef(CAnimManager::GetAnimationBlockIndex(
+            CAnimManager::GetAssocGroups()[data.m_nMeleeWeaponAnimReferenced].GetAnimBlock()));
+        data.m_nMeleeWeaponAnimReferenced = ANIM_GROUP_DEFAULT;
+    }
+    if (removeExtraMeleeCombo && data.m_nMeleeWeaponAnimReferencedExtra != ANIM_GROUP_DEFAULT) {
+        CAnimManager::RemoveAnimBlockRef(CAnimManager::GetAnimationBlockIndex(
+            CAnimManager::GetAssocGroups()[data.m_nMeleeWeaponAnimReferencedExtra].GetAnimBlock()));
+        data.m_nMeleeWeaponAnimReferencedExtra = ANIM_GROUP_DEFAULT;
+    }
 }
 
 // 0x609C80
