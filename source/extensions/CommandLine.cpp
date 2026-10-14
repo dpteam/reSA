@@ -20,6 +20,10 @@ bool s_WaitForDebugger{ false };
 /* exe path */
 fs::path s_ExePath{};
 
+#ifdef NOTSA_STANDALONE
+CommandLine::Probe s_Probe{};
+#endif
+
 void ProcessArgument(std::string_view arg) {
     if (arg == "--debug") {
         s_WaitForDebugger = true;
@@ -64,6 +68,16 @@ void ProcessArgument(std::string_view arg) {
         } else {
             NOTSA_LOG_WARN("Invalid argument '{}', expected format --dump-hooks-to=path", arg);
         }
+#ifdef NOTSA_STANDALONE
+    } else if (arg == "--autostart") {
+        s_Probe.AutostartNewGame = true;
+    } else if (arg == "--dump-progress") {
+        s_Probe.WantProgress = true;
+    } else if (arg.starts_with("--quit-after=")) {
+        s_Probe.QuitAfterFrames = std::atoi(std::string(arg.substr(13)).c_str());
+    } else if (arg.starts_with("--idle-frames=")) {
+        s_Probe.IdleFramesBeforeStart = std::atoi(std::string(arg.substr(14)).c_str());
+#endif
     } else {
         NOTSA_LOG_WARN("Unknown argument '{}'", arg);
     }
@@ -167,4 +181,33 @@ void PostHooksInjected() {
     ApplyHookSettings();
     DumpHooks();
 }
+
+#ifdef NOTSA_STANDALONE
+// ---- the unattended probe harness (see the doc-comment in CommandLine.h) --------------------------
+void CommandLine::Probe::RecordFile(const char* name) {
+    ++NumFileMarkers;
+    if (name) {
+        sprintf_s(LastFileMarker, "%s", name); // array overload, so the size is taken from the buffer
+    }
+}
+
+void CommandLine::Probe::RecordPhase(const char* title, const char* phase) {
+    ++NumPhaseMarkers;
+    if (phase) {
+        sprintf_s(LastPhaseMarker, "%s / %s", title ? title : "?", phase);
+    }
+}
+
+void CommandLine::Probe::DumpProgress(const char* why) const {
+    if (!WantProgress) {
+        return;
+    }
+    // One block, machine-parseable, so a probe run's outcome is readable without scrolling the log.
+    NOTSA_LOG_INFO("[probe] ===== SUMMARY ({}) =====", why ? why : "exit");
+    NOTSA_LOG_INFO("[probe] frames={} idleFrames={} reachedGameLoop={}",
+                   Frames, IdleFrames, ReachedGameLoop ? 1 : 0);
+    NOTSA_LOG_INFO("[probe] fileMarkers={} lastFile='{}'", NumFileMarkers, LastFileMarker);
+    NOTSA_LOG_INFO("[probe] phaseMarkers={} lastPhase='{}'", NumPhaseMarkers, LastPhaseMarker);
+}
+#endif
 }; // namespace CommandLine

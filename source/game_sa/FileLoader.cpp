@@ -10,6 +10,9 @@
 #include "TheCarGenerators.h"
 #include "Occlusion.h"
 #include "PedType.h"
+#ifdef NOTSA_STANDALONE
+#include "extensions/CommandLine.h" // LoadingScreenLoadingFile records into the probe harness
+#endif
 #include "ColHelpers.h"
 #include "TempColModels.h"
 #include "PlantMgr.h"
@@ -2460,7 +2463,11 @@ RwTexture* AddTextureCB(RwTexture* texture, void* dict) {
 RpAtomic* CloneAtomicToClumpCB(RpAtomic* atomic, void* data) {
     RpAtomic* clone = RpAtomicClone(atomic);
     auto frame = RpClumpGetFrame(atomic);
-    RpAtomicSetFrame(clone, frame->root);
+    // Standalone: `frame->root` is a field read through SA's RwFrame layout, whose frame pointers live
+    // far later in the object (disasm 0x7F0DC0 reads a frame's child list at +0x98). librw's Frame keeps
+    // child/next/root right after the two matrices, around +0x60, so the direct read picks up unrelated
+    // memory. RwFrameGetRoot is bridged, so use it.
+    RpAtomicSetFrame(clone, RwFrameGetRoot(frame));
     RpClumpAddAtomic(static_cast<RpClump*>(data), clone);
     return atomic;
 }
@@ -2476,5 +2483,8 @@ const char* GetFilename(const char* filepath) {
 void LoadingScreenLoadingFile(const char* str) {
     const char* screenName = GetFilename(str);
     sprintf_s(gString, "Loading %s", screenName);
+#ifdef NOTSA_STANDALONE
+    CommandLine::s_Probe.RecordFile(screenName); // unattended probe yardstick (see CommandLine.h)
+#endif
     LoadingScreen("Loading the Game", gString);
 }

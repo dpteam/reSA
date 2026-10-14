@@ -297,6 +297,26 @@ bool ProcessGameLogic(INT nCmdShow) {
             RsEventHandler(rsFRONTENDIDLE, nullptr);
         }
         if (FrontEndMenuManager.m_bMenuActive && !FrontEndMenuManager.m_bLoadingData) {
+#ifdef NOTSA_STANDALONE
+            // Unattended probe harness: the frontend is up and waiting for a human. Trigger New Game
+            // ourselves so the whole load path can be exercised without anyone at the keyboard.
+            // `DoSettingsBeforeStartingAGame` (0x573330) is exactly what the START GAME click ends up
+            // calling, so this is the real path rather than a shortcut around it - it sets
+            // m_bStartGameLoading, which makes ProcessGameLogic return false and MainLoop proceed to load.
+            // The settle delay exists because the frontend needs a few frames to build its textures and
+            // audio before it can hand over; 30 is comfortably above what a manual click takes.
+            if (CommandLine::s_Probe.AutostartNewGame) {
+                if (++CommandLine::s_Probe.IdleFrames >= CommandLine::s_Probe.IdleFramesBeforeStart) {
+                    static bool s_Fired{};
+                    if (!s_Fired) {
+                        s_Fired = true;
+                        NOTSA_LOG_INFO("[probe] autostart: triggering New Game after {} idle frames",
+                                       CommandLine::s_Probe.IdleFrames);
+                        FrontEndMenuManager.DoSettingsBeforeStartingAGame();
+                    }
+                }
+            }
+#endif
             break;
         }
         ChangeGameStateTo(GAME_STATE_LOADING_STARTED);
@@ -313,6 +333,10 @@ bool ProcessGameLogic(INT nCmdShow) {
         }
 
         InitialiseGame();
+#ifdef NOTSA_STANDALONE
+        CommandLine::s_Probe.ReachedGameLoop = true; // the entire load path completed without dying
+        CommandLine::s_Probe.DumpProgress("InitialiseGame returned");
+#endif
         ChangeGameStateTo(GAME_STATE_IDLE);
         FrontEndMenuManager.m_bMainMenuSwitch = false;
 
@@ -358,6 +382,20 @@ void MainLoop(INT nCmdShow) {
         // Game logic main loop
         while (ProcessGameLogic(nCmdShow)) {
             FrameMark;
+
+#ifdef NOTSA_STANDALONE
+            // Unattended probe harness: bound the run so a probe terminates by itself, and say why.
+            // Frames are counted for the whole loop; the synchronous load costs only a handful of them,
+            // so pick --quit-after comfortably above that if the intent is "N frames in the world".
+            if (CommandLine::s_Probe.QuitAfterFrames > 0 &&
+                ++CommandLine::s_Probe.Frames >= CommandLine::s_Probe.QuitAfterFrames) {
+                NOTSA_LOG_INFO("[probe] --quit-after={} reached (frames={}, reachedGameLoop={})",
+                               CommandLine::s_Probe.QuitAfterFrames, CommandLine::s_Probe.Frames,
+                               CommandLine::s_Probe.ReachedGameLoop ? 1 : 0);
+                CommandLine::s_Probe.DumpProgress("quit-after reached");
+                RsGlobal.quit = true;
+            }
+#endif
 
 #ifdef NOTSA_STANDALONE
             // FPS log (standalone): useful for profiling / telling 2D vs 3D, and there's no on-screen

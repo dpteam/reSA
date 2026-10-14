@@ -10,6 +10,9 @@
 #include "LoadingScreen.h"
 
 #include "extensions/Configs/FastLoader.hpp"
+#ifdef NOTSA_STANDALONE
+#include "extensions/CommandLine.h" // LoadingScreen records into the probe harness
+#endif
 
 void CLoadingScreen::InjectHooks() {
     RH_ScopedClass(CLoadingScreen);
@@ -497,6 +500,9 @@ void LoadingScreen(const char* msg1, const char* msg2, const char* msg3) {
         if (!g_FastLoaderConfig.NoDbgLogScreens) { // Very slow, so skip it
             NOTSA_LOG_DEBUG("Loadingscreen: {} [{}][{}]", msg1, msg2 ? msg2 : "NULL", msg3 ? msg3 : "NULL");
         }
+#ifdef NOTSA_STANDALONE
+        CommandLine::s_Probe.RecordPhase(msg1, msg2); // unattended probe yardstick (see CommandLine.h)
+#endif
         CLoadingScreen::SetLoadingBarMsg(msg1, msg2);
     }
     CLoadingScreen::NewChunkLoaded();
