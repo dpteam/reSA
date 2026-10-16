@@ -75,6 +75,8 @@ void ProcessArgument(std::string_view arg) {
         s_Probe.WantProgress = true;
     } else if (arg.starts_with("--quit-after=")) {
         s_Probe.QuitAfterFrames = std::atoi(std::string(arg.substr(13)).c_str());
+    } else if (arg.starts_with("--game-frames=")) {
+        s_Probe.QuitAfterGameFrames = std::atoi(std::string(arg.substr(14)).c_str());
     } else if (arg.starts_with("--idle-frames=")) {
         s_Probe.IdleFramesBeforeStart = std::atoi(std::string(arg.substr(14)).c_str());
 #endif
@@ -206,6 +208,7 @@ void CommandLine::Probe::DumpProgress(const char* why) const {
     NOTSA_LOG_INFO("[probe] ===== SUMMARY ({}) =====", why ? why : "exit");
     NOTSA_LOG_INFO("[probe] frames={} idleFrames={} reachedGameLoop={}",
                    Frames, IdleFrames, ReachedGameLoop ? 1 : 0);
+    NOTSA_LOG_INFO("[probe] loopIterations={} completedGameIdleCalls={}", Frames, GameIdleCalls);
     NOTSA_LOG_INFO("[probe] fileMarkers={} lastFile='{}'", NumFileMarkers, LastFileMarker);
     NOTSA_LOG_INFO("[probe] phaseMarkers={} lastPhase='{}'", NumPhaseMarkers, LastPhaseMarker);
 }

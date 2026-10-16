@@ -8,6 +8,25 @@
 
 ---
 
+### 2026-10-16: player/frame audit notes
+
+* Probe `Frames` historically counted outer loop polls, including limiter skips; `ReachedGameLoop` only
+  means `InitialiseGame` returned. Neither proves completed simulation or rendering. Use
+  `completedGameIdleCalls` and `--game-frames=N` for completed in-game `rsIDLE` dispatches.
+* Verified compile-time offsets: `CPed::m_standingOnEntity` = 0x568,
+  `CPhysical::m_fElasticity` = 0x9C. Earlier comments asserting these layouts diverged were incorrect.
+* `CPed::SpecialEntityCalcCollisionSteps`: NPC slow threshold speed-squared*timestep-squared < 0.09;
+  otherwise ceil(speed*timestep*5) and elasticity *= 2. Players use ceil(speed*timestep*20/3), min 4,
+  when supported; ceil(speed*timestep*10/3), min 2, otherwise. Attachment returns 1. Output bool refs
+  are untouched. CRT helper 0x823820 is ceil; 0x821B40 converts the integral result, not another ceil.
+* Recruit predicate 0x609380 reads 0x96917C..0x96917E: cheat indices 76..78, already named
+  `CHEAT_WANNA_BE_IN_MY_GANG`, `CHEAT_NO_ONE_CAN_STOP_US`, `CHEAT_ROCKET_MAYHEM`. Do not create a second
+  independent StaticRef for the same flags. Disabling group commands suppresses recruitment, not converts
+  it into a gather/follow command.
+* `#else return ...` on one line is a malformed preprocessor directive, not a compiled else body.
+  Standalone compilation can hide this mod-build error. Build EXE and ASI separately.
+* Latest real game-frame blocker is `CGarage::Update` (0x44AA50); normal shutdown also remains unresolved.
+
 ## 1. Project identity
 
 * This working copy is the fork **`dpteam/reSA`** (`origin`), tracking **`gta-reversed/gta-reversed`** (`upstream`). ✅

@@ -10,6 +10,42 @@
 
 Status legend: ✅ verified against disasm · ⚠️ partially/uncertain · ❌ not verified · 🚫 not done/skipped
 
+## 2026-10-16: player path and probe audit
+
+Oracle: `refs/gtasa10us/gta_sa.exe`, SHA-256
+`f01a00ce950fa40ca1ed59df0e789848c6edcf6405456274965885d0929343ac`.
+Provider: REA / Ghidra 12.1.4. Function names are matched to the local declarations, not inferred solely
+from addresses. Ghidra has generic FUN names and inferred signatures; its pseudocode is not source or
+runtime evidence. Source references were consulted read-only, never copied verbatim.
+
+| Item | Native identity | Status and limits |
+|---|---|---|
+| Group behavior | 0x60D350..0x60D59C | Static branch audit: up ==1200, down >=1200, 16-bit timers; recruit-disabled branch skips recruitment; follow remains allowed for non-recruit targets. Interactive branch behavior not runtime-tested. |
+| Collision steps | 0x5E3E90..0x5E3FE5 | REA instructions + constant reads; ceil, support minima 4/2, NPC coefficient 5 and elasticity doubling. offsetof assertions pass in real engine compile; 12 extracted-body tests pass with doubles (not an engine collision test). |
+| Collision contacts | 0x5E2530 | Identified only; standalone return-0 stub, NOT a faithful collision implementation. Ghidra body has 4342 bytes across two ranges, span 4345. |
+| Player info | 0x56F8D0..0x570AAA | Identified only (4571 bytes); standalone no-op, NOT reversed. |
+| Current blocker | CGarage::Update, 0x44AA50..0x44C7D0 | Source thunk identified; Ghidra body 7553 bytes. Actual `-GameFrames 3` run faults at entry. Not ported/stubbed in this batch. |
+| Probe measurement | WinMain loop vs completed rsIDLE | Old `-Frames 400` clean exit had 0 completed game Idle calls. New `-GameFrames` waits for actual dispatches; world-frame test is currently FAILING. |
+| Bounded exit | post-MainLoop bypass | Deliberate harness behavior, not verified shutdown. Prior post-limit AV read 0xDDDDDDDD; owner unknown. Normal exit keeps original game/RW teardown. |
+| Mod compatibility | EXE/ASI build | Both compile; new bodies/hooks standalone-guarded. 12 malformed rwplcore #else directives repaired. ASI gameplay not runtime-tested. |
+
+Final runner checks: `-NoAutostart -Frames 40` returned 0 with zero game calls; `-GameFrames 3` returned 1
+with AV at 0x44AA50. A later `-Frames 400` repeat also reached that AV, so smoke outcomes are scheduling-
+dependent. Unit harness: 12 collision cases and 5 checks of the production probe-limit predicate pass.
+
+Evidence IDs (full records exported to approved scratch `resa-player-frame-evidence-20261016.json`):
+
+* Group: `ev_0a1b743e751f4a0ce64555e5a903f08750a14370f35831c49989e1e8a7b12acd`.
+* Collision steps dossier: `ev_9d6ada14525a205e047f3aed4cf96c42d92c54c06579ac5c9efca0ee9701b763`;
+  raw instruction audit: `ev_384504bfb80ef48b0d0f46223e1cbc8af13cf14bbc0470d6d0a7c3128ee5926a`.
+* Ceil helper: `ev_1a4d296fe08f0708672f84dce548a34703b75ec30cb1706a044ec1a6bd115496`.
+* Contacts: `ev_e47d1f90dd75592585c2f0a443fa7aa346a53025d850b81fefd18d0904f2ecee`.
+* Player info: `ev_4d81417af40e36928ccccbf121ceb3dab55418f409a9c98d9a9cbd162c4d4b47`.
+* Garage: `ev_e4bb0946eba745877a3be9c905d331536321a88f9726d5002b2cf947934230b4`;
+  bounded procedure view: `ev_5c0d1df6522a83aa899eea3729083c80f3f8a6eae57450174f72b9aa2b9ca656`.
+  Large dossier exceeded MCP transport budget; view was retrieved from retention, not repeated.
+  Garage high-pcode value flow is truncated; no complete semantic audit is claimed.
+
 ## A. Boot / core
 | Feature | Addr | Status | Note |
 |---|---|---|---|
@@ -157,4 +193,3 @@ count in `logs/log.log` is the yardstick (1 -> 44 -> 75 -> 77 -> 123 -> 175, and
    ✅, `ms_aAnimAssocDefinitions` ❌) — audit other `StaticRef<T[N]>` / `StaticRef<char[N][M]>`.
 6. Bring **CFont to full disasm parity** (outline/shadow alpha, tokens, subtitles `FONT1`, `FONT_PRICEDOWN`).
 7. Verify the **menu draw path** and sweep the remaining ❌/⚠️ rows, one feature at a time, disasm-first.
-

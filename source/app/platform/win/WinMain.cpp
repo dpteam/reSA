@@ -357,6 +357,9 @@ bool ProcessGameLogic(INT nCmdShow) {
         auto v9_2 = (float)CTimer::GetCurrentTimeInCycles() / (float)CTimer::GetCyclesPerMillisecond();
         if (!FrontEndMenuManager.m_bPrefsFrameLimiter && CReplay::Mode != eReplayMode::MODE_PLAYBACK && !AudioEngine.IsBeatInfoPresent() || v9_1 < v9_2) {
             RsEventHandler(rsIDLE, (void*)true);
+#ifdef NOTSA_STANDALONE
+            ++CommandLine::s_Probe.GameIdleCalls;
+#endif
         }
         break;
     }
@@ -387,14 +390,15 @@ void MainLoop(INT nCmdShow) {
 
 #ifdef NOTSA_STANDALONE
             // Unattended probe harness: bound the run so a probe terminates by itself, and say why.
-            // Frames are counted for the whole loop; the synchronous load costs only a handful of them,
-            // so pick --quit-after comfortably above that if the intent is "N frames in the world".
-            if (CommandLine::s_Probe.QuitAfterFrames > 0 &&
-                ++CommandLine::s_Probe.Frames >= CommandLine::s_Probe.QuitAfterFrames) {
-                NOTSA_LOG_INFO("[probe] --quit-after={} reached (frames={}, reachedGameLoop={})",
-                               CommandLine::s_Probe.QuitAfterFrames, CommandLine::s_Probe.Frames,
+            // Frames counts the whole outer loop, including frame-limiter skips, not rendered/game frames.
+            // GameIdleCalls separately records completed game dispatches; do not infer those from this limit.
+            ++CommandLine::s_Probe.Frames;
+            if (CommandLine::s_Probe.HasReachedLimit()) {
+                NOTSA_LOG_INFO("[probe] limit reached (--quit-after={}, --game-frames={}, loopIterations={}, completedGameIdleCalls={}, reachedGameLoop={})",
+                               CommandLine::s_Probe.QuitAfterFrames, CommandLine::s_Probe.QuitAfterGameFrames,
+                               CommandLine::s_Probe.Frames, CommandLine::s_Probe.GameIdleCalls,
                                CommandLine::s_Probe.ReachedGameLoop ? 1 : 0);
-                CommandLine::s_Probe.DumpProgress("quit-after reached");
+                CommandLine::s_Probe.DumpProgress("probe limit reached");
                 RsGlobal.quit = true;
             }
 #endif
@@ -655,6 +659,24 @@ INT WINAPI NOTSA_WinMain(HINSTANCE instance, HINSTANCE hPrevInstance, LPSTR cmdL
 
     // 0x7489FB
     MainLoop(nCmdShow);
+
+#ifdef NOTSA_STANDALONE
+    // Bounded probes test the loop, not teardown. A previous run faulted after its limit while reading
+    // 0xDDDDDDDD; the exact owner remains unresolved. Explicitly skip game/RW teardown only for this mode.
+    if (CommandLine::s_Probe.HasReachedLimit()) {
+        NOTSA_LOG_INFO("[probe] bounded run complete; skipping unported shutdown teardown");
+        // Still undo the process/UI settings made above; bypassing game teardown must not leave StickyKeys
+        // disabled or the screen saver/power settings changed after an unattended run.
+        free(argv);
+        ShowCursor(true);
+        SystemParametersInfo(SPI_SETSTICKYKEYS, sizeof(STICKYKEYS), &pvParam, 2u);
+        SystemParametersInfo(SPI_SETPOWEROFFACTIVE, 1u, nullptr, 2u);
+        SystemParametersInfo(SPI_SETLOWPOWERACTIVE, 1u, nullptr, 2u);
+        SystemParametersInfo(SPI_SETSCREENSAVEACTIVE, 1u, nullptr, 2u);
+        SetErrorMode(0);
+        return 0;
+    }
+#endif
 
     notsa::ui::UIRenderer::DestroyInstance();
 

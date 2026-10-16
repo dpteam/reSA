@@ -7,6 +7,33 @@ Legend: ✅ verified (built/tested) · ⚠️ unverified (no toolchain) · 🚧 
 
 ---
 
+## 2026-10-16 — player path, REA audit, and an honest game-frame probe
+
+Standalone bodies for group behavior and collision-step calculation replaced raw thunks; the earlier
+weapon-switch/animation-group bodies and all new hooks are now guarded from the mod build. REA/Ghidra
+verified native boundaries and branches; `VERIFY.md` retains evidence references. Collision-step regression
+tests compile the extracted production body and check 12 cases, including rounding, support minima,
+attachment, untouched output references and NPC elasticity. Fixed a missed group-disabled branch,
+animation-reference cleanup and the weapon animation blend sign during review.
+
+Explicit fidelity losses: standalone `CPed::ProcessEntityCollision` returns no contacts;
+`CPlayerInfo::Process` is a no-op. These are not claimed inert or reversed. Bounded probes bypass unported
+game teardown (normal shutdown still unresolved); process/UI settings are restored before returning.
+
+Both EXE and ASI build. ASI had 12 pre-existing C4716 failures from malformed `#else return ...` lines in
+`rwplcore.cpp`; separating the directives restores the original return statements.
+
+**Measurement correction:** a clean 400-iteration smoke probe completed zero game Idle dispatches because
+the frame limiter skips them. Added `completedGameIdleCalls` and `--game-frames=N` / `-GameFrames N`.
+The real `-GameFrames 3` test fails at `CGarage::Update` (0x44AA50), not shutdown. No green 400-frame world
+claim remains. No synthetic input was used. World rendering remains unverified.
+
+Final repeats: `-Frames 400` also hit the same garage thunk when a game dispatch occurred before the limit;
+`-NoAutostart -Frames 40` passed with zero game calls; `-GameFrames 3` failed at 0x44AA50. The runner now
+propagates failure via its own exit status (crash 1, timeout 124, unconfirmed early exit 2). Five additional
+checks exercise the production `Probe::HasReachedLimit` predicate and prevent poll counts satisfying a game
+frame limit. Both builds and all 17 isolated checks pass; the actual world-frame test remains failing.
+
 ## 2026-10-12 (session 2, night) — the game RUNS, renders the frontend (menu) with real background pictures ✅
 
 **Milestone:** `reSA.exe` boots, renders the **frontend** (menu) — real background pictures from the frontend TXD

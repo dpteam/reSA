@@ -5,6 +5,20 @@
 
 ## Boot-цепочка standalone (что уже пройдено)
 
+### 2026-10-16: актуальное уточнение измерений
+
+* Обе сборки проходят: `reSA.exe` и `gta_reversed.asi`.
+* Загрузка завершается, игрок создаётся; standalone прошёл дальше по player/collision path.
+* **`Frames=400` — обороты внешнего цикла, НЕ 400 кадров мира.** Новая метрика
+  `completedGameIdleCalls` показала 0 в таком smoke-тесте. Устойчивый игровой цикл ещё не подтверждён.
+* Настоящий тест: `tools/probe.ps1 -GameFrames 3 -TimeoutSec 240` → AV на raw thunk
+  `CGarage::Update` (0x44AA50), текущий блокер. REA/Ghidra: тело 7553 байта.
+* `CPed::ProcessEntityCollision` и `CPlayerInfo::Process` пока явные standalone-заглушки; коллизии педов
+  и player-info переходы не работают. Рендер мира и нормальный shutdown не проверены.
+* `tools/test_ped_collision_steps.py`: 12 регрессионных случаев арифметики production body проходят.
+
+Ниже сохранена историческая boot-таблица; текущий hand-off — начало `RESUME.md`.
+
 | # | Шаг | Статус | Заметка |
 |---|---|---|---|
 | 0 | Компиляция exe | ✅ | `bin/Debug/reSA.exe` |

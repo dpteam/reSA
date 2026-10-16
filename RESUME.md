@@ -1,3 +1,66 @@
+## Hand-off snapshot (2026-10-16, per-frame player path + headless verification)
+
+### Current verified state
+
+Both configurations compile: `bin/Debug/reSA.exe` and `bin/Debug/gta_reversed.asi`. Loading returns and the
+player is created. **Do not read the old clean `--quit-after=400` result as 400 game frames**: its counter
+counts outer-loop iterations, including frame-limiter skips. Instrumentation measured **0 completed game
+Idle calls** in that smoke run. It only proves successful loading and a bounded exit, not a playable world.
+
+The latest repeat of `-Frames 400` also hit the garage thunk: whether it exits before a game dispatch
+depends on timing, another reason not to use outer-loop counts as a gameplay test.
+Use the new `--game-frames=N` / `tools/probe.ps1 -GameFrames N` mode for real game dispatches. The first
+`-GameFrames 3` test exposed the current blocker: **raw thunk `CGarage::Update` at 0x44AA50**. REA/Ghidra
+identifies a 7553-byte body (0x44AA50..0x44C7D0); the source identity is `source/game_sa/Garage.cpp`.
+Do not add another no-op just to get a green probe. Investigate that state machine or deliberately isolate
+only a branch proven inactive. World rendering is still unverified.
+
+This session advanced the player path using the 1.0 US disassembly and REA/Ghidra evidence:
+
+* `CPlayerPed::ProcessWeaponSwitch` (0x60D850) - reversed and standalone-guarded.
+* `CPlayerPed::ProcessAnimGroups` (0x6098F0) - reversed, including motion-group selection and melee combo
+  animation-block streaming; standalone-guarded.
+* `CPlayerPed::ProcessGroupBehaviour` (0x60D350) - reversed from the PC disassembly: D-pad timers,
+  group follow/recruit/disband behavior, and periodic gang/police acquaintance refresh; standalone-guarded.
+* `CPed::SpecialEntityCalcCollisionSteps` (0x5E3E90) - ported from the 342-byte REA/Ghidra body;
+  standalone-only VMT hook, with the original thunk retained for the mod build.
+* `CPed::ProcessEntityCollision` (0x5E2530) - standalone-only `return 0` boundary stub. The original body
+  spans 4345 bytes (4342 analyzed body bytes) and depends on the unfinished collision/event/task graph; the degradation is explicit:
+  ped entity collision is disabled in standalone.
+* `CPlayerInfo::Process` (0x56F8D0) - standalone-only boundary stub. REA measured the body at 4571 bytes;
+  wanted/health/death/arrest/car-state transitions are intentionally deferred.
+
+Bounded probes explicitly bypass game/RW teardown after reaching their limit, while restoring the same UI/
+system settings as normal exit. A previous run faulted after its limit reading 0xDDDDDDDD; the exact owner
+and normal shutdown remain unresolved. Neither clean probe exit nor this bypass verifies game teardown.
+Normal standalone runs without probe limits, and the mod build, keep their existing shutdown paths.
+
+Audit corrections included in this batch: collision steps use ceil with minima 4 (supported)/2 (unsupported),
+and double NPC elasticity at +0x9C; named fields are now compile-checked with offsetof. Recruitment while
+group commands are disabled must not fall through to follow. Non-melee/in-vehicle anim groups release both
+melee references. Weapon animation removal uses -1000.0f, not +1000.0f. New bodies/hooks are standalone-only.
+The 12 RW mod-build C4716 failures were malformed `#else return ...` lines, not missing RW implementations;
+splitting the directives restores the original thunks.
+
+Verification commands:
+
+```text
+python setup.py --build -o standalone=True -s compiler.version=194
+python setup.py --build -s compiler.version=194
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\probe.ps1 -Frames 400 -TimeoutSec 240
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\probe.ps1 -GameFrames 3 -TimeoutSec 240
+python tools/test_ped_collision_steps.py --cxx C:\Users\DartPower\scoop\apps\mingw\current\bin\g++.exe
+```
+
+The first probe is a timing-dependent boot smoke test; the second currently fails at the garage thunk.
+`-NoAutostart -Frames 40` is a separate frontend-only exit check and passes with zero game calls.
+The runner now returns 1 for crashes, 124 for timeout, and 2 for clean early exits without a limit marker.
+The unit harness compiles the extracted production collision-step body with test doubles and passes 12 cases
+plus 5 checks of the actual probe limit predicate (game-frame mode overrides the outer-loop limit). It does not
+verify engine collision behavior (that path remains stubbed). REA Evidence IDs and limitations: `VERIFY.md`.
+
+---
+
 ## Hand-off snapshot (2026-10-14, end of the headless + script-VM push)
 
 **State: LOADING IS DONE. The game reaches the per-frame loop and instantiates the player.**

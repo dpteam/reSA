@@ -26,11 +26,15 @@
       * The process is killed before starting, because the exe file is locked while running.
 
 .PARAMETER Frames
-    How many frames to allow before the engine quits itself. The synchronous load costs only a handful,
-    so 240 is plenty to reach the world; raise it to play longer.
+    Outer loop iteration limit before the engine quits itself (includes frame-limiter skips).
+    See completedGameIdleCalls in the summary for actual completed in-game rsIDLE dispatches.
 
 .PARAMETER TimeoutSec
     Wall-clock seconds to wait before declaring a hang.
+
+.PARAMETER GameFrames
+    When positive, overrides Frames and waits for this many completed in-game rsIDLE dispatches.
+    Unlike Frames, this cannot finish solely by spinning in the frame limiter.
 
 .EXAMPLE
     pwsh -File tools\probe.ps1
@@ -40,6 +44,8 @@
 [CmdletBinding()]
 param(
     [int]   $Frames    = 240,
+    [ValidateRange(0, 2147483647)]
+    [int]   $GameFrames = 0,
     [int]   $TimeoutSec = 120,
     [string[]] $ExtraArgs = @(),
     [switch] $NoAutostart
@@ -89,7 +95,9 @@ if (Test-Path (Join-Path $logDir 'log.log')) {
     Move-Item -Force (Join-Path $logDir 'log.log') (Join-Path $logDir 'log.prev.txt')
 }
 
-$args = @('--quit-after=' + $Frames, '--dump-progress')
+$args = @('--dump-progress')
+if ($GameFrames -gt 0) { $args += '--game-frames=' + $GameFrames }
+else { $args += '--quit-after=' + $Frames }
 if (-not $NoAutostart) { $args += '--autostart' }
 $args += $ExtraArgs
 
@@ -120,6 +128,7 @@ $live = $log[0..([Math]::Max(0, $cut - 1))]
 
 $fileMarkers = @($live | Select-String 'Loading the Game -> Loading')
 ""
+
 "--- progress (pre-crash lines only: $cut of $($log.Count)) ---"
 "load file markers : $($fileMarkers.Count)"
 if ($fileMarkers.Count) {
@@ -167,3 +176,12 @@ if ($unimpl.Count) {
     "   total hits: $($unimpl.Count)"
 }
 ""
+
+# A CI/unattended caller must not mistake a printed crash report for a successful script invocation.
+if ($null -eq $exitCode) { exit 124 }
+if ($exitCode -ne 0) { exit 1 }
+if (-not ($live | Select-String '\[probe\] limit reached')) {
+    "probe: process exited cleanly before the requested limit was confirmed"
+    exit 2
+}
+exit 0

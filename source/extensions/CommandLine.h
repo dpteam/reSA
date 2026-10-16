@@ -33,11 +33,13 @@ namespace CommandLine {
         // ---- settings (command line) --------------------------------------------------------
         bool AutostartNewGame = false;   //!< --autostart    : press "START GAME" ourselves, no click needed
         int  QuitAfterFrames  = 0;       //!< --quit-after=N : leave the loop after N frames; 0 = run forever
+        int  QuitAfterGameFrames = 0;    //!< --game-frames=N: completed in-game rsIDLE calls; overrides --quit-after
         int  IdleFramesBeforeStart = 30; //!< --idle-frames=N: how long to let the frontend settle before autostarting
         bool WantProgress     = false;   //!< --dump-progress: print the machine-readable summary on the way out
 
         // ---- observed state ------------------------------------------------------------------
-        int  Frames           = 0;       //!< frames completed in the main loop
+        int  Frames           = 0;       //!< outer loop iterations (including frame-limiter skips)
+        int  GameIdleCalls    = 0;       //!< completed rsIDLE dispatches in GAME_STATE_IDLE
         int  IdleFrames       = 0;       //!< consecutive frames spent in FRONTEND_IDLE
         int  NumFileMarkers   = 0;       //!< `Loading the Game -> Loading <file>` calls seen
         int  NumPhaseMarkers  = 0;       //!< `LoadingScreen(<title>, <phase>)` calls seen
@@ -48,6 +50,10 @@ namespace CommandLine {
         // ---- recording ----------------------------------------------------------------------
         void RecordFile(const char* name);
         void RecordPhase(const char* title, const char* phase);
+        bool HasReachedLimit() const {
+            return QuitAfterGameFrames > 0 ? GameIdleCalls >= QuitAfterGameFrames
+                                          : QuitAfterFrames > 0 && Frames >= QuitAfterFrames;
+        }
         //! Prints the summary (only when --dump-progress was given). Safe to call more than once.
         void DumpProgress(const char* why) const;
     };
