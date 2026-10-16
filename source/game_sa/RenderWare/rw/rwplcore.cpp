@@ -215,7 +215,8 @@ RwBool RwMatrixDestroy(RwMatrix* mpMat) {
 #ifdef NOTSA_STANDALONE
     rwbridge::MatrixDestroy(mpMat);
     return true;
-#else    return ((RwBool(__cdecl *)(RwMatrix*))0x7F2A20)(mpMat);
+#else
+    return ((RwBool(__cdecl *)(RwMatrix*))0x7F2A20)(mpMat);
 #endif
 }
 
@@ -231,7 +232,8 @@ RwMatrix* RwMatrixMultiply(RwMatrix* matrixOut, const RwMatrix* MatrixIn1, const
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixMultiply(matrixOut, MatrixIn1, matrixIn2);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, const RwMatrix*))0x7F18B0)(matrixOut, MatrixIn1, matrixIn2);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, const RwMatrix*))0x7F18B0)(matrixOut, MatrixIn1, matrixIn2);
 #endif
 }
 
@@ -239,7 +241,8 @@ RwMatrix* RwMatrixTransform(RwMatrix* matrix, const RwMatrix* transform, RwOpCom
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixTransform(matrix, transform, combineOp);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, RwOpCombineType))0x7F25A0)(matrix, transform, combineOp);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*, RwOpCombineType))0x7F25A0)(matrix, transform, combineOp);
 #endif
 }
 
@@ -251,7 +254,8 @@ RwMatrix* RwMatrixInvert(RwMatrix* matrixOut, const RwMatrix* matrixIn) {
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixInvert(matrixOut, matrixIn);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*))0x7F2070)(matrixOut, matrixIn);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrix*))0x7F2070)(matrixOut, matrixIn);
 #endif
 }
 
@@ -259,7 +263,8 @@ RwMatrix* RwMatrixScale(RwMatrix* matrix, const RwV3d* scale, RwOpCombineType co
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixScale(matrix, scale, combineOp);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F22C0)(matrix, scale, combineOp);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F22C0)(matrix, scale, combineOp);
 #endif
 }
 
@@ -267,7 +272,8 @@ RwMatrix* RwMatrixTranslate(RwMatrix* matrix, const RwV3d* translation, RwOpComb
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixTranslate(matrix, translation, combineOp);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F2450)(matrix, translation, combineOp);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwOpCombineType))0x7F2450)(matrix, translation, combineOp);
 #endif
 }
 
@@ -275,7 +281,8 @@ RwMatrix* RwMatrixRotate(RwMatrix* matrix, const RwV3d* axis, RwReal angle, RwOp
 
 #ifdef NOTSA_STANDALONE
     return (RwMatrix*)rwbridge::MatrixRotate(matrix, axis, angle, combineOp);
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwReal, RwOpCombineType))0x7F1FD0)(matrix, axis, angle, combineOp);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwV3d*, RwReal, RwOpCombineType))0x7F1FD0)(matrix, axis, angle, combineOp);
 #endif
 }
 
@@ -306,7 +313,8 @@ RwMatrix* RwMatrixOptimize(RwMatrix* matrix, const RwMatrixTolerance* tolerance)
 #ifdef NOTSA_STANDALONE
     rwbridge::MatrixOptimize(matrix); // librw applies its own tolerances
     return matrix;
-#else    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrixTolerance*))0x7F17E0)(matrix, tolerance);
+#else
+    return ((RwMatrix*(__cdecl *)(RwMatrix*, const RwMatrixTolerance*))0x7F17E0)(matrix, tolerance);
 #endif
 }
 
@@ -347,7 +355,8 @@ RwV3d* RwV3dTransformPoint(RwV3d* pointOut, const RwV3d* pointIn, const RwMatrix
 #ifdef NOTSA_STANDALONE
     rwbridge::V3dTransformPoints(pointOut, pointIn, 1, matrix);
     return pointOut;
-#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDD60)(pointOut, pointIn, matrix);
+#else
+    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDD60)(pointOut, pointIn, matrix);
 #endif
 }
 
@@ -356,7 +365,8 @@ RwV3d* RwV3dTransformPoints(RwV3d* pointsOut, const RwV3d* pointsIn, RwInt32 num
 #ifdef NOTSA_STANDALONE
     rwbridge::V3dTransformPoints(pointsOut, pointsIn, numPoints, matrix);
     return pointsOut;
-#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDD90)(pointsOut, pointsIn, numPoints, matrix);
+#else
+    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDD90)(pointsOut, pointsIn, numPoints, matrix);
 #endif
 }
 
@@ -365,7 +375,8 @@ RwV3d* RwV3dTransformVector(RwV3d* vectorOut, const RwV3d* vectorIn, const RwMat
 #ifdef NOTSA_STANDALONE
     rwbridge::V3dTransformVectors(vectorOut, vectorIn, 1, matrix);
     return vectorOut;
-#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDDC0)(vectorOut, vectorIn, matrix);
+#else
+    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, const RwMatrix*))0x7EDDC0)(vectorOut, vectorIn, matrix);
 #endif
 }
 
@@ -374,7 +385,8 @@ RwV3d* RwV3dTransformVectors(RwV3d* vectorsOut, const RwV3d* vectorsIn, RwInt32 
 #ifdef NOTSA_STANDALONE
     rwbridge::V3dTransformVectors(vectorsOut, vectorsIn, numPoints, matrix);
     return vectorsOut;
-#else    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDDF0)(vectorsOut, vectorsIn, numPoints, matrix);
+#else
+    return ((RwV3d*(__cdecl *)(RwV3d*, const RwV3d*, RwInt32, const RwMatrix*))0x7EDDF0)(vectorsOut, vectorsIn, numPoints, matrix);
 #endif
 }
 
