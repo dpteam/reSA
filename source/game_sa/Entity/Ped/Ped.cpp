@@ -176,13 +176,17 @@ void CPed::InjectHooks() {
     //RH_ScopedVirtualInstall(ProcessControl, 0x5E8CD0, { .Reversed = false });
     RH_ScopedVMTInstall(Teleport, 0x5E4110);
     //RH_ScopedVirtualInstall(SpecialEntityPreCollisionStuff, 0x5E3C30, { .Reversed = false });
-    //RH_ScopedVirtualInstall(SpecialEntityCalcCollisionSteps, 0x5E3E90, { .Reversed = false });
+#ifdef NOTSA_STANDALONE
+    RH_ScopedVMTInstall(SpecialEntityCalcCollisionSteps, 0x5E3E90);
+#endif
     RH_ScopedVMTInstall(PreRender, 0x5E8A20);
     RH_ScopedVMTInstall(Render, 0x5E7680);
     RH_ScopedVMTInstall(SetupLighting, 0x553F00);
     RH_ScopedVMTInstall(RemoveLighting, 0x5533B0);
     RH_ScopedVMTInstall(FlagToDestroyWhenNextProcessed, 0x5E7B70);
-    //RH_ScopedVirtualInstall(ProcessEntityCollision, 0x5E2530, { .Reversed = false });
+#ifdef NOTSA_STANDALONE
+    RH_ScopedVMTInstall(ProcessEntityCollision, 0x5E2530);
+#endif
     RH_ScopedVMTInstall(SetMoveAnim, 0x5E4A00);
     RH_ScopedVMTInstall(Save, 0x5D5730);
     RH_ScopedVMTInstall(Load, 0x5D4640);
@@ -3696,7 +3700,7 @@ void CPed::ProcessControl()
     // plays". Measured: 2311 instructions, 63 calls - the largest function met so far - and it is the core
     // per-frame ped update: it services the ped's audio entity (the first call is 0x4E2EE0 =
     // CAEPedAudioEntity::Service, itself unreversed), dispatches on m_nPedState, and drives the whole task
-    // system through m_pIntelligence (ped+0x138). Reversing it means porting the task system with it, so it
+    // system through m_pIntelligence (ped+0x47C; ped+0x138 is the audio entity). Reversing it means porting the task system with it, so it
     // is a project of its own, not a step.
     //
     // It is stubbed rather than left to fault because a fault here stops CWorld::Process, i.e. the world,
@@ -3760,7 +3764,42 @@ void CPed::SpecialEntityPreCollisionStuff(CPhysical* colPhysical,
 */
 uint8 CPed::SpecialEntityCalcCollisionSteps(bool& bProcessCollisionBeforeSettingTimeStep, bool& unk2)
 {
+#ifdef NOTSA_STANDALONE
+    // The two reference arguments are deliberately untouched by the 1.0 US implementation. The return
+    // value is a collision-step count derived from the ped's linear speed and timestep.
+    static_assert(offsetof(CPed, m_standingOnEntity) == 0x568);
+    static_assert(offsetof(CPhysical, m_fElasticity) == 0x9C);
+    if (m_pAttachedTo) {
+        return 1;
+    }
+
+    const auto speedSquared = m_vecMoveSpeed.SquaredMagnitude();
+    if (!m_pPlayerData && speedSquared * CTimer::GetTimeStep() * CTimer::GetTimeStep() < 0.09f) {
+        return 1;
+    }
+
+    const auto speed = std::sqrt(speedSquared) * CTimer::GetTimeStep();
+    float scaledSpeed;
+    if (!m_pPlayerData) {
+        scaledSpeed = speed * 5.0f; // 0x858C80
+    } else if (m_standingOnEntity) {
+        scaledSpeed = speed * (20.0f / 3.0f); // 0x866FBC = 6.6666665
+    } else {
+        scaledSpeed = speed * (10.0f / 3.0f); // 0x859F60 = 3.3333333
+    }
+
+    // 0x823820 is ceil(double); 0x821B40 converts its integral result to an integer. Clamp before narrowing
+    // to the uint8 return type, as the original computes the minimum before returning AL.
+    auto steps = std::ceil(scaledSpeed);
+    if (m_pPlayerData) {
+        steps = std::max(steps, m_standingOnEntity ? 4.0f : 2.0f);
+    } else {
+        m_fElasticity *= 2.0f;
+    }
+    return static_cast<uint8>(static_cast<int32>(steps));
+#else
     return plugin::CallMethodAndReturn<uint8, 0x5E3E90, CPed*, bool&, bool&>(this, bProcessCollisionBeforeSettingTimeStep, unk2);
+#endif
 }
 
 /*!
@@ -3997,7 +4036,18 @@ void CPed::FlagToDestroyWhenNextProcessed() {
 */
 int32 CPed::ProcessEntityCollision(CEntity* entity, CColPoint* colPoint)
 {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the 1.0 US body is 4345 bytes with a large dependency chain (collision geometry,
+    // surface/material response, ped state flags, events and animation response). Returning no collision is
+    // deliberate for the headless boot path: it keeps the player/world loop alive without pretending that a
+    // partial collision port is correct. Consequences are explicit: peds do not collide with entities and
+    // the player can fall through/ignore world collision until this body is ported.
+    UNUSED(entity);
+    UNUSED(colPoint);
+    return 0;
+#else
     return plugin::CallMethodAndReturn<int32, 0x5E2530, CPed*, CEntity*, CColPoint*>(this, entity, colPoint);
+#endif
 }
 
 // NOTSA

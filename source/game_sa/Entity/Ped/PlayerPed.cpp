@@ -48,7 +48,9 @@ void CPlayerPed::InjectHooks() {
     RH_ScopedInstall(ProcessPlayerWeapon, 0x6097F0);
     RH_ScopedInstall(PickWeaponAllowedFor2Player, 0x609800);
     RH_ScopedInstall(UpdateCameraWeaponModes, 0x609830);
+#ifdef NOTSA_STANDALONE
     RH_ScopedInstall(ProcessAnimGroups, 0x6098F0);
+#endif
     RH_ScopedInstall(ClearWeaponTarget, 0x609c80);
     RH_ScopedInstall(GetWeaponRadiusOnScreen, 0x609CD0);
     RH_ScopedInstall(PedCanBeTargettedVehicleWise, 0x609D90);
@@ -77,7 +79,10 @@ void CPlayerPed::InjectHooks() {
     RH_ScopedInstall(EvaluateTarget, 0x60D020);
     RH_ScopedInstall(PlayerHasJustAttackedSomeone, 0x60D5A0);
     RH_ScopedInstall(SetupPlayerPed, 0x60D790);
+#ifdef NOTSA_STANDALONE
     RH_ScopedInstall(ProcessWeaponSwitch, 0x60D850);
+    RH_ScopedInstall(ProcessGroupBehaviour, 0x60D350);
+#endif
 
     RH_ScopedVMTInstall(ProcessControl, 0x60EA90);
     RH_ScopedVMTInstall(SetMoveAnim, 0x609490);
@@ -351,6 +356,7 @@ void CPlayerPed::UpdateCameraWeaponModes(CPad* pad) {
 
 // 0x6098F0
 void CPlayerPed::ProcessAnimGroups() {
+#ifdef NOTSA_STANDALONE
     auto& data = *GetPlayerData();
 
     // The group we should end up with, and whether the fat/muscular variant (stored immediately after the
@@ -454,6 +460,10 @@ void CPlayerPed::ProcessAnimGroups() {
         // `m_nFightingStyle` is the "extra melee combo" (the mobile source's `m_nExtraMeleeCombo`); the two
         // share the same values - `STYLE_STANDARD` is `MCOMBO_UNARMED_1`.
         removeExtraMeleeCombo = updateMeleeCombo(static_cast<uint8>(m_nFightingStyle), data.m_nMeleeWeaponAnimReferencedExtra);
+    } else {
+        // 0x609C73 sets the extra-release flag, then branches to the common base-release block.
+        removeStdMeleeCombo = true;
+        removeExtraMeleeCombo = true;
     }
 
     if (removeStdMeleeCombo && data.m_nMeleeWeaponAnimReferenced != ANIM_GROUP_DEFAULT) {
@@ -466,6 +476,9 @@ void CPlayerPed::ProcessAnimGroups() {
             CAnimManager::GetAssocGroups()[data.m_nMeleeWeaponAnimReferencedExtra].GetAnimBlock()));
         data.m_nMeleeWeaponAnimReferencedExtra = ANIM_GROUP_DEFAULT;
     }
+#else
+    plugin::CallMethod<0x6098F0, CPlayerPed *>(this);
+#endif
 }
 
 // 0x609C80
@@ -1095,7 +1108,90 @@ void CPlayerPed::EvaluateNeighbouringTarget(CEntity* target, CEntity** outTarget
 
 // 0x60D350
 void CPlayerPed::ProcessGroupBehaviour(CPad* pad) {
+#ifdef NOTSA_STANDALONE
+    // The PC build is shorter than the mobile implementation: it has no separate group-command state
+    // machine here. The exact native shape is two 16-bit press timers (player-data +0x88/+0x8A), followed
+    // by the wanted-level refresh every 32 frames. Keep the branches in the same order as 0x60D350.
+    CEntity* target = m_pTargetedObject;
+    if (CCamera::m_bUseMouse3rdPerson && !target) {
+        target = m_p3rdPersonMouseTarget;
+    }
+
+    auto& data = *GetPlayerData();
+    constexpr uint16 LONG_PRESS_MS = 1200;
+    const auto elapsedMs = static_cast<uint16>(std::floor(CTimer::GetTimeStepNonClippedInMS()));
+
+    // The original only accepts group input while the player is on foot.
+    if (!FindPlayerVehicle()) {
+        if (pad->GetGroupControlForward()) {
+            data.m_nPadUpPressedInMilliseconds += elapsedMs;
+            if (data.m_nPadUpPressedInMilliseconds == LONG_PRESS_MS) {
+                if (!data.m_bGroupStuffDisabled) {
+                    DisbandPlayerGroup();
+                }
+            }
+        } else {
+            if (data.m_nPadUpPressedInMilliseconds && data.m_nPadUpPressedInMilliseconds < LONG_PRESS_MS) {
+                // 0x609380 reads cheat flags 0x96917C..0x96917E: indices 76..78 of m_aCheatsActive.
+                static_assert(CHEAT_WANNA_BE_IN_MY_GANG == 76 && CHEAT_NO_ONE_CAN_STOP_US == 77 && CHEAT_ROCKET_MAYHEM == 78);
+                if (target && target->GetIsTypePed()
+                    && (static_cast<CPed*>(target)->m_nPedType == PED_TYPE_GANG2
+                        || CCheat::IsAnyActive({CHEAT_WANNA_BE_IN_MY_GANG, CHEAT_NO_ONE_CAN_STOP_US, CHEAT_ROCKET_MAYHEM}))
+                ) {
+                    if (!data.m_bGroupStuffDisabled) {
+                        MakeThisPedJoinOurGroup(static_cast<CPed*>(target));
+                    }
+                } else {
+                    TellGroupToStartFollowingPlayer(true, true, false);
+                }
+            }
+            data.m_nPadUpPressedInMilliseconds = 0;
+        }
+    }
+
+    if (data.m_bGroupStuffDisabled) {
+        return;
+    }
+
+    if (!FindPlayerVehicle()) {
+        if (pad->GetGroupControlBack()) {
+            data.m_nPadDownPressedInMilliseconds += elapsedMs;
+            if (data.m_nPadDownPressedInMilliseconds >= LONG_PRESS_MS) {
+                DisbandPlayerGroup();
+            }
+        } else {
+            if (data.m_nPadDownPressedInMilliseconds && data.m_nPadDownPressedInMilliseconds < LONG_PRESS_MS) {
+                if (target && target->GetIsTypePed() && static_cast<CPed*>(target)->m_nPedType == PED_TYPE_GANG2) {
+                    MakeThisPedJoinOurGroup(static_cast<CPed*>(target));
+                } else {
+                    TellGroupToStartFollowingPlayer(false, true, false);
+                }
+            }
+            data.m_nPadDownPressedInMilliseconds = 0;
+        }
+    }
+
+    // 0x60D4F8: every 32nd frame (the sixth frame in the 32-frame period), update the gang2-vs-police
+    // acquaintance bit. The original walks the ped pool backwards; the resulting writes are independent,
+    // so the pool's valid-object range is equivalent and avoids depending on the old pool internals.
+    if ((CTimer::GetFrameCounter() & 31) == 6) {
+        const auto* wanted = FindPlayerPed()->GetWanted();
+        const bool wantedPolice = wanted && wanted->GetWantedLevel() > eWantedLevel::WANTED_CLEAN;
+        const auto policeFlags = CPedType::GetPedFlag(PED_TYPE_COP);
+        for (auto& ped : GetPedPool()->GetAllValid()) {
+            if (ped.m_nPedType != PED_TYPE_GANG2) {
+                continue;
+            }
+            if (wantedPolice) {
+                ped.GetAcquaintance().SetAsAcquaintance(ACQUAINTANCE_HATE, policeFlags);
+            } else {
+                ped.GetAcquaintance().ClearAsAcquaintance(ACQUAINTANCE_HATE, policeFlags);
+            }
+        }
+    }
+#else
     plugin::CallMethod<0x60D350, CPlayerPed *, CPad*>(this, pad);
+#endif
 }
 
 // 0x60D5A0
@@ -1120,6 +1216,7 @@ void CPlayerPed::SetupPlayerPed(int32 playerId) {
 
 // 0x60D850
 void CPlayerPed::ProcessWeaponSwitch(CPad* pad) {
+#ifdef NOTSA_STANDALONE
     auto& data    = *GetPlayerData();
     const auto camMode = TheCamera.m_PlayerWeaponMode.m_nMode;
 
@@ -1224,12 +1321,15 @@ void CPlayerPed::ProcessWeaponSwitch(CPad* pad) {
                 return;
             }
         }
-        RemoveWeaponAnims(m_nActiveWeaponSlot, 1000.0f);
+        RemoveWeaponAnims(m_nActiveWeaponSlot, -1000.0f); // 0x60DC11 pushes 0xC47A0000
         // `m_nChosenWeapon` is unsigned; this is the original's guard for it having been left at -1 (0xFF).
         if (static_cast<int8>(data.m_nChosenWeapon) != -1) {
             MakeChangesForNewWeapon(m_aWeapons[data.m_nChosenWeapon].m_Type);
         }
     }
+#else
+    plugin::CallMethod<0x60D850, CPlayerPed *, CPad*>(this, pad);
+#endif
 }
 
 // 0x60DC50

@@ -13,7 +13,11 @@ void CPlayerInfo::InjectHooks() {
     RH_ScopedInstall(CancelPlayerEnteringCars, 0x56E860);
     RH_ScopedInstall(FindObjectToSteal, 0x56DBD0, { .Reversed = false });
     RH_ScopedInstall(EvaluateCarPosition, 0x56DAD0);
+#ifdef NOTSA_STANDALONE
+    RH_ScopedInstall(Process, 0x56F8D0);
+#else
     RH_ScopedInstall(Process, 0x56F8D0, { .Reversed = false });
+#endif
     RH_ScopedInstall(FindClosestCarSectorList, 0x56F4E0, { .Reversed = false });
     RH_ScopedInstall(Clear, 0x56F330);
     RH_ScopedInstall(StreamParachuteWeapon, 0x56EB30);
@@ -130,7 +134,22 @@ void CPlayerInfo::SetLastTargetVehicle(CVehicle* vehicle) {
 
 // 0x56F8D0
 void CPlayerInfo::Process(uint32 playerIndex) {
+#ifdef NOTSA_STANDALONE
+    // Standalone: the 1.0 US body is 4571 bytes and owns wanted/health state, car finding, death/arrest/
+    // restart transitions, parachute streaming and several player events. It is not safe to approximate this
+    // state machine while the underlying ped/task/collision systems are still incomplete. Keep the bounded
+    // boot probe alive with an explicit degradation: no player-info state transitions occur in standalone.
+    UNUSED(playerIndex);
+    static bool s_warnedOnce{};
+    if (!s_warnedOnce) {
+        s_warnedOnce = true;
+        NOTSA_LOG_WARN("Standalone: CPlayerInfo::Process stubbed (4571 bytes) - wanted/health/death/car "
+                       "state transitions are disabled until the player-state machine is ported");
+    }
+    return;
+#else
     plugin::CallMethod<0x56F8D0, CPlayerInfo*, uint32>(this, playerIndex);
+#endif
 }
 
 // 0x56F4E0
